@@ -52,6 +52,7 @@ Order is friendly (D6): name and experience first, eligibility questions last. A
 | **Qualified** | License yes, city in area, all fields collected. | Thanks, then offer the next free call slots from the recruiter's list (D7, D8). If they pick one, confirm it. If none fits, say a recruiter will reply within 48 hours. | Summary card, slot booked or "no slot chosen". |
 | **Disqualified** | `NO_LICENSE`, `OUT_OF_AREA`, or `NO_CONSENT`. | Polite close: thanks, the reason in one sentence, and that they can apply again later (D9). | Reason code only. |
 | **Stalled** | No reply for 24 hours after the last agent message. One reminder is sent first (D10). | Reminder: short, one line, offer to continue. | Status `STALLED`, last stage reached. |
+| **Withdrawn** | The candidate asks to stop at any time (D29). | Confirmation that the chat is closed, no more questions. | Status `WITHDRAWN`, last stage reached. |
 | **Needs review** | A field other than license or city hit the 3-follow-up cap. The rest of the flow continues. | Normal path. | The raw answer, flagged. |
 
 ## 6. Edge cases
@@ -62,6 +63,7 @@ Order is friendly (D6): name and experience first, eligibility questions last. A
 | **Vague answer** ("a veces", "varios") | Ask a specific follow-up with examples. Up to 3 times, then `NEEDS_REVIEW` (D16, D17). |
 | **Invalid answer** ("no sé" for start date, a number for a name) | Say what was expected, one example, ask again. |
 | **Switches language mid-chat** | Reply in the new language. Field values are stored in a normalised form, whatever the language (D11). |
+| **Asks to stop** ("para", "stop") | End the chat at once, status `WITHDRAWN`, log the event (D29). No further questions. |
 | **Asks to speak to a person** | Politely decline and keep screening (D14). The request is logged as an event so the recruiter can see it. |
 | **Asks about pay or schedule details** | Answer only with approved information. If unknown, say a recruiter will answer, and log the question. |
 | **Off-topic or abusive message** | Brief, neutral redirect to the screening question. Two off-topic messages in a row → polite close, status `ENDED_OFF_TOPIC`. |

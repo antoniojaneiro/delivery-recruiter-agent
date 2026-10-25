@@ -76,9 +76,9 @@ class Screening:
         s = cls(areas)
         s.consent = state["consent"]
         s.values = dict(state["values"])
-        if isinstance(s.values.get("start_date"), str):
-            s.values["start_date"] = date.fromisoformat(s.values["start_date"])
         s.review_fields = set(state["review_fields"])
+        if isinstance(s.values.get("start_date"), str) and Field.START_DATE not in s.review_fields:
+            s.values["start_date"] = date.fromisoformat(s.values["start_date"])
         s.out_of_area = state["out_of_area"]
         s.withdrawn = state.get("withdrawn", False)
         s.validation_flags = {k: list(v) for k, v in state.get("validation_flags", {}).items()}
@@ -122,15 +122,18 @@ class Screening:
             reasons.append("OUT_OF_AREA")
         if reasons:
             return Decision(Outcome.DISQUALIFIED, reasons, flags)
-        if self.next_field() is not None:
+        if self._missing_field() is not None:
             return Decision(Outcome.IN_PROGRESS, [], flags)
         return Decision(Outcome.QUALIFIED, [], flags)
 
     def next_field(self) -> Field | None:
+        if self.decide().outcome != Outcome.IN_PROGRESS:
+            return None
+        return self._missing_field()
+
+    def _missing_field(self) -> Field | None:
         if self.consent is None:
             return Field.CONSENT
-        if not self.consent or self.withdrawn:
-            return None
         return next((f for f in FIELD_ORDER if f not in self.values), None)
 
     def submit(self, field: str, value: object, today: date) -> SubmitResult:

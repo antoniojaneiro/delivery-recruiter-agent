@@ -347,3 +347,18 @@ def test_a_pending_city_confirmation_is_visible_to_the_caller(consented):
     assert consented.awaiting_confirmation == "Guadalajara"
     consented.confirm_city(True)
     assert consented.awaiting_confirmation is None
+
+
+def test_nothing_more_is_asked_once_a_disqualifier_is_known(consented):
+    consented.submit("license", False, TODAY)
+    assert consented.next_field() is None
+
+
+def test_nothing_more_is_asked_after_the_chat_ended_off_topic(consented):
+    consented.off_topic()
+    consented.off_topic()
+    assert consented.next_field() is None
+
+
+def test_nothing_more_is_asked_once_qualified(consented):
+    assert fill(consented).next_field() is None
