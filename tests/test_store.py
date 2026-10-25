@@ -55,3 +55,21 @@ def test_list_candidates_filters_by_outcome(store):
     store.save("c2", state={"outcome": "DISQUALIFIED"}, now=T1)
     assert [r.candidate_id for r in store.list_candidates(outcome="QUALIFIED")] == ["c1"]
     assert {r.candidate_id for r in store.list_candidates()} == {"c1", "c2"}
+
+
+def test_conversation_history_is_kept_in_order_apart_from_audit_events(store):
+    store.add_message("c1", "agent", "Hola, soy el asistente virtual de Grupo Sazón.", now=T1)
+    store.add_message("c1", "candidate", "Hola, ¿qué tal?", now=T2)
+    store.add_event("c1", "consent_given", "", now=T2)
+    messages = store.messages("c1")
+    assert [(m.role, m.text, m.at) for m in messages] == [
+        ("agent", "Hola, soy el asistente virtual de Grupo Sazón.", T1),
+        ("candidate", "Hola, ¿qué tal?", T2),
+    ]
+    assert [e.type for e in store.events("c1")] == ["consent_given"]
+
+
+def test_messages_of_other_candidates_are_not_mixed(store):
+    store.add_message("c1", "candidate", "uno", now=T1)
+    store.add_message("c2", "candidate", "dos", now=T1)
+    assert [m.text for m in store.messages("c2")] == ["dos"]

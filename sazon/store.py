@@ -20,7 +20,21 @@ CREATE TABLE IF NOT EXISTS events (
     detail TEXT NOT NULL,
     at TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS messages (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    candidate_id TEXT NOT NULL,
+    role TEXT NOT NULL,
+    text TEXT NOT NULL,
+    at TEXT NOT NULL
+);
 """
+
+
+@dataclass(frozen=True)
+class Message:
+    role: str
+    text: str
+    at: datetime
 
 
 @dataclass(frozen=True)
@@ -98,6 +112,18 @@ class Store:
             rows = db.execute("SELECT type, detail, at FROM events WHERE candidate_id = ? ORDER BY id",
                               (candidate_id,)).fetchall()
         return [Event(t, d, datetime.fromisoformat(a)) for t, d, a in rows]
+
+
+    def add_message(self, candidate_id: str, role: str, text: str, now: datetime) -> None:
+        with self._connect() as db:
+            db.execute("INSERT INTO messages (candidate_id, role, text, at) VALUES (?, ?, ?, ?)",
+                       (candidate_id, role, text, now.isoformat()))
+
+    def messages(self, candidate_id: str) -> list[Message]:
+        with self._connect() as db:
+            rows = db.execute("SELECT role, text, at FROM messages WHERE candidate_id = ? ORDER BY id",
+                              (candidate_id,)).fetchall()
+        return [Message(r, t, datetime.fromisoformat(a)) for r, t, a in rows]
 
 
 def _record(row) -> Record:
