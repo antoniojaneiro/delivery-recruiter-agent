@@ -6,7 +6,11 @@ class FakeLLM:
         self.calls = []
 
     def complete(self, system: str, user: str, json_mode: bool = False) -> str:
+        from sazon.llm import LLMError
+
         self.calls.append({"system": system, "user": user, "json_mode": json_mode})
+        if not self.replies:
+            raise LLMError("script exhausted")
         reply = self.replies.pop(0)
         if isinstance(reply, Exception):
             raise reply

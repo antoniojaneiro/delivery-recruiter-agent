@@ -410,3 +410,11 @@ Written into [PHASE1_PROCESS_DESIGN.md](PHASE1_PROCESS_DESIGN.md) as engineering
 - **Cons of chosen:** an unusual way of saying yes is read as unclear and asked again. Data given with the yes is asked for again.
 - **Supersedes:** the part of D26 that used data from the consent reply, and the consent intent in D31.
 - **Decided by:** user, 2026-10-25.
+
+## D45: All message rules live in Screening; turn.py only does I/O
+
+- **Chosen:** `Screening` decides everything about a message: consent, blocking, confirmations, what to ask next, the reminder and stall, and the model-failure directive. `turn.py` only loads and saves, calls the model, and writes the reply. `session.py` reaches the screening through `syncing_events()`, so the "events saved" counter is private and rolled back if saving fails. Language, fields and reasons are enums (`Language`, `Field`, `Reason`). An unsupported language keeps the last supported one, starting in Spanish. The two fake LLMs raise `LLMError` when their script runs out, like the real client.
+- **Options considered:** only add methods for the private bits and keep the split (smaller, but new rules would keep landing in the wrong file).
+- **Pros of chosen:** every rule is testable without a model or a store, and nothing writes the screening's private state from outside.
+- **Cons of chosen:** a larger `Screening` class. Revisit if it grows further.
+- **Decided by:** user, 2026-10-25.
