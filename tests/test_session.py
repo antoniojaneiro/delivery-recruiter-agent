@@ -31,9 +31,8 @@ def test_a_half_finished_screening_resumes_where_it_stopped(store):
 
     resumed = session.load(store, "c1", AREAS)
     assert resumed.confirm_city(True).status == "ok"
-    assert resumed.submit("name", "Juan", TODAY).status == "follow_up"
-    assert resumed.submit("name", "Juan", TODAY).status == "follow_up"
-    assert resumed.submit("name", "Juan", TODAY).status == "review"
+    statuses = [resumed.submit("name", "Juan", TODAY).status for _ in range(5)]
+    assert statuses == ["follow_up"] * 4 + ["blocked"]
 
 
 def test_commit_stores_extracted_json_and_the_outcome_for_the_dashboard(store):
@@ -89,14 +88,3 @@ def test_a_failed_commit_does_not_lose_events_on_retry(store):
         session.commit(store, "c1", screening, T1, messages=[(None, "x")])
     session.commit(store, "c1", screening, T2)
     assert [e.type for e in store.events("c1") if e.type in ("human_requested", "off_topic")] == ["human_requested"]
-
-
-def test_a_start_date_kept_for_review_as_raw_text_can_be_reloaded(store):
-    screening = session.load(store, "c1", AREAS)
-    screening.record_consent(True)
-    for _ in range(4):
-        screening.submit("start_date", "next week", TODAY)
-    session.commit(store, "c1", screening, T1)
-    resumed = session.load(store, "c1", AREAS)
-    assert resumed.values["start_date"] == "next week"
-    assert resumed.review_fields == {"start_date"}

@@ -6,9 +6,11 @@ from sazon.model import CityMatchStatus, EventType, Field, Outcome, Status
 
 FIELD_ORDER = (Field.NAME, Field.EXPERIENCE, Field.AVAILABILITY, Field.SCHEDULE, Field.START_DATE,
                Field.CITY, Field.LICENSE)
-MAX_FOLLOW_UPS = 3
+MAX_FOLLOW_UPS = 5
 MAX_OFF_TOPIC = 2
-UNCAPPED = (Field.LICENSE, Field.CITY)  # eligibility: keep asking until clear (D27)
+
+
+LIVE = (Outcome.IN_PROGRESS, Outcome.BLOCKED)  # the chat is still open
 
 
 class ConsentRequired(Exception):
@@ -34,7 +36,7 @@ class Screening:
         self.areas = areas
         self.consent: bool | None = None
         self.values: dict[str, object] = {}
-        self.review_fields: set[str] = set()
+        self.blocked_on: Field | None = None
         self.out_of_area = False
         self.withdrawn = False
         self.stalled = False
@@ -96,7 +98,7 @@ class Screening:
         return {
             "consent": self.consent,
             "values": self.extracted(),
-            "review_fields": sorted(self.review_fields),
+            "blocked_on": str(self.blocked_on) if self.blocked_on else None,
             "out_of_area": self.out_of_area,
             "withdrawn": self.withdrawn,
             "stalled": self.stalled,
@@ -118,9 +120,9 @@ class Screening:
         s = cls(areas)
         s.consent = state["consent"]
         s.values = dict(state["values"])
-        s.review_fields = set(state["review_fields"])
-        if isinstance(s.values.get("start_date"), str) and Field.START_DATE not in s.review_fields:
+        if isinstance(s.values.get("start_date"), str):
             s.values["start_date"] = date.fromisoformat(s.values["start_date"])
+        s.blocked_on = Field(state["blocked_on"]) if state.get("blocked_on") else None
         s.out_of_area = state["out_of_area"]
         s.withdrawn = state.get("withdrawn", False)
         s.stalled = state.get("stalled", False)
@@ -156,7 +158,7 @@ class Screening:
         self.events.append((EventType.REMINDER_SENT, ""))
 
     def mark_stalled(self) -> None:
-        if self.decide().outcome == Outcome.IN_PROGRESS:
+        if self.decide().outcome in LIVE:
             self.stalled = True
 
     def resume(self) -> None:
@@ -173,8 +175,7 @@ class Screening:
         self.events.append((EventType.HUMAN_REQUESTED, ""))
 
     def decide(self) -> Decision:
-        flags = [f"{f.upper()}_NEEDS_REVIEW" for f in FIELD_ORDER if f in self.review_fields]
-        flags += sorted(f for fl in self.validation_flags.values() for f in fl)
+        flags = sorted(f for fl in self.validation_flags.values() for f in fl)
         if self.consent is False:
             return Decision(Outcome.DISQUALIFIED, ["NO_CONSENT"], [])
         if self.withdrawn:
@@ -191,11 +192,13 @@ class Screening:
         if self.stalled:
             return Decision(Outcome.STALLED, [], flags)
         if self._missing_field() is not None:
+            if self.blocked_on:
+                return Decision(Outcome.BLOCKED, [f"BLOCKED_ON_{self.blocked_on.upper()}"], flags)
             return Decision(Outcome.IN_PROGRESS, [], flags)
         return Decision(Outcome.QUALIFIED, [], flags)
 
     def next_field(self) -> Field | None:
-        if self.decide().outcome != Outcome.IN_PROGRESS:
+        if self.decide().outcome not in LIVE:
             return None
         return self._missing_field()
 
@@ -269,7 +272,8 @@ class Screening:
                 self.out_of_area = False
             self._off_topic = 0
             self.values[field] = result.value
-            self.review_fields.discard(field)
+            if self.blocked_on == field:
+                self.blocked_on = None
             self._follow_ups.pop(field, None)
             self._previous.pop(field, None)
             self.partial.pop(field, None)
@@ -277,13 +281,13 @@ class Screening:
             return SubmitResult(Status.OK)
         self._off_topic = 0
         asked = self._follow_ups.get(field, 0)
-        if asked >= MAX_FOLLOW_UPS and field not in UNCAPPED:
-            self.values[field] = raw
-            self.review_fields.add(field)
-            self._previous.pop(field, None)
-            self.partial.pop(field, None)
-            self.events.append((EventType.REVIEW, str(field)))
-            return SubmitResult(Status.REVIEW, result.reason)
+        if self.blocked_on == field:
+            return SubmitResult(Status.BLOCKED, result.reason)
+        if asked >= MAX_FOLLOW_UPS:
+            if self.blocked_on is None:
+                self.blocked_on = field
+            self.events.append((EventType.BLOCKED, str(field)))
+            return SubmitResult(Status.BLOCKED, result.reason)
         self._follow_ups[field] = asked + 1
         if isinstance(raw, str):
             self._previous[field] = raw

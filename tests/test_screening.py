@@ -64,18 +64,11 @@ def test_invalid_answer_asks_a_follow_up_with_the_reason(consented):
     assert consented.next_field() == "name"
 
 
-def test_after_three_follow_ups_the_raw_answer_is_kept_for_review(consented):
-    statuses = [consented.submit("name", "Juan", TODAY).status for _ in range(4)]
-    assert statuses == ["follow_up", "follow_up", "follow_up", "review"]
-    assert consented.values["name"] == "Juan"
-    assert consented.review_fields == {"name"}
-    assert consented.next_field() == "experience"
-
 
 def test_a_valid_answer_after_follow_ups_clears_the_counter(consented):
     consented.submit("name", "Juan", TODAY)
     assert consented.submit("name", "Juan Pérez", TODAY).status == "ok"
-    assert consented.review_fields == set()
+    assert consented.blocked_on is None
 
 
 def test_city_typo_asks_for_confirmation_then_accepts_on_yes(consented):
@@ -148,11 +141,6 @@ def test_disqualifier_known_early_decides_before_all_fields_are_filled(consented
 
 
 
-def test_unclear_non_eligibility_field_still_qualifies_but_is_flagged(consented):
-    decision = fill(consented, name="Juan").decide()
-    assert decision.outcome == "QUALIFIED"
-    assert decision.flags == ["NAME_NEEDS_REVIEW"]
-
 
 from datetime import datetime, timedelta
 
@@ -203,20 +191,6 @@ def test_stray_confirmation_with_nothing_pending_is_a_follow_up_not_a_crash(cons
     assert consented.confirm_city(True).status == "follow_up"
 
 
-def test_license_is_asked_again_without_a_cap_until_clear(consented):
-    statuses = {consented.submit("license", None, TODAY).status for _ in range(10)}
-    assert statuses == {"follow_up"}
-    assert "license" not in consented.values
-    assert consented.decide().outcome == "IN_PROGRESS"
-
-
-def test_declined_city_confirmation_keeps_asking_without_a_cap(consented):
-    statuses = set()
-    for _ in range(10):
-        consented.submit("city", "Guadalajra", TODAY)
-        statuses.add(consented.confirm_city(False).status)
-    assert statuses == {"follow_up"}
-    assert "city" not in consented.values
 
 
 import json
@@ -244,16 +218,15 @@ def test_half_finished_screening_survives_a_save_and_reload(consented):
     assert restored.decide().outcome == "ENDED_OFF_TOPIC"
     assert restored.confirm_city(True).status == "ok"
     assert restored.values["city"] == "Guadalajara"
-    assert restored.submit("name", "Juan", TODAY).status == "follow_up"
-    assert restored.submit("name", "Juan", TODAY).status == "review"
+    statuses = [restored.submit("name", "Juan", TODAY).status for _ in range(4)]
+    assert statuses == ["follow_up", "follow_up", "follow_up", "blocked"]
     assert ("human_requested", "") in restored.events
 
 
-def test_reloaded_screening_keeps_dates_review_flags_and_consent(consented):
-    fill(consented, name="Juan")
+def test_reloaded_screening_keeps_dates_and_consent(consented):
+    fill(consented)
     restored = Screening.from_state(AREAS, json.loads(json.dumps(consented.to_state())))
     assert restored.values["start_date"] == date(2026, 11, 1)
-    assert restored.review_fields == {"name"}
     assert restored.decide() == consented.decide()
 
 
@@ -355,11 +328,6 @@ def test_nothing_more_is_asked_after_the_chat_ended_off_topic(consented):
 def test_nothing_more_is_asked_once_qualified(consented):
     assert fill(consented).next_field() is None
 
-
-def test_review_keeps_the_candidates_own_words_not_the_failed_extraction(consented):
-    for _ in range(4):
-        consented.submit("name", None, TODAY, raw="no sé cómo me llamo jaja")
-    assert consented.values["name"] == "no sé cómo me llamo jaja"
 
 
 def test_language_is_conversation_state_and_survives_reload(consented):

@@ -124,22 +124,6 @@ def test_an_unclear_answer_gets_a_follow_up_that_says_what_was_unclear(store):
     assert "No me quedó claro" in reply and "apellido" in reply
 
 
-def test_after_three_follow_ups_the_candidates_own_words_are_kept_and_the_chat_moves_on(store):
-    consented(store)
-    for _ in range(3):
-        say(store, "Juan", {"name": "Juan"})
-    reply, _ = say(store, "ya te dije, Juan", {"name": "Juan"})
-    assert "años" in reply
-    assert store.get("c1").extracted["name"] == "ya te dije, Juan"
-
-
-def test_a_message_with_nothing_usable_counts_as_an_unclear_answer(store):
-    consented(store)
-    for _ in range(3):
-        say(store, "mmm", {})
-    reply, _ = say(store, "no sé cómo me llamo jaja", {})
-    assert store.get("c1").extracted["name"] == "no sé cómo me llamo jaja"
-    assert "años" in reply
 
 
 def test_off_topic_messages_do_not_use_up_follow_ups_and_two_in_a_row_end_the_chat(store):

@@ -13,6 +13,7 @@ class Kind(StrEnum):
     FOLLOW_UP = "follow_up"
     CONFIRM_CITY = "confirm_city"
     CONFIRM_REJECTION = "confirm_rejection"
+    BLOCKED = "blocked"
     REMINDER = "reminder"
     CLOSE = "close"
     TECHNICAL_ERROR = "technical_error"
@@ -79,7 +80,23 @@ _REMINDER = ("Hola, ¿sigues interesado en la solicitud? Cuando quieras, seguimo
              "Hi, are you still interested in the application? We can pick up where we left off.")
 _ERROR = ("Tuve un problema técnico. ¿Puedes repetir tu último mensaje?",
           "I had a technical problem. Could you repeat your last message?")
-_UNCLEAR = ("No me quedó claro. ", "I didn't quite get that. ")
+_UNCLEAR = ("No me quedó claro y necesito este dato para continuar. ",
+            "That wasn't clear, and I need this to move forward. ")
+
+_WHAT = {
+    Field.NAME: ("tu nombre y apellido", "your first and last name"),
+    Field.EXPERIENCE: ("tus años de experiencia repartiendo (puede ser 0) y la plataforma",
+                       "your years of delivery experience (0 is fine) and the platform"),
+    Field.AVAILABILITY: ("tu disponibilidad (tiempo completo, medio tiempo o fines de semana)",
+                         "your availability (full-time, part-time or weekends)"),
+    Field.SCHEDULE: ("tu horario preferido (mañana, tarde, noche o flexible)",
+                     "your preferred schedule (morning, afternoon, evening or flexible)"),
+    Field.START_DATE: ("cuándo puedes empezar", "when you can start"),
+    Field.CITY: ("la ciudad o zona donde vives", "the city or area where you live"),
+    Field.LICENSE: ("si tienes licencia de conducir (sí o no)", "whether you have a driver's license (yes or no)"),
+}
+_BLOCKED = ("No puedo continuar con tu solicitud hasta que me indiques {what}.",
+            "I can't continue with your application until you tell me {what}.")
 
 _SYSTEM = (
     "You write one short chat message for a delivery-driver screening assistant at Grupo Sazón. "
@@ -111,6 +128,8 @@ def _template(directive: Directive, language: str) -> str:
         case Kind.CONFIRM_REJECTION:
             city = " ".join((directive.suggestion or "").split())[:40]
             return _pick(_CONFIRM_REJECTION[directive.field], language).format(city=city)
+        case Kind.BLOCKED:
+            return _pick(_BLOCKED, language).format(what=_pick(_WHAT[directive.field], language))
         case Kind.REMINDER:
             return _pick(_REMINDER, language)
         case Kind.TECHNICAL_ERROR:
@@ -135,13 +154,15 @@ def _usable(text: str, directive: Directive) -> bool:
 def phrase(llm: LLM, directive: Directive, language: str) -> str:
     if directive.kind == Kind.CLOSE:
         return _close(directive, language)
-    if directive.kind in (Kind.TECHNICAL_ERROR, Kind.REMINDER, Kind.CONFIRM_REJECTION):
+    if directive.kind in (Kind.TECHNICAL_ERROR, Kind.REMINDER, Kind.CONFIRM_REJECTION, Kind.BLOCKED):
         return _template(directive, language)
     brief = [f"Language: {_LANGUAGE[language]}", f"Purpose: {directive.kind.replace('_', ' ')}"]
     if directive.field:
         brief.append(f"Topic: {directive.field}")
     if directive.reason:
         brief.append(f"What was unclear: {directive.reason}")
+    if directive.kind == Kind.FOLLOW_UP:
+        brief.append("Say politely that this information is necessary to move forward with the application.")
     if directive.suggestion:
         brief.append(f"Ask whether they mean this city: {directive.suggestion}")
     try:

@@ -372,3 +372,12 @@ Written into [PHASE1_PROCESS_DESIGN.md](PHASE1_PROCESS_DESIGN.md) as engineering
 - **Pros of chosen:** a single model error can never reject a candidate.
 - **Cons of chosen:** one extra message for candidates who really are ineligible, which slightly weakens D27's time saving.
 - **Decided by:** user, 2026-10-25.
+
+## D41: Insist five times, then BLOCKED (replaces D16, D17 and D28; removes NEEDS_REVIEW)
+
+- **Chosen:** For every field the screening collects (all are necessary, and experience can always be answered with "0"), an unclear answer gets a follow-up that explains the information is needed to move forward. After 5 follow-ups, the next unclear answer gets a fixed message: "I can't continue with your application until you tell me X". The candidate gets that same reply to every later message until they provide X. The outcome is `BLOCKED` with reason `BLOCKED_ON_<FIELD>`, visible in the dashboard, and it clears when the field is provided. A blocked candidate is still reminded and can stall (D35). Model failures never count (D39).
+- **Removed:** the 3-follow-up cap, the `NEEDS_REVIEW` flags, and storing the candidate's raw words in place of a value. `extracted` now only holds validated values, so it has one consistent shape. The earlier "uncapped license and city" rule (D28) is replaced by this single rule.
+- **Options considered:** a separate `review` map for raw answers; a wrapper object on every field; keeping the mixed shape.
+- **Pros of chosen:** one simple rule for all fields, clean typed JSON, and recruiters see stuck candidates as a clear status.
+- **Cons of chosen:** a candidate who cannot or will not answer is stuck until the 24-hour stall. Nothing reaches a recruiter except the `BLOCKED` status, so recruiters must watch that filter. Revisit if pilot data shows many blocked candidates.
+- **Decided by:** user, 2026-10-25.

@@ -19,13 +19,14 @@ class Outcome(StrEnum):
     ENDED_OFF_TOPIC = "ENDED_OFF_TOPIC"
     WITHDRAWN = "WITHDRAWN"
     STALLED = "STALLED"
+    BLOCKED = "BLOCKED"
 
 
 class Status(StrEnum):
     OK = "ok"
     FOLLOW_UP = "follow_up"
     CONFIRM = "confirm"
-    REVIEW = "review"
+    BLOCKED = "blocked"
     CONFIRM_REJECT = "confirm_reject"
 
 
@@ -39,7 +40,7 @@ class EventType(StrEnum):
     CONSENT_DECLINED = "consent_declined"
     FIELD_ACCEPTED = "field_accepted"
     FOLLOW_UP = "follow_up"
-    REVIEW = "review"
+    BLOCKED = "blocked"
     MODEL_FAILURE = "model_failure"
 
 

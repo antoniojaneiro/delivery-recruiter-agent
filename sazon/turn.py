@@ -5,7 +5,7 @@ from sazon.extraction import Extraction, extract
 from sazon.llm import LLM, LLMError
 from sazon.model import Field, Outcome, Status
 from sazon.phrasing import Directive, Kind, consent_message, phrase
-from sazon.screening import FIELD_ORDER, Screening
+from sazon.screening import FIELD_ORDER, LIVE, Screening
 
 _MISSING = object()
 NOT_STORED = "[message not stored: no consent]"
@@ -21,7 +21,7 @@ def start(store, areas: dict[str, list[str]], candidate_id: str, now: datetime) 
 def wait_24h(llm: LLM, store, areas: dict[str, list[str]], candidate_id: str, now: datetime) -> str | None:
     """Simulates 24 hours of silence: first a reminder, then STALLED (D35)."""
     screening = session.load(store, candidate_id, areas)
-    if screening.decide().outcome != Outcome.IN_PROGRESS:
+    if screening.decide().outcome not in LIVE:
         return None
     if screening.reminder_sent:
         screening.mark_stalled()
@@ -66,7 +66,7 @@ def _close(screening: Screening) -> Directive:
 def _directive_for(llm: LLM, screening: Screening, message: str, today: date,
                    last_question: str | None) -> Directive | None:
     """Applies the message to the screening and returns what to say next (None re-asks consent)."""
-    if screening.decide().outcome != Outcome.IN_PROGRESS:
+    if screening.decide().outcome not in LIVE:
         return _close(screening)
     asking = screening.next_field()
     try:
@@ -88,18 +88,20 @@ def _directive_for(llm: LLM, screening: Screening, message: str, today: date,
         if extraction.consent is None:
             if extraction.off_topic:
                 screening.off_topic()
-            return _close(screening) if screening.decide().outcome != Outcome.IN_PROGRESS else None
+            return _close(screening) if screening.decide().outcome not in LIVE else None
         screening.record_consent(extraction.consent)
         if not extraction.consent:
             return _close(screening)
     unclear = _apply(screening, extraction, message, asking, today)
-    if screening.decide().outcome != Outcome.IN_PROGRESS:
+    if screening.decide().outcome not in LIVE:
         return _close(screening)
     if screening.awaiting_rejection:
         return Directive(Kind.CONFIRM_REJECTION, field=screening.awaiting_rejection,
                          suggestion=screening.rejection_subject)
     if screening.awaiting_confirmation:
         return Directive(Kind.CONFIRM_CITY, suggestion=screening.awaiting_confirmation)
+    if screening.blocked_on:
+        return Directive(Kind.BLOCKED, field=screening.blocked_on)
     if unclear:
         return Directive(Kind.FOLLOW_UP, field=unclear[0], reason=unclear[1])
     return Directive(Kind.ASK, field=screening.next_field())

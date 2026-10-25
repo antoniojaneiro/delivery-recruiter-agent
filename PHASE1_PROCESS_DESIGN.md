@@ -1,6 +1,6 @@
 # Phase 1: Process Design — Driver Screening Agent (Grupo Sazón)
 
-Status: draft for review. Every decision traces to [DECISIONS.md](DECISIONS.md) (D1–D40). Items marked **Proposed default** are engineering choices to confirm with the client.
+Status: draft for review. Every decision traces to [DECISIONS.md](DECISIONS.md) (D1–D41). Items marked **Proposed default** are engineering choices to confirm with the client.
 
 ## 1. Purpose
 
@@ -36,14 +36,14 @@ Order is friendly (D6): name and experience first, eligibility questions last. A
 | Field | Accepted input | Validation | If invalid |
 | --- | --- | --- | --- |
 | Full name | Any text | At least two words of letters, spaces, hyphens or apostrophes (accents allowed), e.g. García-López, O'Brien. | Ask for first and last name. |
-| Driver's license | Sí / No | No → disqualify (`NO_LICENSE`). "Unsure" → ask again. | Ask again with a specific explanation, no cap, until clear (D28). |
-| City / zone | Any text | Fuzzy match to the service-area list (D13); if unsure, confirm: "¿Te refieres a Guadalajara?" | Not in list → disqualify (`OUT_OF_AREA`). Unclear → ask again, no cap (D28). |
+| Driver's license | Sí / No | No → disqualify (`NO_LICENSE`). "Unsure" → ask again. | Ask again, explaining it is needed; after 5 tries the chat is blocked until answered (D41). |
+| City / zone | Any text | Fuzzy match to the service-area list (D13); if unsure, confirm: "¿Te refieres a Guadalajara?" | Not in list → disqualify (`OUT_OF_AREA`). Unclear → ask again; blocked after 5 tries (D41). |
 | Availability | Full-time, part-time, weekends | One or more of the three. | Ask which fits. |
 | Preferred schedule | Morning, afternoon, evening, flexible | One of four. | Ask which fits. |
-| Experience | Years (number, "ninguna") + platform (Glovo, Uber Eats, other) | Years is a number ≥ 0. Platform is free text, normalised to a known list or "other". | Ask once more (D16, cap 3). Never disqualifies. |
+| Experience | Years (number, "ninguna") + platform (Glovo, Uber Eats, other) | Years is a number ≥ 0. Platform is free text, normalised to a known list or "other". | Ask again; blocked after 5 tries (D41). Never disqualifies. |
 | Start date | "ya", a date, or "en N semanas" | Converted to a date. Past dates are invalid. **Proposed default:** more than 12 weeks away is recorded but flagged. | Ask for a date or a rough timeframe. |
 
-**Follow-up cap (D16, D17):** each field gets at most 3 follow-up questions. After that, the answer is stored as-is with status `NEEDS_REVIEW`, so a recruiter sees it. The conversation continues.
+**Follow-ups (D41):** each field gets up to 5 follow-up questions, each explaining that the information is necessary to move forward. After that, the agent says the process cannot proceed until the field is provided, and repeats that reply to every later message. The candidate is `BLOCKED` on that field until it is answered. Only validated values are stored.
 
 ## 5. Outcomes
 
@@ -53,14 +53,14 @@ Order is friendly (D6): name and experience first, eligibility questions last. A
 | **Disqualified** | `NO_LICENSE`, `OUT_OF_AREA`, or `NO_CONSENT`. | Polite close: thanks, the reason in one sentence, and that they can apply again later (D9). | Reason code only. |
 | **Stalled** | No reply for 24 hours: one reminder is sent, and after 24 more hours without a reply the candidate is marked `STALLED` (D10, D35). A new message resumes the chat. | Reminder: short, one line, offer to continue. | Status `STALLED`, last stage reached. |
 | **Withdrawn** | The candidate asks to stop at any time (D29). | Confirmation that the chat is closed, no more questions. | Status `WITHDRAWN`, last stage reached. |
-| **Needs review** | A field other than license or city hit the 3-follow-up cap. The rest of the flow continues. | Normal path. | The raw answer, flagged. |
+| **Blocked** | A field is still unclear after 5 follow-ups (D41). | "I can't continue with your application until you tell me X." Repeated until X is provided. | Status `BLOCKED` naming the field, so a recruiter can follow up. |
 
 ## 6. Edge cases
 
 | Situation | Behaviour |
 | --- | --- |
 | **Stops responding mid-chat** | One reminder at 24 hours, then `STALLED` (D10). The conversation can resume if they write again. |
-| **Vague answer** ("a veces", "varios") | Ask a specific follow-up with examples. Up to 3 times, then `NEEDS_REVIEW` (D16, D17). |
+| **Vague answer** ("a veces", "varios") | Ask a specific follow-up with examples. Up to 5 times, then `BLOCKED` (D41). |
 | **Invalid answer** ("no sé" for start date, a number for a name) | Say what was expected, one example, ask again. |
 | **Switches language mid-chat** | Reply in the new language. Field values are stored in a normalised form, whatever the language (D11). |
 | **Asks to stop** ("para", "stop") | End the chat at once, status `WITHDRAWN`, log the event (D29). No further questions. |
