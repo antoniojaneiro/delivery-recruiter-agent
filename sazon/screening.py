@@ -44,6 +44,8 @@ class Screening:
         self.events_synced = 0
         self._off_topic = 0
         self.validation_flags: dict[str, list[str]] = {}
+        self.partial: dict[str, dict] = {}
+        self._previous: dict[str, str] = {}
         self._follow_ups: dict[str, int] = {}
         self._pending_city: tuple[str, str] | None = None
 
@@ -53,6 +55,10 @@ class Screening:
 
     def record_consent(self, given: bool) -> None:
         self.consent = given
+        self.events.append((EventType.CONSENT_GIVEN if given else EventType.CONSENT_DECLINED, ""))
+
+    def previous_answer(self, field: Field | None) -> str | None:
+        return self._previous.get(field)
 
     def extracted(self) -> dict:
         return {
@@ -70,6 +76,8 @@ class Screening:
             "reminder_sent": self.reminder_sent,
             "language": self.language,
             "validation_flags": self.validation_flags,
+            "partial": self.partial,
+            "previous": self._previous,
             "events": [list(e) for e in self.events],
             "events_synced": self.events_synced,
             "off_topic": self._off_topic,
@@ -91,6 +99,8 @@ class Screening:
         s.reminder_sent = state.get("reminder_sent", False)
         s.language = state.get("language", "es")
         s.validation_flags = {k: list(v) for k, v in state.get("validation_flags", {}).items()}
+        s.partial = dict(state.get("partial", {}))
+        s._previous = dict(state.get("previous", {}))
         s.events = [tuple(e) for e in state["events"]]
         s.events_synced = state.get("events_synced", 0)
         s._off_topic = state["off_topic"]
@@ -219,12 +229,21 @@ class Screening:
             self.values[field] = result.value
             self.review_fields.discard(field)
             self._follow_ups.pop(field, None)
+            self._previous.pop(field, None)
+            self.partial.pop(field, None)
+            self.events.append((EventType.FIELD_ACCEPTED, str(field)))
             return SubmitResult(Status.OK)
         self._off_topic = 0
         asked = self._follow_ups.get(field, 0)
         if asked >= MAX_FOLLOW_UPS and field not in UNCAPPED:
             self.values[field] = raw
             self.review_fields.add(field)
+            self._previous.pop(field, None)
+            self.partial.pop(field, None)
+            self.events.append((EventType.REVIEW, str(field)))
             return SubmitResult(Status.REVIEW, result.reason)
         self._follow_ups[field] = asked + 1
+        if isinstance(raw, str):
+            self._previous[field] = raw
+        self.events.append((EventType.FOLLOW_UP, f"{field}: {result.reason}"))
         return SubmitResult(Status.FOLLOW_UP, result.reason)

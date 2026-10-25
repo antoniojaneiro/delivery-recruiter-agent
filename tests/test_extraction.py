@@ -26,9 +26,27 @@ def test_a_well_formed_reply_becomes_a_typed_extraction():
     assert result.withdraw is False and result.off_topic is False
 
 
-@pytest.mark.parametrize("reply", ["not json", "[]", '{"has_license": "maybe"}', '{"availability": "weekends"}', ""])
-def test_unusable_model_output_is_a_failure_not_a_crash(reply):
+@pytest.mark.parametrize("reply", ["not json", "[]", "", '"just a string"'])
+def test_unparseable_model_output_is_a_failure_not_a_crash(reply):
     assert ask(FakeLLM(reply)) is None
+
+
+def test_one_bad_field_is_dropped_and_the_rest_is_kept():
+    reply = json.dumps({"language": "ca", "name": "Joan Pere", "has_license": "maybe",
+                        "availability": ["any"], "start_date": {"iso": "2026-11-1"}, "city": "Barcelona"})
+    result = ask(FakeLLM(reply))
+    assert result.name == "Joan Pere" and result.city == "Barcelona"
+    assert result.language is None and result.has_license is None
+    assert result.availability == [] and result.start_date is None
+
+
+def test_the_previous_unclear_answer_and_last_question_are_given_as_data():
+    llm = FakeLLM("{}")
+    extract(llm, "Pérez", asking=Field.NAME, awaiting_confirmation=None, today=TODAY,
+            last_question="¿Cómo te llamas?", previous_answer="Juan")
+    user = llm.calls[0]["user"]
+    assert "¿Cómo te llamas?" in user and "Juan" in user
+    assert user.index("Juan") < user.index("<candidate_message>")
 
 
 def test_the_candidate_message_is_delimited_data_and_cannot_close_the_block():

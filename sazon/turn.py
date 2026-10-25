@@ -8,6 +8,7 @@ from sazon.phrasing import Directive, Kind, consent_message, phrase
 from sazon.screening import FIELD_ORDER, Screening
 
 _MISSING = object()
+NOT_STORED = "[message not stored: no consent]"
 
 
 def start(store, areas: dict[str, list[str]], candidate_id: str, now: datetime) -> str:
@@ -36,10 +37,13 @@ def handle_message(llm: LLM, store, areas: dict[str, list[str]], candidate_id: s
                    now: datetime) -> str:
     screening = session.load(store, candidate_id, areas)
     screening.resume()
-    directive = _directive_for(llm, screening, message, now.date())
+    history = store.messages(candidate_id)
+    last_question = history[-1].text if history and history[-1].role == "agent" else None
+    directive = _directive_for(llm, screening, message, now.date(), last_question)
     reply = consent_message() if directive is None else phrase(llm, directive, screening.language)
+    kept = message if screening.consent else NOT_STORED
     session.commit(store, candidate_id, screening, now,
-                   messages=[("candidate", message), ("agent", reply)])
+                   messages=[("candidate", kept), ("agent", reply)])
     return reply
 
 
@@ -48,16 +52,16 @@ def _close(screening: Screening) -> Directive:
     return Directive(Kind.CLOSE, outcome=decision.outcome, reasons=decision.reasons)
 
 
-def _directive_for(llm: LLM, screening: Screening, message: str, today: date) -> Directive | None:
+def _directive_for(llm: LLM, screening: Screening, message: str, today: date,
+                   last_question: str | None) -> Directive | None:
     """Applies the message to the screening and returns what to say next (None re-asks consent)."""
     if screening.decide().outcome != Outcome.IN_PROGRESS:
         return _close(screening)
     asking = screening.next_field()
     try:
-        extraction = extract(llm, message, asking, screening.awaiting_confirmation, today)
+        extraction = extract(llm, message, asking, screening.awaiting_confirmation, today,
+                             last_question, screening.previous_answer(asking)) or Extraction()
     except LLMError:
-        extraction = None
-    if extraction is None:
         return Directive(Kind.TECHNICAL_ERROR)
     if extraction.language:
         screening.language = extraction.language
@@ -98,6 +102,14 @@ def _apply(screening: Screening, ex: Extraction, message: str, asking: Field | N
     if screening.awaiting_confirmation and ex.confirms_city is not None:
         note(Field.CITY, screening.confirm_city(ex.confirms_city))
     for field in FIELD_ORDER:
+        if field == Field.EXPERIENCE:
+            experience = _experience(screening, ex)
+            if experience is not _MISSING:
+                result = screening.submit(field, experience, today, raw=message)
+                if result.status == Status.FOLLOW_UP:
+                    screening.partial[field] = {"years": experience[0], "platforms": experience[1]}
+                note(field, result)
+            continue
         value = _value(ex, field, today)
         if value is not _MISSING:
             note(field, screening.submit(field, value, today, raw=message))
@@ -107,6 +119,15 @@ def _apply(screening: Screening, ex: Extraction, message: str, asking: Field | N
         elif asking and asking != Field.CONSENT:
             note(asking, screening.submit(asking, None, today, raw=message))
     return unclear
+
+
+def _experience(screening: Screening, ex: Extraction) -> object:
+    if ex.experience_years is None and not ex.platforms:
+        return _MISSING
+    earlier = screening.partial.get(Field.EXPERIENCE, {})
+    years = ex.experience_years if ex.experience_years is not None else earlier.get("years")
+    platforms = ex.platforms or earlier.get("platforms", [])
+    return (years, platforms)
 
 
 def _value(ex: Extraction, field: Field, today: date) -> object:

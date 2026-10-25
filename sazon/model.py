@@ -34,6 +34,11 @@ class EventType(StrEnum):
     WITHDRAWN = "withdrawn"
     REMINDER_SENT = "reminder_sent"
     RESUMED = "resumed"
+    CONSENT_GIVEN = "consent_given"
+    CONSENT_DECLINED = "consent_declined"
+    FIELD_ACCEPTED = "field_accepted"
+    FOLLOW_UP = "follow_up"
+    REVIEW = "review"
 
 
 class CityMatchStatus(StrEnum):

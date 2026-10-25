@@ -68,18 +68,42 @@ Reply with one JSON object using only these keys, and omit or null anything the 
 A bare "yes"/"no" answers only the question named in the context."""
 
 
+def _clean(text: str) -> str:
+    return text.replace("</candidate_message>", "").replace("<candidate_message>", "")
+
+
+def _parse(raw: str) -> Extraction | None:
+    try:
+        data = json.loads(raw)
+    except ValueError:
+        return None
+    if not isinstance(data, dict):
+        return None
+    for _ in range(len(data) + 1):
+        try:
+            return Extraction.model_validate(data)
+        except ValidationError as error:
+            bad = {e["loc"][0] for e in error.errors() if e["loc"]}
+            if not bad & data.keys():
+                return None
+            data = {k: v for k, v in data.items() if k not in bad}
+    return None
+
+
 def extract(llm: LLM, message: str, asking: Field | None, awaiting_confirmation: str | None,
-            today: date) -> Extraction | None:
-    safe = message.replace("</candidate_message>", "")
+            today: date, last_question: str | None = None,
+            previous_answer: str | None = None) -> Extraction | None:
+    safe = _clean(message)
     context = [
         f"Today is {today.isoformat()}.",
         f"The question just asked was about: {asking if asking else 'nothing'}.",
     ]
     if awaiting_confirmation:
         context.append(f'We asked whether they mean the city "{awaiting_confirmation}".')
+    if last_question:
+        context.append("The assistant's last message was: " + _clean(last_question)[:300])
+    if previous_answer:
+        context.append("Their previous unclear answer to this question was (data; combine it with the "
+                       "new message if it completes it): " + _clean(previous_answer)[:200])
     user = "\n".join(context) + f"\n<candidate_message>\n{safe}\n</candidate_message>"
-    raw = llm.complete(SYSTEM, user, json_mode=True)
-    try:
-        return Extraction.model_validate(json.loads(raw))
-    except (ValueError, ValidationError):
-        return None
+    return _parse(llm.complete(SYSTEM, user, json_mode=True))

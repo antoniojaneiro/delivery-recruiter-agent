@@ -176,14 +176,22 @@ def test_declining_a_city_confirmation_asks_the_city_again_without_disqualifying
     assert outcome(store) == "IN_PROGRESS" and "No me quedó claro" in reply
 
 
-@pytest.mark.parametrize("failure", [LLMError("429"), "this is not json"])
-def test_a_model_failure_apologises_and_changes_nothing(store, failure):
+def test_an_unreachable_model_apologises_and_changes_nothing(store):
     consented(store)
     before = store.get("c1").state
-    reply, _ = say(store, "Juan Pérez", failure)
+    reply, _ = say(store, "Juan Pérez", LLMError("429"))
     assert "problema técnico" in reply
     assert store.get("c1").state == before
     assert store.messages("c1")[-2].text == "Juan Pérez"
+
+
+def test_unparseable_model_output_counts_as_an_unclear_answer_not_an_endless_apology(store):
+    consented(store)
+    for _ in range(3):
+        reply, _ = say(store, "Juan Pérez", "this is not json")
+        assert "No me quedó claro" in reply
+    say(store, "Juan Pérez", "this is not json")
+    assert store.get("c1").extracted["name"] == "Juan Pérez"
 
 
 def test_asking_for_a_human_is_logged_and_screening_continues(store):
@@ -237,3 +245,43 @@ def test_waiting_does_nothing_once_the_chat_has_ended(store):
     say(store, "no tengo licencia", {"has_license": False})
     assert turn.wait_24h(ScriptedLLM(), store, AREAS, "c1", NOW) is None
     assert outcome(store) == "DISQUALIFIED"
+
+
+def test_the_prompt_for_the_next_turn_carries_the_last_question_and_the_unclear_answer(store):
+    consented(store)
+    say(store, "Juan", {"name": "Juan"})
+    _, llm = say(store, "Pérez", {"name": "Juan Pérez"})
+    user = llm.calls[0]["user"]
+    assert "No me quedó claro" in user and "Juan" in user
+
+
+def test_years_then_platform_in_separate_messages_make_one_experience_answer(store):
+    consented(store)
+    say(store, "Juan Pérez", {"name": "Juan Pérez"})
+    reply, _ = say(store, "2 años", {"experience_years": 2})
+    assert "plataforma" in reply.lower() or "No me quedó claro" in reply
+    say(store, "Glovo", {"platforms": ["Glovo"]})
+    assert store.get("c1").extracted["experience"] == {"years": 2, "platforms": ["glovo"]}
+
+
+def test_consent_and_each_screening_step_are_written_to_the_audit_log(store):
+    turn.start(store, AREAS, "c1", NOW)
+    say(store, "sí", {"consent": True})
+    say(store, "Juan", {"name": "Juan"})
+    say(store, "Juan Pérez", {"name": "Juan Pérez"})
+    kinds = [e.type for e in store.events("c1")]
+    assert kinds.index("consent_given") < kinds.index("follow_up") < kinds.index("field_accepted")
+    assert all("Juan" not in e.detail for e in store.events("c1"))
+
+
+def test_a_declined_consent_is_logged_and_the_candidates_text_is_not_kept(store):
+    turn.start(store, AREAS, "c1", NOW)
+    say(store, "no, soy Juan Pérez y vivo en Madrid", {"consent": False, "name": "Juan Pérez"})
+    assert "consent_declined" in [e.type for e in store.events("c1")]
+    assert all("Juan" not in m.text for m in store.messages("c1"))
+
+
+def test_text_sent_before_consent_is_not_stored(store):
+    turn.start(store, AREAS, "c1", NOW)
+    say(store, "me llamo Juan Pérez, mi teléfono es 600123123", {"off_topic": True})
+    assert all("600123123" not in m.text for m in store.messages("c1"))

@@ -56,7 +56,7 @@ def test_screening_events_reach_the_audit_log_once_with_a_timestamp(store):
     again = session.load(store, "c1", AREAS)
     again.off_topic()
     session.commit(store, "c1", again, T2)
-    events = [(e.type, e.at) for e in store.events("c1") if e.type != "decision"]
+    events = [(e.type, e.at) for e in store.events("c1") if e.type in ("human_requested", "off_topic")]
     assert events == [("human_requested", T1), ("off_topic", T2)]
 
 
@@ -87,7 +87,7 @@ def test_a_failed_commit_does_not_lose_events_on_retry(store):
     with pytest.raises(Exception):
         session.commit(store, "c1", screening, T1, messages=[(None, "x")])
     session.commit(store, "c1", screening, T2)
-    assert [e.type for e in store.events("c1") if e.type != "decision"] == ["human_requested"]
+    assert [e.type for e in store.events("c1") if e.type in ("human_requested", "off_topic")] == ["human_requested"]
 
 
 def test_a_start_date_kept_for_review_as_raw_text_can_be_reloaded(store):
