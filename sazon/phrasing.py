@@ -1,3 +1,4 @@
+import hashlib
 import re
 from dataclasses import dataclass, field as dc_field
 from enum import StrEnum
@@ -135,6 +136,8 @@ _SYSTEM = (
 )
 _LANGUAGE = {Language.ES: "Spanish", Language.EN: "English"}
 _URL = re.compile(r"https?://|www\.", re.I)
+# A phrased question must never state pay, a hire or a clock time: those come from fixed texts only.
+_PROMISE = re.compile(r"[€$£]|\b(euros?|pesos|sueldo|salario|salary|wage|paga|pagamos|contratad[oa]|hired|offer|oferta|ganar[aá]s?|earn)\b|\b\d{1,2}\s*[:h]\s*\d{2}\b", re.I)
 
 
 def slot_label(starts_at, language: Language) -> str:
@@ -142,6 +145,11 @@ def slot_label(starts_at, language: Language) -> str:
     weekday = _WEEKDAYS[language][starts_at.weekday()]
     month = _MONTHS[language][starts_at.month - 1]
     return f"{weekday} {starts_at.day} {month}, {starts_at:%H:%M}"
+
+
+def consent_text_hash() -> str:
+    """Identifies the exact wording shown, so the consent record proves which text was accepted."""
+    return hashlib.sha256(_CONSENT.encode("utf-8")).hexdigest()[:12]
 
 
 def consent_message() -> str:
@@ -192,6 +200,8 @@ def _close(directive: Directive, language: str) -> str:
 
 def _usable(text: str, directive: Directive, language: Language) -> bool:
     if not text or len(text) > MAX_REPLY_CHARS or "\n" in text or _URL.search(text):
+        return False
+    if _PROMISE.search(text):
         return False
     if language == Language.EN and ("¿" in text or "¡" in text):
         return False  # the model answered in Spanish although the chat is in English

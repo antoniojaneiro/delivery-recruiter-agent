@@ -1,3 +1,4 @@
+import calendar
 import json
 import re
 from datetime import date, timedelta
@@ -9,11 +10,19 @@ from sazon.llm import LLM
 from sazon.model import Field, Language
 
 
+def _add_months(day: date, months: int) -> date:
+    index = day.month - 1 + months
+    year, month = day.year + index // 12, index % 12 + 1
+    return date(year, month, min(day.day, calendar.monthrange(year, month)[1]))
+
+
 class StartDate(BaseModel):
     model_config = ConfigDict(extra="ignore")
     iso: date | None = None
     in_days: int | None = None
     in_weeks: int | None = None
+    in_months: int | None = None
+    weekday: int | None = None  # Monday = 0 ... Sunday = 6; always the next one, never today
     now: bool = False
 
     def resolve(self, today: date) -> date | None:
@@ -25,6 +34,10 @@ class StartDate(BaseModel):
             return today + timedelta(days=self.in_days)
         if self.in_weeks is not None:
             return today + timedelta(weeks=self.in_weeks)
+        if self.in_months is not None:
+            return _add_months(today, self.in_months)
+        if self.weekday is not None and 0 <= self.weekday <= 6:
+            return today + timedelta(days=(self.weekday - today.weekday()) % 7 or 7)
         return None
 
 
@@ -64,7 +77,7 @@ Reply with one JSON object using only these keys, and omit or null anything the 
 - availability: any of "full_time", "part_time", "weekends"
 - schedule: one of "morning", "afternoon", "evening", "flexible"
 - start_date: {"iso": "YYYY-MM-DD"} for an exact date, else {"now": true}, {"in_days": n} or \
-{"in_weeks": n}. Never do date arithmetic yourself.
+{"in_weeks": n}, {"in_months": n}, or {"weekday": 0-6} (Monday=0) for "next Monday" or "el lunes". Never do date arithmetic yourself.
 - city: the city or zone exactly as written, never mapped or corrected
 - has_license: true/false only if they clearly state whether they hold a driver's license. A license is not a car,
   motorbike, bike or any vehicle: not owning a vehicle says nothing about the license (leave it null)

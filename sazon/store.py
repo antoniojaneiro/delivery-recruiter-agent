@@ -57,6 +57,10 @@ CREATE TABLE IF NOT EXISTS slots (
 );
 CREATE UNIQUE INDEX IF NOT EXISTS one_booking_per_candidate
     ON slots(candidate_id) WHERE candidate_id IS NOT NULL AND cancelled_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_candidates_outcome ON candidates(outcome);
+CREATE INDEX IF NOT EXISTS idx_events_candidate ON events(candidate_id, id);
+CREATE INDEX IF NOT EXISTS idx_messages_candidate ON messages(candidate_id, id);
+CREATE INDEX IF NOT EXISTS idx_slots_country_start ON slots(country, starts_at);
 CREATE TABLE IF NOT EXISTS notes (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     candidate_id TEXT NOT NULL,
@@ -64,6 +68,7 @@ CREATE TABLE IF NOT EXISTS notes (
     text TEXT NOT NULL,
     at TEXT NOT NULL
 );
+CREATE INDEX IF NOT EXISTS idx_notes_candidate ON notes(candidate_id, id);
 """
 
 # Columns added after the first release; databases created earlier are upgraded in place.
@@ -147,6 +152,7 @@ class Store:
         self._path = str(path)
         Path(path).parent.mkdir(parents=True, exist_ok=True)
         with self._connect() as db:
+            db.execute("PRAGMA journal_mode=WAL")  # readers (the dashboard) do not block the chat's writes
             db.executescript(_SCHEMA)
             for table, columns in _ADDED_COLUMNS.items():
                 existing = {row[1] for row in db.execute(f"PRAGMA table_info({table})")}

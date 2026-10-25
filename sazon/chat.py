@@ -67,8 +67,14 @@ def _log_error(error: Exception, now: datetime, log_path: Path | None) -> str:
     return f"[error {error_id}: see {log_path}]"
 
 
+def _draw_id() -> str:
+    return uuid.uuid4().hex[:12]
+
+
 def _new(store, areas, clock, write) -> str:
-    candidate_id = uuid.uuid4().hex[:8]
+    candidate_id = _draw_id()
+    while store.get(candidate_id) is not None:  # never merge two applicants into one record
+        candidate_id = _draw_id()
     text = turn.start(store, areas, candidate_id, clock())
     write(f"[candidate {candidate_id}]")
     write(f"bot> {text}")
@@ -122,11 +128,11 @@ def main() -> None:
         llm = gemini.from_env()
     except LLMError as error:
         sys.exit(str(error))
+    path = config.db_path()
     try:
-        config.DB_PATH.parent.mkdir(parents=True, exist_ok=True)
-        store = Store(config.DB_PATH)
+        store = Store(path)
     except (OSError, sqlite3.Error) as error:
-        sys.exit(f"Cannot open the database at {config.DB_PATH}: {error}")
+        sys.exit(f"Cannot open the database at {path}: {error}")
     if "--list-models" in sys.argv:
         print("\n".join(llm.models()))
         return

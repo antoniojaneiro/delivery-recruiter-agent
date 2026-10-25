@@ -260,7 +260,7 @@ def test_an_unreachable_model_apologises_charges_nothing_and_is_logged(store):
     reply, _ = say(store, "Juan Pérez", LLMError("429"))
     assert "problema técnico" in reply
     assert store.get("c1").extracted == before
-    assert failures(store) == ["unreachable"]
+    assert failures(store) == ["unreachable:LLMError"]
     assert "follow_up" not in [e.type for e in store.events("c1")]
     assert store.messages("c1")[-2].text == "Juan Pérez"
 

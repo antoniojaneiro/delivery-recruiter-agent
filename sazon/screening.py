@@ -6,7 +6,7 @@ from sazon import validators
 from sazon.consent import ConsentReading
 from sazon.extraction import Extraction
 from sazon.model import CityMatchStatus, EventType, Field, Language, Outcome, Reason, Status
-from sazon.phrasing import Directive, Kind
+from sazon.phrasing import Directive, Kind, consent_text_hash
 
 FIELD_ORDER = (Field.NAME, Field.EXPERIENCE, Field.AVAILABILITY, Field.SCHEDULE, Field.START_DATE,
                Field.CITY, Field.LICENSE)
@@ -75,7 +75,8 @@ class Screening:
 
     def record_consent(self, given: bool) -> None:
         self.consent = given
-        self.events.append((EventType.CONSENT_GIVEN if given else EventType.CONSENT_DECLINED, ""))
+        self.events.append((EventType.CONSENT_GIVEN if given else EventType.CONSENT_DECLINED,
+                            f"text_sha256={consent_text_hash()}"))
 
     @property
     def awaiting_rejection(self) -> Field | None:
@@ -280,15 +281,16 @@ class Screening:
     @classmethod
     def from_state(cls, areas: dict[str, list[str]], state: dict) -> "Screening":
         s = cls(areas)
-        s.consent = state["consent"]
-        s.values = dict(state["values"])
+        # Every key is optional: a state saved by an older or newer version must still load.
+        s.consent = state.get("consent")
+        s.values = dict(state.get("values", {}))
         if isinstance(s.values.get("start_date"), str):
             s.values["start_date"] = date.fromisoformat(s.values["start_date"])
         s.blocked_on = Field(state["blocked_on"]) if state.get("blocked_on") else None
         s._slot_offer = list(state.get("slot_offer", []))
         s._slots_done = state.get("slots_done", False)
         s._unclear_picks = state.get("unclear_picks", 0)
-        s.out_of_area = state["out_of_area"]
+        s.out_of_area = state.get("out_of_area", False)
         s.withdrawn = state.get("withdrawn", False)
         s.stalled = state.get("stalled", False)
         s.reminder_sent = state.get("reminder_sent", False)
@@ -298,11 +300,12 @@ class Screening:
         pending = state.get("pending_reject")
         s._pending_reject = (Field(pending[0]), pending[1]) if pending else None
         s._previous = dict(state.get("previous", {}))
-        s.events = [tuple(e) for e in state["events"]]
+        s.events = [tuple(e) for e in state.get("events", [])]
         s._events_synced = state.get("events_synced", 0)
-        s._off_topic = state["off_topic"]
-        s._follow_ups = dict(state["follow_ups"])
-        s._pending_city = tuple(state["pending_city"]) if state["pending_city"] else None
+        s._off_topic = state.get("off_topic", 0)
+        s._follow_ups = dict(state.get("follow_ups", {}))
+        pending_city = state.get("pending_city")
+        s._pending_city = tuple(pending_city) if pending_city else None
         return s
 
     def off_topic(self) -> None:

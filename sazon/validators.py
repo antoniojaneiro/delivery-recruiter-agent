@@ -1,4 +1,5 @@
 import difflib
+import math
 import re
 import unicodedata
 from dataclasses import dataclass
@@ -7,7 +8,7 @@ from typing import Any
 
 from sazon.model import CityMatchStatus
 
-_NAME_WORD = re.compile(r"^[^\W\d_]+(?:[-'’][^\W\d_]+)*$")
+_NAME_WORD = re.compile(r"^[^\W\d_]+(?:[-'’][^\W\d_]+)*\.?$")  # a trailing dot allows titles and initials
 
 
 @dataclass(frozen=True)
@@ -47,14 +48,29 @@ def fold(text: str) -> str:
     return " ".join(stripped.casefold().split())
 
 
+# A country or state written after the place ("Madrid, España") is dropped; any other suffix is kept.
+_PLACE_QUALIFIERS = ("espana", "spain", "mexico", "jalisco", "nuevo leon", "comunidad de madrid", "cataluna",
+                     "catalunya", "comunitat valenciana", "estado de mexico", "edomex")
+
+
+def _plain(text: str) -> str:
+    return " ".join(re.sub(r"[^a-z0-9]+", " ", fold(text)).split())
+
+
 def match_city(raw: str, areas: dict[str, list[str]]) -> CityMatch:
     names = {}
     for city, aliases in areas.items():
         for label in [city, *aliases]:
-            names[fold(label)] = city
-    key = fold(raw)
+            names[_plain(label)] = city
+    key = _plain(raw)
     if key in names:
         return CityMatch(CityMatchStatus.MATCH, names[key])
+    for qualifier in sorted(_PLACE_QUALIFIERS, key=len, reverse=True):
+        if key.endswith(" " + qualifier):
+            key = key[: -len(qualifier) - 1]
+            if key in names:
+                return CityMatch(CityMatchStatus.MATCH, names[key])
+            break
     close = difflib.get_close_matches(key, names, n=1, cutoff=0.8)
     if close:
         return CityMatch(CityMatchStatus.CONFIRM, names[close[0]])
@@ -80,8 +96,12 @@ def validate_schedule(value: str) -> Validation:
 KNOWN_PLATFORMS = ("glovo", "uber eats", "just eat", "rappi", "didi food")
 
 
+MAX_YEARS = 60
+
+
 def validate_experience(years: float | None, platforms: list[str]) -> Validation:
-    if isinstance(years, bool) or not isinstance(years, (int, float)) or years < 0:
+    if (isinstance(years, bool) or not isinstance(years, (int, float)) or not math.isfinite(years)
+            or years < 0 or years > MAX_YEARS):
         return Validation(False, reason="need years of experience, 0 if none")
     if not isinstance(platforms, (list, tuple)) or not all(isinstance(p, str) for p in platforms):
         return Validation(False, reason="need the delivery platform")

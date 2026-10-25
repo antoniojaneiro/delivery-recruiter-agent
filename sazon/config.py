@@ -2,13 +2,14 @@ import os
 from pathlib import Path
 
 # Sample service areas (D13). Replace with the client's real list before any pilot.
+# Nearby towns and districts are samples too: they let "Zapopan" or "Chamberí" count as their service area.
 AREAS = {
-    "Madrid": [],
-    "Barcelona": [],
-    "Valencia": [],
-    "Ciudad de México": ["CDMX", "DF", "Mexico City"],
-    "Guadalajara": [],
-    "Monterrey": [],
+    "Madrid": ["Chamberí", "Getafe", "Alcalá de Henares", "Leganés", "Alcorcón"],
+    "Barcelona": ["L'Hospitalet de Llobregat", "Hospitalet", "Badalona"],
+    "Valencia": ["Paterna", "Torrent"],
+    "Ciudad de México": ["CDMX", "DF", "Mexico City", "Coyoacán", "Iztapalapa", "Tlalpan"],
+    "Guadalajara": ["Zapopan", "Tlaquepaque", "Tonalá"],
+    "Monterrey": ["San Pedro Garza García", "San Nicolás de los Garza", "Apodaca"],
 }
 
 # Where each service area is, and the time zone of each country (D48).

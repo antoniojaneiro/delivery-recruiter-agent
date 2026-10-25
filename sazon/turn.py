@@ -59,8 +59,8 @@ def _directive_for(llm: LLM, screening: Screening, message: str, today: date,
         return screening.apply_stop_request()
     try:
         extraction = _extract_with_one_retry(llm, screening.extraction_context(), message, today, last_question)
-    except LLMError:
-        return screening.model_failed("unreachable")
+    except LLMError as error:
+        return screening.model_failed(f"unreachable:{error.kind}")
     if extraction is None:
         return screening.model_failed("unparseable")
     return screening.apply(extraction, message, today)
