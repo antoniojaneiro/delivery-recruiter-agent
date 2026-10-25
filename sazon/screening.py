@@ -1,11 +1,17 @@
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, datetime, timedelta
 
 from sazon import validators
 
 FIELD_ORDER = ("name", "experience", "availability", "schedule", "start_date", "city", "license")
 MAX_FOLLOW_UPS = 3
+MAX_OFF_TOPIC = 2
+STALL_AFTER = timedelta(hours=24)
 ELIGIBILITY = {"license": "LICENSE_UNCLEAR", "city": "CITY_UNCLEAR"}
+
+
+def is_stalled(last_message_at: datetime, now: datetime) -> bool:
+    return now - last_message_at >= STALL_AFTER
 
 
 class ConsentRequired(Exception):
@@ -33,16 +39,27 @@ class Screening:
         self.values: dict[str, object] = {}
         self.review_fields: set[str] = set()
         self.out_of_area = False
+        self.events: list[tuple[str, str]] = []
+        self._off_topic = 0
         self._follow_ups: dict[str, int] = {}
         self._pending_city: tuple[str, str] | None = None
 
     def record_consent(self, given: bool) -> None:
         self.consent = given
 
+    def off_topic(self) -> None:
+        self._off_topic += 1
+        self.events.append(("off_topic", ""))
+
+    def human_requested(self) -> None:
+        self.events.append(("human_requested", ""))
+
     def decide(self) -> Decision:
         flags = [f"{f.upper()}_NEEDS_REVIEW" for f in FIELD_ORDER if f in self.review_fields and f not in ELIGIBILITY]
         if self.consent is False:
             return Decision("DISQUALIFIED", ["NO_CONSENT"], [])
+        if self._off_topic >= MAX_OFF_TOPIC:
+            return Decision("ENDED_OFF_TOPIC", [], flags)
         reasons = []
         if self.values.get("license") is False:
             reasons.append("NO_LICENSE")
@@ -105,10 +122,12 @@ class Screening:
 
     def _settle(self, field: str, result: validators.Validation, raw: object) -> SubmitResult:
         if result.ok:
+            self._off_topic = 0
             self.values[field] = result.value
             self.review_fields.discard(field)
             self._follow_ups.pop(field, None)
             return SubmitResult("ok")
+        self._off_topic = 0
         asked = self._follow_ups.get(field, 0)
         if asked >= MAX_FOLLOW_UPS:
             self.values[field] = raw

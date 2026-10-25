@@ -169,3 +169,44 @@ def test_unclear_non_eligibility_field_still_qualifies_but_is_flagged(consented)
     decision = fill(consented, name="Juan").decide()
     assert decision.outcome == "QUALIFIED"
     assert decision.flags == ["NAME_NEEDS_REVIEW"]
+
+
+from datetime import datetime, timedelta
+
+from sazon.screening import is_stalled
+
+
+def test_two_off_topic_messages_in_a_row_end_the_chat(consented):
+    consented.off_topic()
+    assert consented.decide().outcome == "IN_PROGRESS"
+    consented.off_topic()
+    assert consented.decide().outcome == "ENDED_OFF_TOPIC"
+
+
+def test_a_valid_answer_between_off_topic_messages_resets_the_count(consented):
+    consented.off_topic()
+    consented.submit("name", "Juan Pérez", TODAY)
+    consented.off_topic()
+    assert consented.decide().outcome == "IN_PROGRESS"
+
+
+def test_human_request_is_logged_as_an_event_and_screening_continues(consented):
+    consented.human_requested()
+    assert ("human_requested", "") in consented.events
+    assert consented.decide().outcome == "IN_PROGRESS"
+
+
+def test_off_topic_messages_are_logged_as_events(consented):
+    consented.off_topic()
+    assert ("off_topic", "") in consented.events
+
+
+LAST = datetime(2026, 10, 25, 10, 0)
+
+
+def test_not_stalled_before_24_hours():
+    assert not is_stalled(LAST, LAST + timedelta(hours=23, minutes=59))
+
+
+def test_stalled_at_24_hours():
+    assert is_stalled(LAST, LAST + timedelta(hours=24))
