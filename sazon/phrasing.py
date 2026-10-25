@@ -39,9 +39,11 @@ class Directive:
 
 _CONSENT = (
     "Hola, soy el asistente virtual (una IA) de Grupo Sazón. Te haré unas preguntas para tu solicitud "
-    "de repartidor. ¿Te parece bien que guarde tus respuestas para el equipo de reclutamiento?\n"
+    "de repartidor. Tus respuestas se procesan con un servicio de IA externo y siempre las revisa un "
+    "reclutador. ¿Te parece bien que guarde tus respuestas para el equipo de reclutamiento?\n"
     "Hi, I'm Grupo Sazón's virtual assistant (an AI). I'll ask a few questions for your delivery "
-    "driver application. Is it OK if I save your answers for the recruiting team?"
+    "driver application. Your answers are processed by an external AI service and always reviewed by a "
+    "recruiter. Is it OK if I save your answers for the recruiting team?"
 )
 
 _ASK = {
@@ -62,21 +64,29 @@ _CLOSE = {
         "¡Genial, tu perfil encaja! Un reclutador te escribirá en un máximo de 48 horas para el siguiente paso.",
         "Great, your profile fits! A recruiter will message you within 48 hours with the next step."),
     Outcome.ENDED_OFF_TOPIC: (
-        "Cierro la conversación porque los últimos mensajes no tenían relación con la solicitud. "
-        "Si quieres retomarla, escríbenos de nuevo.",
-        "I'm closing the chat because the last messages were unrelated to the application. "
-        "Write to us again if you want to pick it up."),
+        "Has enviado varios mensajes ajenos a la solicitud y en Grupo Sazón pedimos un trato profesional, "
+        "así que termino la conversación. Un reclutador puede revisarlo.",
+        "You have sent several messages unrelated to the application, and Grupo Sazón asks for a professional "
+        "tone, so I'm ending the conversation. A recruiter can review it."),
     Outcome.WITHDRAWN: (
-        "Entendido, paramos aquí y no te haré más preguntas. Gracias por tu tiempo.",
-        "Understood, we'll stop here and I won't ask anything more. Thanks for your time."),
+        "Entendido, paramos aquí. Si quieres retomar tu solicitud, escribe «continuar». Gracias por tu tiempo.",
+        "Understood, we'll stop here. If you want to pick your application back up, write «continue». "
+        "Thanks for your time."),
 }
 _CLOSE_REASON = {
-    Reason.NO_CONSENT: ("Sin tu permiso para guardar las respuestas no puedo continuar. Gracias, y puedes volver a aplicar cuando quieras.",
-                   "Without your permission to save your answers I can't continue. Thanks, and you can apply again anytime."),
-    Reason.NO_LICENSE: ("Para repartir necesitamos licencia de conducir, así que no podemos seguir por ahora. Gracias, y puedes volver a aplicar más adelante.",
-                   "We need a driver's license for delivery, so we can't continue for now. Thanks, and you can apply again later."),
-    Reason.OUT_OF_AREA: ("Por ahora no operamos en tu zona, así que no podemos seguir. Gracias, y puedes volver a aplicar más adelante.",
-                    "We don't operate in your area yet, so we can't continue. Thanks, and you can apply again later."),
+    Reason.NO_CONSENT: (
+        "Sin tu permiso para guardar las respuestas no puedo continuar. Si cambias de opinión, escribe «sí» y empezamos.",
+        "Without your permission to save your answers I can't continue. If you change your mind, write «yes» and we'll start."),
+    Reason.NO_LICENSE: (
+        "Para repartir necesitamos licencia de conducir, así que no puedo seguir con el proceso automático. "
+        "Un reclutador puede revisar tu caso si hay algún error. Gracias por tu interés.",
+        "We need a driver's license for delivery, so I can't continue with the automated process. "
+        "A recruiter can review your case if something is wrong. Thanks for your interest."),
+    Reason.OUT_OF_AREA: (
+        "Por ahora no operamos en tu zona, así que no puedo seguir con el proceso automático. "
+        "Un reclutador puede revisar tu caso si hay algún error. Gracias por tu interés.",
+        "We don't operate in your area yet, so I can't continue with the automated process. "
+        "A recruiter can review your case if something is wrong. Thanks for your interest."),
 }
 
 _CONFIRM_REJECTION = {
@@ -197,12 +207,14 @@ _CLOSE_REPEAT = {
     Outcome.QUALIFIED: ("Ya tenemos todo lo que necesitamos: un reclutador te escribirá en un máximo de 48 horas.",
                         "We already have everything we need: a recruiter will message you within 48 hours."),
 }
-_CLOSE_REPEAT_OTHER = ("Esta conversación ya está cerrada. Puedes volver a aplicar más adelante.",
-                       "This conversation is already closed. You can apply again later.")
+_CLOSE_REPEAT_OTHER = ("Esta conversación ya está cerrada. Un reclutador revisará tu caso.",
+                       "This conversation is closed. A recruiter will review your case.")
 _NOTICE = {
     "human": ("Soy un asistente virtual: un reclutador revisará tu solicitud y podrá hablar contigo después.",
               "I'm a virtual assistant: a recruiter will review your application and can talk to you afterwards."),
     "pay": ("Sobre el sueldo, te informará un reclutador.", "A recruiter will tell you about the pay."),
+    "offtopic": ("Eso no forma parte de mi función; sigamos con tu solicitud.",
+                 "That's not part of my role; let's continue with your application."),
 }
 _GREETING = re.compile(r"^[¡\s]*(?:hola|hey|hi|hello|buenas)(?:\s+there)?\s*[!,.]*\s*", re.IGNORECASE)
 _WELCOME = re.compile(r"^[¡\s]*(?:bienvenid[oa]s?|welcome)\b[^.!?¿]*[.!]\s*", re.IGNORECASE)

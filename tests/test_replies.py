@@ -54,6 +54,7 @@ def test_real_off_topic_messages_still_count_and_still_end_the_chat():
     s.record_consent(True)
     s.apply(Extraction(off_topic=True), "¿cuál es la capital de Francia?", TODAY)
     s.apply(Extraction(off_topic=True), "cuéntame un chiste", TODAY)
+    s.apply(Extraction(off_topic=True), "¿qué opinas del fútbol?", TODAY)
     assert s.decide().outcome == "ENDED_OFF_TOPIC"
 
 
@@ -182,7 +183,7 @@ def reject(store):
 def test_a_message_after_a_rejection_gets_a_short_note_not_the_same_close(store):
     first = reject(store)
     again = talk(store, "gracias")
-    assert "no podemos seguir" in first
+    assert "no puedo seguir con el proceso automático" in first
     assert again != first and "ya está cerrada" in again and len(again) < len(first)
 
 
@@ -203,10 +204,3 @@ def test_a_third_message_gets_the_same_short_note_again(store):
     reject(store)
     second, third = talk(store, "gracias"), talk(store, "hola")
     assert second == third
-
-
-def test_the_off_topic_close_says_why_the_chat_ended():
-    out = phrase(FakeLLM(), Directive(Kind.CLOSE, outcome="ENDED_OFF_TOPIC"), "es")
-    assert "no tenían relación" in out and "escríbenos" in out
-    en = phrase(FakeLLM(), Directive(Kind.CLOSE, outcome="ENDED_OFF_TOPIC"), "en")
-    assert "unrelated" in en

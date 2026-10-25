@@ -111,7 +111,7 @@ def test_clarifications_asked_are_counted():
 
 @pytest.mark.parametrize("prepare,label", [
     (lambda s: s.withdraw(), "Se retiró"),
-    (lambda s: (s.off_topic(), s.off_topic()), "Terminó fuera de tema"),
+    (lambda s: (s.off_topic(), s.off_topic(), s.off_topic()), "Terminó fuera de tema"),
     (lambda s: (s.send_reminder(), s.mark_stalled()), "Sin respuesta"),
 ])
 def test_other_outcomes_have_spanish_labels(prepare, label):

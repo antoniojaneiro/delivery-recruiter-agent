@@ -146,18 +146,21 @@ from datetime import datetime, timedelta
 
 
 
-def test_two_off_topic_messages_in_a_row_end_the_chat(consented):
+def test_three_off_topic_messages_end_the_chat(consented):
+    consented.off_topic()
     consented.off_topic()
     assert consented.decide().outcome == "IN_PROGRESS"
     consented.off_topic()
     assert consented.decide().outcome == "ENDED_OFF_TOPIC"
 
 
-def test_a_valid_answer_between_off_topic_messages_resets_the_count(consented):
+def test_a_valid_answer_between_off_topic_messages_does_not_reset_the_count(consented):
     consented.off_topic()
     consented.submit("name", "Juan Pérez", TODAY)
     consented.off_topic()
-    assert consented.decide().outcome == "IN_PROGRESS"
+    consented.submit("name", "Juan Pérez", TODAY)
+    consented.off_topic()
+    assert consented.decide().outcome == "ENDED_OFF_TOPIC"
 
 
 def test_human_request_is_logged_as_an_event_and_screening_continues(consented):
@@ -208,6 +211,7 @@ def test_half_finished_screening_survives_a_save_and_reload(consented):
     consented.submit("name", "Juan", TODAY)
     consented.submit("name", "Juan", TODAY)
     consented.submit("city", "Guadalajra", TODAY)
+    consented.off_topic()
     consented.off_topic()
     consented.human_requested()
     state = json.loads(json.dumps(consented.to_state()))
@@ -320,8 +324,8 @@ def test_nothing_more_is_asked_once_a_disqualifier_is_known(consented):
 
 
 def test_nothing_more_is_asked_after_the_chat_ended_off_topic(consented):
-    consented.off_topic()
-    consented.off_topic()
+    for _ in range(3):
+        consented.off_topic()
     assert consented.next_field() is None
 
 

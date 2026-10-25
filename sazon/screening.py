@@ -11,7 +11,7 @@ from sazon.phrasing import Directive, Kind, consent_text_hash
 FIELD_ORDER = (Field.NAME, Field.EXPERIENCE, Field.AVAILABILITY, Field.SCHEDULE, Field.START_DATE,
                Field.CITY, Field.LICENSE)
 MAX_FOLLOW_UPS = 5
-MAX_OFF_TOPIC = 2
+MAX_OFF_TOPIC = 3  # in total, not in a row (D55)
 
 
 LIVE = (Outcome.IN_PROGRESS, Outcome.BLOCKED)  # the chat is still open
@@ -185,15 +185,17 @@ class Screening:
 
     def apply(self, ex: Extraction, message: str, today: date) -> Directive:
         """Takes in what the candidate said and returns what to say next."""
-        if ex.off_topic and is_hesitation(message):
-            ex = ex.model_copy(update={"off_topic": False})  # "mmm" or "no sé" did not answer; it is not off-topic
+        if ex.off_topic and (is_hesitation(message) or ex.wants_human or ex.asks_pay):
+            # "mmm" did not answer, and a request for a person or a question about pay is never a strike
+            ex = ex.model_copy(update={"off_topic": False})
+        strikes = self._off_topic
         directive = self._next_directive(ex, message, today)
-        notice = self._notice(ex)
+        notice = self._notice(ex, struck=self._off_topic > strikes)
         if notice and directive.kind != Kind.CLOSE:
             directive = replace(directive, notice=notice)
         return directive
 
-    def _notice(self, ex: Extraction) -> str | None:
+    def _notice(self, ex: Extraction, struck: bool = False) -> str | None:
         """A request for a person or a question about pay gets a fixed answer before the next question."""
         names = []
         if ex.wants_human:
@@ -201,6 +203,8 @@ class Screening:
         if ex.asks_pay:
             self.events.append((EventType.PAY_QUESTION, ""))
             names.append("pay")
+        if struck:
+            names.append("offtopic")
         return "+".join(names) or None
 
     def _next_directive(self, ex: Extraction, message: str, today: date) -> Directive:
@@ -463,7 +467,6 @@ class Screening:
                 self.validation_flags[field] = list(result.flags)
             if field == Field.CITY:
                 self.out_of_area = False
-            self._off_topic = 0
             self.values[field] = result.value
             if self.blocked_on == field:
                 self.blocked_on = None
@@ -472,7 +475,6 @@ class Screening:
             self._partial.pop(field, None)
             self.events.append((EventType.FIELD_ACCEPTED, str(field)))
             return SubmitResult(Status.OK)
-        self._off_topic = 0
         asked = self._follow_ups.get(field, 0)
         if self.blocked_on == field:
             return SubmitResult(Status.BLOCKED, result.reason)
