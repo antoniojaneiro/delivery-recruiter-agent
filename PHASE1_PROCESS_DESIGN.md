@@ -1,6 +1,6 @@
 # Phase 1: Process Design — Driver Screening Agent (Grupo Sazón)
 
-Status: draft for review. Every decision traces to [DECISIONS.md](DECISIONS.md) (D1–D21). Items marked **Proposed default** are engineering choices to confirm with the client.
+Status: draft for review. Every decision traces to [DECISIONS.md](DECISIONS.md) (D1–D28). Items marked **Proposed default** are engineering choices to confirm with the client.
 
 ## 1. Purpose
 
@@ -25,19 +25,19 @@ Phase 2 starts in the terminal and moves to a real messaging channel later (D1).
 | **3. Availability** | Full-time, part-time, weekends (one or more). | Valid → 4. |
 | **4. Preferred schedule** | Morning, afternoon, evening, flexible. | Valid → 5. |
 | **5. Start date** | When they can start. | Valid → 6. |
-| **6. City / zone** | Checked against service areas at the decision step (D6). | Always → 7. |
-| **7. Driver's license** | Yes or No (checked at the decision step). | Always → 8. |
+| **6. City / zone** | Checked against the service areas as soon as it is answered (D27). | In area → 7. Outside → disqualified, chat ends. |
+| **7. Driver's license** | Yes or No, checked as soon as it is answered (D27). | Yes → 8. No → disqualified, chat ends. |
 | **8. Decision** | See section 5. | Qualified, disqualified, or stalled. |
 
-Order is friendly (D6): name and experience first, eligibility checks at the end. Hybrid collection (D5): if a message already answers later fields, the agent records them and skips the question.
+Order is friendly (D6): name and experience first, eligibility questions last. A disqualifier that is already known ends the chat politely, even if fields are missing (D27). Hybrid collection (D5): if a message already answers later fields, the agent records them and skips the question.
 
 ## 4. Data fields and validation
 
 | Field | Accepted input | Validation | If invalid |
 | --- | --- | --- | --- |
-| Full name | Any text | At least two words, letters only (accents allowed). **Proposed default.** | Ask for first and last name. |
-| Driver's license | Sí / No | No → disqualify (`NO_LICENSE`). "Unsure" → ask once. | Ask again; after 3 tries, flag. |
-| City / zone | Any text | Fuzzy match to the service-area list (D13); if unsure, confirm: "¿Te refieres a Guadalajara?" | Not in list → disqualify (`OUT_OF_AREA`). Unclear → ask again. |
+| Full name | Any text | At least two words of letters, spaces, hyphens or apostrophes (accents allowed), e.g. García-López, O'Brien. | Ask for first and last name. |
+| Driver's license | Sí / No | No → disqualify (`NO_LICENSE`). "Unsure" → ask again. | Ask again with a specific explanation, no cap, until clear (D28). |
+| City / zone | Any text | Fuzzy match to the service-area list (D13); if unsure, confirm: "¿Te refieres a Guadalajara?" | Not in list → disqualify (`OUT_OF_AREA`). Unclear → ask again, no cap (D28). |
 | Availability | Full-time, part-time, weekends | One or more of the three. | Ask which fits. |
 | Preferred schedule | Morning, afternoon, evening, flexible | One of four. | Ask which fits. |
 | Experience | Years (number, "ninguna") + platform (Glovo, Uber Eats, other) | Years is a number ≥ 0. Platform is free text, normalised to a known list or "other". | Ask once more (D16, cap 3). Never disqualifies. |
@@ -52,7 +52,7 @@ Order is friendly (D6): name and experience first, eligibility checks at the end
 | **Qualified** | License yes, city in area, all fields collected. | Thanks, then offer the next free call slots from the recruiter's list (D7, D8). If they pick one, confirm it. If none fits, say a recruiter will reply within 48 hours. | Summary card, slot booked or "no slot chosen". |
 | **Disqualified** | `NO_LICENSE`, `OUT_OF_AREA`, or `NO_CONSENT`. | Polite close: thanks, the reason in one sentence, and that they can apply again later (D9). | Reason code only. |
 | **Stalled** | No reply for 24 hours after the last agent message. One reminder is sent first (D10). | Reminder: short, one line, offer to continue. | Status `STALLED`, last stage reached. |
-| **Needs review** | A field hit the follow-up cap. The rest of the flow continues. | Normal path. | The raw answer, flagged. |
+| **Needs review** | A field other than license or city hit the 3-follow-up cap. The rest of the flow continues. | Normal path. | The raw answer, flagged. |
 
 ## 6. Edge cases
 

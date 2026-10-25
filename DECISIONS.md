@@ -217,12 +217,12 @@ Log of design and tech decisions for the Grupo Sazón screening agent. Each entr
 - **Presentation format** (the brief says "present your work"): not decided. Does not change what gets built.
 - **Field details** (name rules, start-date parsing, a driver's license answer of "unsure"): to decide during the build, with proposed defaults written into the Phase 1 doc.
 
-## Proposed defaults (not yet confirmed)
+## Proposed defaults (P1 and P2 confirmed in D26)
 
 Written into [PHASE1_PROCESS_DESIGN.md](PHASE1_PROCESS_DESIGN.md) as engineering defaults. Confirm or change each one.
 
-- **P1 Name rule:** at least two words, letters only.
-- **P2 Start date:** more than 12 weeks away is recorded but flagged.
+- **P1 Name rule:** at least two words of letters, spaces, hyphens and apostrophes (confirmed, changed in D26).
+- **P2 Start date:** more than 12 weeks away is recorded but flagged (confirmed in D26).
 - **P3 Off-topic messages:** two in a row end the chat with `ENDED_OFF_TOPIC`.
 - **P4 Retention:** disqualified data deleted after 6 months. Qualified and stalled data kept for the active hiring cycle. Needs legal review.
 - **P5 Files and photos:** not accepted in Phase 2. The agent asks for text.
@@ -270,7 +270,7 @@ Written into [PHASE1_PROCESS_DESIGN.md](PHASE1_PROCESS_DESIGN.md) as engineering
 
 - **Consent reply:** the agent always speaks first with the consent question, so nothing is collected before it. If the consent reply also contains data, it is processed only after a yes. After a no, it is discarded.
 - **Unclear answers:** each follow-up must say what exactly is unclear and what a good answer looks like, so the conversation can move forward. The 3-follow-up cap (D17) still applies.
-- **Cap hit on license or city:** outcome is `NEEDS_REVIEW` with no slot offered, so a recruiter decides. **Assumption, not yet confirmed**: the user asked for clearer follow-ups but did not say what happens after the cap.
+- **Cap hit on license or city:** superseded by D28 (no cap on these two fields).
 - **P1 confirmed (changed):** name is 2+ words of letters, spaces, hyphens and apostrophes (accents allowed).
 - **P2 confirmed:** start date more than 12 weeks away is recorded and flagged, never rejected.
 - **Decided by:** user, 2026-10-25.
