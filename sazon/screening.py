@@ -5,6 +5,7 @@ from sazon import validators
 
 FIELD_ORDER = ("name", "experience", "availability", "schedule", "start_date", "city", "license")
 MAX_FOLLOW_UPS = 3
+ELIGIBILITY = {"license": "LICENSE_UNCLEAR", "city": "CITY_UNCLEAR"}
 
 
 class ConsentRequired(Exception):
@@ -16,6 +17,13 @@ class SubmitResult:
     status: str  # "ok", "follow_up", "confirm" or "review"
     reason: str = ""
     suggestion: str | None = None
+
+
+@dataclass(frozen=True)
+class Decision:
+    outcome: str  # IN_PROGRESS, QUALIFIED, DISQUALIFIED or NEEDS_REVIEW
+    reasons: list[str]
+    flags: list[str]
 
 
 class Screening:
@@ -30,6 +38,24 @@ class Screening:
 
     def record_consent(self, given: bool) -> None:
         self.consent = given
+
+    def decide(self) -> Decision:
+        flags = [f"{f.upper()}_NEEDS_REVIEW" for f in FIELD_ORDER if f in self.review_fields and f not in ELIGIBILITY]
+        if self.consent is False:
+            return Decision("DISQUALIFIED", ["NO_CONSENT"], [])
+        reasons = []
+        if self.values.get("license") is False:
+            reasons.append("NO_LICENSE")
+        if self.out_of_area:
+            reasons.append("OUT_OF_AREA")
+        if reasons:
+            return Decision("DISQUALIFIED", reasons, flags)
+        unclear = [code for f, code in ELIGIBILITY.items() if f in self.review_fields]
+        if unclear:
+            return Decision("NEEDS_REVIEW", unclear, flags)
+        if self.next_field() is not None:
+            return Decision("IN_PROGRESS", [], flags)
+        return Decision("QUALIFIED", [], flags)
 
     def next_field(self) -> str | None:
         if self.consent is None:

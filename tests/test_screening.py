@@ -104,3 +104,68 @@ def test_city_review_keeps_what_the_candidate_typed_not_our_suggestion(consented
         result = consented.confirm_city(False)
     assert result.status == "review"
     assert consented.values["city"] == "Guadalajra"
+
+
+def fill(s, **overrides):
+    answers = {
+        "name": "Juan Pérez",
+        "experience": (2, ["glovo"]),
+        "availability": ["full_time"],
+        "schedule": "morning",
+        "start_date": date(2026, 11, 1),
+        "city": "Madrid",
+        "license": True,
+    }
+    answers.update(overrides)
+    for field, value in answers.items():
+        for _ in range(4):
+            if s.submit(field, value, TODAY).status != "follow_up":
+                break
+    return s
+
+
+def test_decision_is_in_progress_while_fields_are_missing(consented):
+    assert consented.decide().outcome == "IN_PROGRESS"
+
+
+def test_all_fields_valid_with_license_and_area_is_qualified(consented):
+    decision = fill(consented).decide()
+    assert decision.outcome == "QUALIFIED" and decision.reasons == []
+
+
+def test_declined_consent_is_disqualified_with_no_consent(screening):
+    screening.record_consent(False)
+    decision = screening.decide()
+    assert decision.outcome == "DISQUALIFIED" and decision.reasons == ["NO_CONSENT"]
+
+
+def test_no_license_is_disqualified(consented):
+    decision = fill(consented, license=False).decide()
+    assert decision.outcome == "DISQUALIFIED" and decision.reasons == ["NO_LICENSE"]
+
+
+def test_out_of_area_is_disqualified_and_both_reasons_are_listed(consented):
+    decision = fill(consented, city="Sevilla", license=False).decide()
+    assert decision.outcome == "DISQUALIFIED"
+    assert decision.reasons == ["NO_LICENSE", "OUT_OF_AREA"]
+
+
+def test_disqualifier_known_early_decides_before_all_fields_are_filled(consented):
+    consented.submit("license", False, TODAY)
+    assert consented.decide().outcome == "DISQUALIFIED"
+
+
+def test_unclear_eligibility_field_after_cap_needs_review_not_qualified(consented):
+    decision = fill(consented, license=None).decide()
+    assert decision.outcome == "NEEDS_REVIEW" and decision.reasons == ["LICENSE_UNCLEAR"]
+
+
+def test_disqualifier_wins_over_unclear_eligibility(consented):
+    decision = fill(consented, city="Sevilla", license=None).decide()
+    assert decision.outcome == "DISQUALIFIED" and decision.reasons == ["OUT_OF_AREA"]
+
+
+def test_unclear_non_eligibility_field_still_qualifies_but_is_flagged(consented):
+    decision = fill(consented, name="Juan").decide()
+    assert decision.outcome == "QUALIFIED"
+    assert decision.flags == ["NAME_NEEDS_REVIEW"]
