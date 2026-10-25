@@ -74,7 +74,10 @@ _ADDED_COLUMNS = {
 }
 
 _CANDIDATE_COLUMNS = ("c.candidate_id, c.state, c.extracted, c.summary, c.outcome, c.reasons, c.flags, "
-                      "c.updated_at, COALESCE(r.status, 'new'), r.assignee")
+                      "c.updated_at, COALESCE(r.status, 'new'), r.assignee, "
+                      "s.id, s.country, s.starts_at, s.recruiter")
+_CANDIDATE_JOINS = ("FROM candidates c LEFT JOIN recruiter r ON r.candidate_id = c.candidate_id "
+                    "LEFT JOIN slots s ON s.candidate_id = c.candidate_id AND s.cancelled_at IS NULL")
 
 
 @dataclass(frozen=True)
@@ -96,6 +99,7 @@ class Record:
     flags: list
     status: RecruiterStatus
     assignee: str | None
+    booking: "Booking | None" = None
 
 
 @dataclass(frozen=True)
@@ -310,8 +314,8 @@ class Store:
     def get(self, candidate_id: str) -> Record | None:
         with self._connect() as db:
             row = db.execute(
-                f"SELECT {_CANDIDATE_COLUMNS} FROM candidates c LEFT JOIN recruiter r "
-                "ON r.candidate_id = c.candidate_id WHERE c.candidate_id = ?", (candidate_id,)).fetchone()
+                f"SELECT {_CANDIDATE_COLUMNS} {_CANDIDATE_JOINS} WHERE c.candidate_id = ?",
+                (candidate_id,)).fetchone()
         return _record(row) if row else None
 
     def list_candidates(self, outcome: str | None = None,
@@ -319,8 +323,7 @@ class Store:
         status_value = RecruiterStatus(status).value if status else None
         with self._connect() as db:
             rows = db.execute(
-                f"SELECT {_CANDIDATE_COLUMNS} FROM candidates c LEFT JOIN recruiter r "
-                "ON r.candidate_id = c.candidate_id "
+                f"SELECT {_CANDIDATE_COLUMNS} {_CANDIDATE_JOINS} "
                 "WHERE (? IS NULL OR c.outcome = ?) AND (? IS NULL OR COALESCE(r.status, 'new') = ?) "
                 "ORDER BY c.updated_at DESC", (outcome, outcome, status_value, status_value)).fetchall()
         return [_record(r) for r in rows]
@@ -371,7 +374,9 @@ def _booking(row) -> Booking:
 
 
 def _record(row) -> Record:
-    candidate_id, state, extracted, summary, outcome, reasons, flags, updated_at, status, assignee = row
+    (candidate_id, state, extracted, summary, outcome, reasons, flags, updated_at, status, assignee,
+     slot_id, country, starts_at, slot_recruiter) = row
+    booking = Booking(slot_id, country, datetime.fromisoformat(starts_at), slot_recruiter) if slot_id else None
     return Record(candidate_id, json.loads(state), json.loads(extracted), summary, outcome,
                   datetime.fromisoformat(updated_at), json.loads(reasons), json.loads(flags),
-                  RecruiterStatus(status), assignee)
+                  RecruiterStatus(status), assignee, booking)

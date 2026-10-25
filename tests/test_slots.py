@@ -146,3 +146,14 @@ def test_the_slot_list_hides_past_and_cancelled_slots_unless_asked(store):
     assert [s.id for s in store.slots(LATER)] == []
     assert {s.id for s in store.slots(LATER, include_past=True)} == {old}
     assert {s.id for s in store.slots(NOW, include_cancelled=True)} == {old, cancelled}
+
+
+def test_a_candidates_record_carries_their_live_booking(store):
+    store.commit_turn("c1", NOW, {}, {}, "QUALIFIED", [], [])
+    slot_id = add(store)
+    assert store.get("c1").booking is None
+    store.book_slot(slot_id, "c1", NOW)
+    assert store.get("c1").booking.slot_id == slot_id
+    assert [r.booking.slot_id for r in store.list_candidates()] == [slot_id]
+    store.cancel_slot(slot_id, "Ana", NOW)
+    assert store.get("c1").booking is None

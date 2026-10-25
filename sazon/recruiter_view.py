@@ -2,7 +2,9 @@
 import re
 
 from sazon.model import Outcome, RecruiterStatus
-from sazon.store import Record
+from sazon.phrasing import slot_label
+from sazon.model import Language
+from sazon.store import Booking, Record
 from sazon.summary import OUTCOME_LABEL
 from sazon.validators import fold
 
@@ -15,6 +17,14 @@ STATUS_LABEL = {
     RecruiterStatus.UNREACHABLE: "No localizable",
 }
 NO_NAME = "(sin nombre)"
+COUNTRY_LABEL = {"ES": "España", "MX": "México"}
+
+
+def call_label(booking: Booking | None) -> str:
+    """The booked call in the recruiter's language, with the country whose clock it is."""
+    if booking is None:
+        return ""
+    return f"{slot_label(booking.starts_at, Language.ES)} ({COUNTRY_LABEL.get(booking.country, booking.country)})"
 
 
 def name_of(record: Record) -> str:
@@ -29,6 +39,7 @@ def table_rows(records: list[Record]) -> list[dict]:
         "Agente": OUTCOME_LABEL.get(r.outcome, r.outcome or ""),
         "Reclutador": STATUS_LABEL[r.status],
         "Asignado a": r.assignee or "",
+        "Llamada": call_label(r.booking),
         "Actualizado": r.updated_at.strftime("%Y-%m-%d %H:%M"),
     } for r in records]
 
@@ -57,7 +68,8 @@ def filter_records(records: list[Record], outcomes: list[str], statuses: list[st
 def kpis(records: list[Record]) -> dict[str, int]:
     return {
         "total": len(records),
-        "to_contact": sum(1 for r in records if r.outcome == Outcome.QUALIFIED and r.status == RecruiterStatus.NEW),
+        "to_contact": sum(1 for r in records if r.outcome == Outcome.QUALIFIED and r.status == RecruiterStatus.NEW
+                         and r.booking is None),
         "blocked": sum(1 for r in records if r.outcome == Outcome.BLOCKED),
         "stalled": sum(1 for r in records if r.outcome == Outcome.STALLED),
     }

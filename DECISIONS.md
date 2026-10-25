@@ -433,3 +433,16 @@ Written into [PHASE1_PROCESS_DESIGN.md](PHASE1_PROCESS_DESIGN.md) as engineering
 - **Options considered:** add funnel analytics to the first version (stronger demo, more before the core is verified); build slots before the dashboard (earlier booking flow, but the slot list would have to be edited in a file).
 - **Cons of chosen:** no access control. Anyone who can run the app sees every candidate, so it must not be exposed beyond a trusted machine until real authentication is added.
 - **Decided by:** user, 2026-10-25.
+
+## D48: Call slots (completes D7, D8 and D36)
+
+- **Chosen:**
+  - **Per country.** Recruiters add slots on the dashboard's "Horarios" page with a country (Spain or Mexico), a day and a time. The time is the clock time of that country (Madrid or Mexico City). A candidate is only offered slots of their own city's country, so they see exactly the time the recruiter typed. The only conversion is the check that a slot is at least 2 hours away. Past times, too-soon times and times that do not exist when the clocks change are refused.
+  - **Offer.** When a candidate qualifies, the agent offers the next three free slots as a numbered list, with the fallback inside the same message ("reply 'ninguna' and a recruiter will message you within 48 hours"). Without free slots the candidate just gets the 48-hour message.
+  - **Pick.** The reply is read in plain code (`slot_choice.py`): "1", "la 2", "el primero", "ninguna". A pick needs one valid option number and nothing unrecognised ("2 horas" is unclear), because it books a real call. An unclear reply shows the same list again. A slot taken in the meantime gets a fresh list. "None" or no free slot gives the 48-hour message. The reply is never sent to the model.
+  - **One booking per candidate.** The slots table is the only record of a booking, with a database rule of one live booking per candidate. Booking is atomic and idempotent, so a failed turn can be retried without double-booking. The screening only remembers which slots are on offer.
+  - **Fixed texts.** The offer and confirmation messages are fixed Spanish and English templates, with weekday and month names written in code, never the machine's locale (D37).
+  - **Recruiter side.** A booked call shows live on the candidate page and the table, and booked candidates leave the "Cualificados por contactar" number. The summary card does not hold the booking, because a recruiter can cancel it later and the stored card would go stale. Cancelling a booked slot logs an event on the candidate, returns them to "por contactar" and tells the recruiter to warn the candidate, since the terminal chat cannot message them.
+- **Options considered:** one global time zone (Mexican candidates would see times 7-8 hours off); free-text picks read by the model (more natural, but a misread books the wrong time for a real person); offering new slots again after "none" (can loop and run out of slots).
+- **Cons of chosen:** a candidate cannot reschedule through the agent; a recruiter has to. There is no calendar sync (D8).
+- **Decided by:** user, 2026-10-25.

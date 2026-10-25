@@ -1,6 +1,6 @@
 # Phase 1: Process Design — Driver Screening Agent (Grupo Sazón)
 
-Status: draft for review. Every decision traces to [DECISIONS.md](DECISIONS.md) (D1–D44). Items marked **Proposed default** are engineering choices to confirm with the client.
+Status: draft for review. Every decision traces to [DECISIONS.md](DECISIONS.md) (D1–D48). Items marked **Proposed default** are engineering choices to confirm with the client.
 
 ## 1. Purpose
 
@@ -49,7 +49,7 @@ Order is friendly (D6): name and experience first, eligibility questions last. A
 
 | Outcome | When | What the candidate hears | What the recruiter gets |
 | --- | --- | --- | --- |
-| **Qualified** | License yes, city in area, all fields collected. | Thanks, and a recruiter will reply within 48 hours. The slot offer from the recruiter's list (D7, D8) comes with the dashboard (D36); the agent never invents call times. | Summary card with all fields and flags. |
+| **Qualified** | License yes, city in area, all fields collected. | Thanks, then the next three free call slots of the candidate's country as a numbered list (D7, D8, D48). A pick books it and the agent confirms the time. "None", or no free slot, gives "a recruiter will reply within 48 hours". The agent never invents call times. | Summary card with all fields and flags. |
 | **Disqualified** | `NO_LICENSE`, `OUT_OF_AREA`, or `NO_CONSENT`. | Polite close: thanks, the reason in one sentence, and that they can apply again later (D9). | Reason code only. |
 | **Stalled** | No reply for 24 hours: one reminder is sent, and after 24 more hours without a reply the candidate is marked `STALLED` (D10, D35). A new message resumes the chat. | Reminder: short, one line, offer to continue. | Status `STALLED`, last stage reached. |
 | **Withdrawn** | The candidate asks to stop at any time (D29). | Confirmation that the chat is closed, no more questions. | Status `WITHDRAWN`, last stage reached. |
@@ -79,7 +79,7 @@ Order is friendly (D6): name and experience first, eligibility questions last. A
   > "Hola, soy el asistente virtual (una IA) de Grupo Sazón. Te haré unas preguntas para tu solicitud de repartidor. ¿Te parece bien que guarde tus respuestas para el equipo de reclutamiento?"
   > "Hi, I'm Grupo Sazón's virtual assistant (an AI). I'll ask a few questions for your delivery driver application. Is it OK if I save your answers for the recruiting team?"
 - **Qualified close, example:**
-  > "¡Genial, tu perfil encaja! Un reclutador te escribirá en un máximo de 48 horas para el siguiente paso."
+  > "¡Genial, tu perfil encaja! Elige una hora para una llamada corta con el equipo:\n1) mar 3 nov, 10:00\n2) mié 4 nov, 09:30\n3) jue 5 nov, 16:00\nResponde con el número. Si ninguna te viene bien, responde 'ninguna' y un reclutador te escribirá en un máximo de 48 horas."
 
 ## 8. Compliance and data
 

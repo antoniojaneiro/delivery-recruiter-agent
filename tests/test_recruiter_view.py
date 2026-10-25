@@ -71,3 +71,18 @@ def test_filters_combine_outcome_status_and_search(store):
 def test_the_key_numbers_count_what_a_recruiter_must_act_on(store):
     numbers = kpis(store.list_candidates())
     assert numbers == {"total": 5, "to_contact": 1, "blocked": 1, "stalled": 1}
+
+
+def test_a_booked_call_shows_in_the_table_and_leaves_the_to_contact_number(store):
+    from sazon.recruiter_view import call_label
+    store.commit_turn("c1", T1, {}, {"name": "Juan Pérez"}, "QUALIFIED", [], [])
+    slot_id = store.add_slot("ES", datetime(2027, 6, 15, 10, 0), "Ana", "Ana", T1.astimezone())
+    before = kpis(store.list_candidates())["to_contact"]
+    store.book_slot(slot_id, "c1", T1.astimezone())
+    records = store.list_candidates()
+    row = next(r for r in table_rows(records) if r["Id"] == "c1")
+    assert row["Llamada"] == "mar 15 jun, 10:00 (España)"
+    assert kpis(records)["to_contact"] == before - 1
+    assert call_label(next(r for r in records if r.candidate_id == "c1").booking) == "mar 15 jun, 10:00 (España)"
+    assert call_label(None) == ""
+    assert next(r for r in table_rows(records) if r["Id"] == "c2")["Llamada"] == ""
