@@ -324,3 +324,21 @@ Written into [PHASE1_PROCESS_DESIGN.md](PHASE1_PROCESS_DESIGN.md) as engineering
 - **Chosen:** The model name is read from `LLM_MODEL` in `.env` with a default, because Gemini names drift (a 404 gives a clear message). The client uses the OpenAI SDK against Gemini's OpenAI-compatible endpoint with timeouts and bounded retries on 429/5xx.
 - **Data rule:** Gemini free-tier prompts may be used by Google to improve its products. Use only fictional candidates until a paid or EU-compliant tier is chosen. Add to D2's cons.
 - **Decided by:** user (D2, D23), 2026-10-25. The refinements are mine.
+
+## D34: Consent and AI-disclosure message is a fixed template (deviates from D30)
+
+- **Chosen:** The first message is fixed text, Spanish line then English line, with the AI disclosure and the consent question. It is never LLM-written. Later replies mirror the candidate's language (D11).
+- **Options considered:** Spanish only (shorter, but an English-only candidate may not understand the consent question); LLM-written (natural, but the disclosure is not guaranteed).
+- **Pros of chosen:** the legal disclosure (D12) is always present and reviewable by the client's legal team.
+- **Cons of chosen:** a longer first message.
+- **Decided by:** user, 2026-10-25.
+
+## D35: Stall and reminder model (refines D10)
+
+- **Chosen:** The first `/wait24h` sends the single reminder and logs a `reminder_sent` event. The second sets outcome `STALLED`, visible in the dashboard. Any new candidate message resumes the chat.
+- **Decided by:** user, 2026-10-25.
+
+## D36: Call slots deferred (refines D7, D8)
+
+- **Chosen:** The slot list and the booking offer are built in slice 3 with the dashboard. Until then, qualified candidates hear the Phase 1 fallback: a recruiter will reply within 48 hours. The LLM never invents times.
+- **Decided by:** user, 2026-10-25.
