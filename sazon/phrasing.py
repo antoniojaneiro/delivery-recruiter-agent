@@ -186,9 +186,11 @@ def _close(directive: Directive, language: str) -> str:
     return _pick(_CLOSE[directive.outcome], language)
 
 
-def _usable(text: str, directive: Directive) -> bool:
+def _usable(text: str, directive: Directive, language: Language) -> bool:
     if not text or len(text) > MAX_REPLY_CHARS or "\n" in text or _URL.search(text):
         return False
+    if language == Language.EN and ("¿" in text or "¡" in text):
+        return False  # the model answered in Spanish although the chat is in English
     if text.count("?") > 1:
         return False
     return not (directive.suggestion and directive.suggestion not in text)
@@ -216,4 +218,4 @@ def phrase(llm: LLM, directive: Directive, language: str) -> str:
         text = llm.complete(_SYSTEM, "\n".join(brief)).strip()
     except LLMError:
         return _template(directive, language)
-    return text if _usable(text, directive) else _template(directive, language)
+    return text if _usable(text, directive, language) else _template(directive, language)

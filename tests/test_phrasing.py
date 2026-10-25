@@ -94,3 +94,14 @@ def test_the_options_the_candidate_can_choose_from_are_never_dropped():
         llm = FakeLLM("ok?")
         phrase(llm, Directive(Kind.ASK, field=field), "es")
         assert es in llm.calls[0]["user"]
+
+
+@pytest.mark.parametrize("wrong", ["¿Cuál es tu disponibilidad?", "¡Hola! What is your availability?"])
+def test_an_english_chat_never_gets_a_reply_with_spanish_punctuation(wrong):
+    out = phrase(FakeLLM(wrong), Directive(Kind.ASK, field=Field.AVAILABILITY), "en")
+    assert out != wrong and "¿" not in out and "¡" not in out and "availability" in out.lower()
+
+
+def test_a_spanish_chat_keeps_its_spanish_punctuation():
+    out = phrase(FakeLLM("¡Hola! ¿Cuál es tu disponibilidad?"), Directive(Kind.ASK, field=Field.AVAILABILITY), "es")
+    assert out == "¡Hola! ¿Cuál es tu disponibilidad?"
