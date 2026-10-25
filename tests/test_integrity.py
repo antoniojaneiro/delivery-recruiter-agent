@@ -197,8 +197,7 @@ def test_one_broken_candidate_does_not_stop_the_job_for_the_others(store, monkey
 
     monkeypatch.setattr(reminders.session, "load", load)
     actions = reminders.run_once(store, config.AREAS, NOW + 24 * HOUR)
-    assert [(a.candidate_id, a.kind) for a in actions] == [("c2", "reminder"), ("c1", "error")] or \
-        [(a.candidate_id, a.kind) for a in actions if a.kind != "error"] == [("c2", "reminder")]
+    assert {(a.candidate_id, a.kind) for a in actions} == {("c1", "error"), ("c2", "reminder")}
     assert [e.candidate_id for e in store.outbox_pending()] == ["c2"]
 
 

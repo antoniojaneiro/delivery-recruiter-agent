@@ -6,8 +6,8 @@ Guidance for Claude Code in this repo. The assignment itself is in [TASK.md](TAS
 
 A candidate screening agent for Grupo Sazón (fictional): a restaurant chain hiring delivery drivers across Spain and Mexico. The deliverables are:
 
-1. **Phase 1:** a 1-2 page process design. Draft in [PHASE1_PROCESS_DESIGN.md](PHASE1_PROCESS_DESIGN.md). Its unconfirmed defaults are listed in [DECISIONS.md](DECISIONS.md). Phase 2 has not started.
-2. **Phase 2:** a Python conversational agent that screens candidates, plus a recruiter tool to track candidates.
+1. **Phase 1:** a 1-2 page process design. Draft in [PHASE1_PROCESS_DESIGN.md](PHASE1_PROCESS_DESIGN.md). Its decisions are logged in [DECISIONS.md](DECISIONS.md).
+2. **Phase 2:** a Python conversational agent that screens candidates, plus a recruiter tool to track candidates. Built and reviewed (D51-D61); open items are in D59 and D61.
 3. **Bonus:** a browser voice agent that runs the same flow.
 
 ## Workflow (always follow, in this order)

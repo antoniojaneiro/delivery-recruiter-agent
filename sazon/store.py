@@ -286,12 +286,12 @@ class Store:
             db.execute("UPDATE slots SET candidate_id = NULL, booked_at = NULL WHERE candidate_id = ?", (candidate_id,))
             if existed:
                 digest = hashlib.sha256(candidate_id.encode("utf-8")).hexdigest()[:12]
-                self._log(db, actor, "candidate_erased", f"id_sha256={digest} reason={reason}", now)
+                log_id = self._log(db, actor, "candidate_erased", f"id_sha256={digest} reason={reason}", now)
         if existed:
             complete = self._checkpoint()
             with self._connect() as db:
-                db.execute("UPDATE admin_log SET detail = detail || ? WHERE id = (SELECT MAX(id) FROM admin_log)",
-                           (f" checkpoint={'complete' if complete else 'incomplete'}",))
+                db.execute("UPDATE admin_log SET detail = detail || ? WHERE id = ?",
+                           (f" checkpoint={'complete' if complete else 'incomplete'}", log_id))
         else:
             self._checkpoint()
         return existed is not None
@@ -394,9 +394,9 @@ class Store:
         return [AdminEntry(datetime.fromisoformat(at), actor, action, detail) for at, actor, action, detail in rows]
 
     @staticmethod
-    def _log(db, actor: str, action: str, detail: str, now: datetime) -> None:
-        db.execute("INSERT INTO admin_log (at, actor, action, detail) VALUES (?, ?, ?, ?)",
-                   (now.isoformat(), actor, action, detail))
+    def _log(db, actor: str, action: str, detail: str, now: datetime) -> int:
+        return db.execute("INSERT INTO admin_log (at, actor, action, detail) VALUES (?, ?, ?, ?)",
+                          (now.isoformat(), actor, action, detail)).lastrowid
 
     # -- call slots (D48) ----------------------------------------------------
 
