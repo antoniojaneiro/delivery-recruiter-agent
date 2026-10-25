@@ -483,3 +483,49 @@ Four reviewers (security and compliance, conversation robustness, data and opera
 - The off-topic limit of two in a row (P3) is still an unconfirmed default.
 - The dashboard has no real login: the recruiter name is free text.
 - The free tier (about 5 requests per minute) cannot serve the client's volume.
+
+## D51: Consent names the external AI service
+
+- **Chosen:** The first message adds one sentence in both languages: the answers are processed by an external AI service and always reviewed by a recruiter. The consent record keeps a hash of the exact wording shown, so the change is traceable.
+- **Cons of chosen:** still a draft until the client's lawyers approve it (D12).
+- **Decided by:** user, 2026-10-25.
+
+## D52: Softer rejection and a review queue (refines D9, D27, D40)
+
+- **Chosen:** When the agent cannot continue (no license, outside the area) it says it cannot go on with the automated process and that a recruiter can review the case if something is wrong. Every candidate the agent rejected on those grounds appears in the dashboard as "Descartes por revisar" until a recruiter sets a status, so a human can overrule within the promised two days.
+- **Why:** "a recruiter makes every hiring decision" (CLAUDE.md) and the AI Act's human oversight.
+- **Decided by:** user, 2026-10-25.
+
+## D53: Erasure and retention
+
+- **Chosen:** A "Borrar datos" action in the dashboard (with a confirmation) removes a candidate's answers, transcript, notes, recruiter record and booking, and keeps an anonymous line saying who erased which (hashed) id and when. A command, `python -m sazon.retention`, lists (and with `--apply` erases) rejected, withdrawn and off-topic candidates older than six months (a default to confirm with legal, P4). The error log is not covered yet.
+- **Decided by:** user, 2026-10-25.
+
+## D54: A changed answer is confirmed with the candidate (replaces the silent overwrite)
+
+- **Chosen:** When a later message gives a different valid value for a field already accepted, the agent asks "Antes me dijiste X. ¿Lo cambio a Y?" and changes it only on a yes (read in plain code). A no keeps the old value. The same value is ignored. A change to the license or the city still goes through the confirmation before rejecting (D40).
+- **Options considered:** change only on an explicit correction (fewer questions, but depends on the model flagging corrections); always overwrite (an incidental mention can change a record).
+- **Cons of chosen:** one extra message for every real correction.
+- **Decided by:** user, 2026-10-25.
+
+## D55: Off-topic messages: redirect, three strikes in total, then leave (replaces P3 and D41's off-topic rule)
+
+- **Chosen:** A message that is not about the application gets a fixed sentence ("that is not part of my role, let's continue") and the agent goes on with the question. Hesitation ("mmm", "no sé") does not count. The third such message in the conversation (not in a row; a good answer does not reset it) ends it with a factual farewell about the messages, not about the person: "Has enviado varios mensajes ajenos a la solicitud y en Grupo Sazón pedimos un trato profesional, así que termino la conversación. Un reclutador puede revisarlo." This exit is final until a recruiter acts.
+- **Why the wording:** the user proposed telling the candidate they failed the professionalism values; a statement about the person's character is the kind of automated assessment the AI Act wants kept out of hiring tools, so the farewell talks about the messages. Legal should confirm.
+- **Decided by:** user, 2026-10-25 (wording confirmed with the user).
+
+## D56: Candidates can come back, and applications can be closed
+
+- **Chosen:** While applications are open, a candidate can write again and continue after silence, being blocked, withdrawing (the agent asks whether they want to continue) or declining consent (a later yes starts the process). It stays closed after the professionalism exit (D55), once all the information has been collected (qualified), and after a rejection by the agent. A recruiter handles the last three (D52). A dashboard switch, "Aceptando candidaturas", stops everyone, in-progress candidates too; the change is logged with the recruiter's name. While it is off, any message gets "applications are closed".
+- **Cons of chosen:** a rejected candidate cannot fix a misread by themselves; the review queue is the way back.
+- **Decided by:** user, 2026-10-25.
+
+## D57: Recruiter accounts
+
+- **Chosen:** One account per recruiter (name and password) for the dashboard. Passwords are stored only as salted hashes in a git-ignored local file, created with `python -m sazon.accounts add NAME`. The signed-in name is what every audit event records. This is a prototype measure; a real deployment should use the company's single sign-on.
+- **Decided by:** user, 2026-10-25.
+
+## D58: Bonuses
+
+- **Chosen:** Build funnel analytics (a dashboard page) and a real 24-hour reminder job (queued in an outbox, because the terminal has nowhere to deliver; it also covers qualified candidates who ignore the slot offer). The voice agent and CV upload are left for later if there is time; CV upload is not recommended (new personal data category, file parsing, more AI Act duties).
+- **Decided by:** user, 2026-10-25.
