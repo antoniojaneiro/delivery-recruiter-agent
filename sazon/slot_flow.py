@@ -28,6 +28,10 @@ def after_close(store: Store, screening: Screening, candidate_id: str, directive
 def handle_pick(store: Store, screening: Screening, candidate_id: str, message: str,
                 now: datetime) -> Directive:
     """The candidate's reply to the numbered list. Read in plain code; nothing is sent to the model."""
+    held = store.booking_of(candidate_id)
+    if held:  # a retry after a turn that booked but was never saved
+        screening.resolve_slots()
+        return Directive(Kind.ALREADY_BOOKED, label=slot_label(held.starts_at, screening.language))
     offered = screening.slot_offer
     choice = read_slot_choice(message, len(offered))
     if choice is NONE:

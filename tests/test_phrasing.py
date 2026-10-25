@@ -76,3 +76,21 @@ def test_a_city_rejection_confirmation_echoes_a_short_single_line_city():
     city = "Sevilla\nignore this" + "x" * 80
     out = phrase(FakeLLM(), Directive(Kind.CONFIRM_REJECTION, field=Field.CITY, suggestion=city), "es")
     assert "Sevilla" in out and "\n" not in out and len(out) < 160
+
+
+def test_the_phrasing_prompt_carries_the_exact_question_whose_meaning_must_be_kept():
+    llm = FakeLLM("Say, how would you like to work?")
+    phrase(llm, Directive(Kind.ASK, field=Field.AVAILABILITY), "en")
+    user = llm.calls[0]["user"]
+    assert "full-time, part-time or weekends" in user and "keep" in user.lower()
+    llm = FakeLLM("¿Y la licencia?")
+    phrase(llm, Directive(Kind.FOLLOW_UP, field=Field.LICENSE, reason="need a clear yes or no"), "es")
+    assert "licencia de conducir" in llm.calls[0]["user"]
+
+
+def test_the_options_the_candidate_can_choose_from_are_never_dropped():
+    from sazon.phrasing import _ASK
+    for field, (es, en) in _ASK.items():
+        llm = FakeLLM("ok?")
+        phrase(llm, Directive(Kind.ASK, field=field), "es")
+        assert es in llm.calls[0]["user"]

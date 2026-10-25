@@ -203,6 +203,9 @@ def phrase(llm: LLM, directive: Directive, language: str) -> str:
     brief = [f"Language: {_LANGUAGE[language]}", f"Purpose: {directive.kind.replace('_', ' ')}"]
     if directive.field:
         brief.append(f"Topic: {directive.field}")
+        if directive.field in _ASK:
+            brief.append("Question to ask (keep its meaning and every option it lists, in your own friendly words): "
+                         + _pick(_ASK[directive.field], language))
     if directive.reason:
         brief.append(f"What was unclear: {directive.reason}")
     if directive.kind == Kind.FOLLOW_UP:

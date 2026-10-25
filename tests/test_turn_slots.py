@@ -187,3 +187,13 @@ def test_a_rejected_candidate_never_gets_slots(store):
     say(store, "no tengo licencia", {"has_license": False})
     reply, _ = say(store, "sí, correcto", {"confirms_rejection": True})
     assert "1)" not in reply and "licencia" in reply
+
+
+def test_a_retry_after_a_failed_save_finds_the_existing_booking_whatever_the_candidate_says(store):
+    ids = add_slots(store)
+    qualify(store)
+    store.book_slot(ids[0], "c1", NOW_AWARE)  # the booking landed, but the turn that made it was never saved
+    reply, _ = say(store, "ninguna")
+    assert "ya está reservada" in reply and "mar 3 nov, 10:00" in reply
+    assert booked(store).slot_id == ids[0]
+    assert "ya está reservada" in say(store, "gracias")[0]

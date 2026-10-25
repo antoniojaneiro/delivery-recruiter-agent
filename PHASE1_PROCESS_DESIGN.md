@@ -79,7 +79,11 @@ Order is friendly (D6): name and experience first, eligibility questions last. A
   > "Hola, soy el asistente virtual (una IA) de Grupo Sazón. Te haré unas preguntas para tu solicitud de repartidor. ¿Te parece bien que guarde tus respuestas para el equipo de reclutamiento?"
   > "Hi, I'm Grupo Sazón's virtual assistant (an AI). I'll ask a few questions for your delivery driver application. Is it OK if I save your answers for the recruiting team?"
 - **Qualified close, example:**
-  > "¡Genial, tu perfil encaja! Elige una hora para una llamada corta con el equipo:\n1) mar 3 nov, 10:00\n2) mié 4 nov, 09:30\n3) jue 5 nov, 16:00\nResponde con el número. Si ninguna te viene bien, responde 'ninguna' y un reclutador te escribirá en un máximo de 48 horas."
+  > "¡Genial, tu perfil encaja! Elige una hora para una llamada corta con el equipo:  
+  > 1) mar 3 nov, 10:00  
+  > 2) mié 4 nov, 09:30  
+  > 3) jue 5 nov, 16:00  
+  > Responde con el número. Si ninguna te viene bien, responde 'ninguna' y un reclutador te escribirá en un máximo de 48 horas."
 
 ## 8. Compliance and data
 
