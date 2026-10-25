@@ -145,6 +145,7 @@ class Note:
 class Store:
     def __init__(self, path: Path | str):
         self._path = str(path)
+        Path(path).parent.mkdir(parents=True, exist_ok=True)
         with self._connect() as db:
             db.executescript(_SCHEMA)
             for table, columns in _ADDED_COLUMNS.items():

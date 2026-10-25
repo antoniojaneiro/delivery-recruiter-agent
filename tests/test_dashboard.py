@@ -100,7 +100,7 @@ def test_choosing_a_candidate_shows_the_summary_the_conversation_and_the_audit_l
     at = choose(run(), "c1")
     shown = texts(at)
     assert "Juan Pérez · Madrid · Cualificado" in shown and "Licencia: sí" in shown
-    chat = [(m.name, m.markdown[0].value) for m in at.chat_message]
+    chat = [(m.name, m.text[0].value) for m in at.chat_message]
     assert chat == [("assistant", "Hola, soy el asistente virtual"), ("user", "sí"), ("assistant", "¿Cómo te llamas?")]
     events = next(df.value for df in at.dataframe[1:] if "Tipo" in df.value.columns)
     assert list(events["Tipo"]) == ["consent_given", "field_accepted"]
@@ -162,3 +162,31 @@ def test_a_recruiter_may_overrule_the_agents_rejection(db):
     at.form_submit_button(key="save_status").click().run()
     assert db.recruiter("c3").status == RecruiterStatus.INTERVIEW_SCHEDULED
     assert db.get("c3").outcome == "DISQUALIFIED"
+
+
+EVIL = "![tracker](http://evil.example/pixel.png) [click here](http://evil.example/login) **bold** <b>x</b>"
+
+
+def test_candidate_text_is_shown_as_plain_text_never_as_markdown_or_html(db):
+    seed(db)
+    db.commit_turn("c1", T1, {}, {"name": "Juan Pérez"}, "QUALIFIED", [], [("candidate", EVIL)])
+    at = choose(run(), "c1")
+    shown = [m for m in at.chat_message if any(EVIL == t.value for t in m.text)]
+    assert shown, "the message must be a plain text element"
+    assert not any(EVIL in str(md.value) for md in at.markdown)
+
+
+def test_a_recruiters_note_and_name_are_shown_as_plain_text(db):
+    seed(db)
+    db.add_note("c1", EVIL, "**Ana**", T1)
+    at = choose(run(), "c1")
+    assert any(EVIL == t.value for t in at.text)
+    assert any(t.value.startswith("**Ana** · ") for t in at.text)
+    assert not any("evil.example" in str(md.value) or "Ana" in str(md.value) for md in at.markdown)
+
+
+def test_the_dashboard_only_listens_on_this_machine():
+    import tomllib
+    config = tomllib.loads((Path(__file__).resolve().parent.parent / ".streamlit" / "config.toml").read_text(encoding="utf-8"))
+    assert config["server"]["address"] == "localhost"
+    assert config["browser"]["gatherUsageStats"] is False

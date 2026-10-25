@@ -61,3 +61,24 @@ def test_a_clear_yes_followed_by_more_information_is_a_yes_and_the_rest_is_ignor
 ])
 def test_a_yes_with_a_condition_a_question_or_a_no_is_unclear(text):
     assert read_consent(text).answer is None
+
+
+from sazon.consent import is_stop_request
+
+
+@pytest.mark.parametrize("text", [
+    "para", "Para.", "stop", "STOP!", "basta", "me retiro", "me retiro, gracias", "me doy de baja", "cancelar",
+    "no quiero continuar", "ya no quiero continuar", "no quiero seguir", "ya no me interesa", "please stop",
+    "I want to stop", "I want to withdraw", "I quit", "unsubscribe", "cancel my application",
+])
+def test_clear_stop_requests_are_recognised_without_the_model(text):
+    assert is_stop_request(text) is True
+
+
+@pytest.mark.parametrize("text", [
+    "", "para ser sincero tengo 2 años de experiencia", "para trabajar de mañanas", "no quiero continuar sin saber el sueldo",
+    "no sé", "stop by tomorrow", "mi nombre es Pablo Stop Gil", "¿puedo parar un momento?", "cancelar la cita de ayer",
+    "sí", "Madrid", "I can start stopping by", "me retiro del trabajo anterior hace dos años",
+])
+def test_ordinary_messages_that_contain_stop_words_are_not_stop_requests(text):
+    assert is_stop_request(text) is False

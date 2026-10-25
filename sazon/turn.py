@@ -3,7 +3,7 @@ outside work: calling the model, loading and saving, and writing the reply."""
 from datetime import date, datetime
 
 from sazon import session, slot_flow
-from sazon.consent import read_consent
+from sazon.consent import is_stop_request, read_consent
 from sazon.extraction import Extraction, extract
 from sazon.llm import LLM, LLMError
 from sazon.phrasing import Directive, consent_message, phrase
@@ -55,6 +55,8 @@ def _directive_for(llm: LLM, screening: Screening, message: str, today: date,
         return screening.close_directive()
     if screening.needs_consent:
         return screening.apply_consent_reply(read_consent(message))
+    if is_stop_request(message):
+        return screening.apply_stop_request()
     try:
         extraction = _extract_with_one_retry(llm, screening.extraction_context(), message, today, last_question)
     except LLMError:

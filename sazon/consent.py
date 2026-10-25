@@ -93,3 +93,27 @@ def _leading_yes(text: str) -> bool:
         return False
     rest = _normalise(_LEADING_YES.sub("", folded, count=1)).split()
     return len(rest) <= MAX_TRAILING_WORDS and not set(rest) & _CONDITIONS
+
+
+_STOP_EXACT = {
+    "para", "stop", "basta", "cancelar", "cancela", "cancel", "unsubscribe", "stop please", "me retiro",
+    "cancel my application", "i quit",
+}
+_STOP_STARTS = (
+    "me retiro", "me doy de baja", "no quiero continuar", "ya no quiero continuar", "no quiero seguir", "ya no quiero seguir",
+    "ya no me interesa", "please stop", "i want to stop", "i want to withdraw", "cancel my application",
+)
+MAX_WORDS_AFTER_STOP = 3
+
+
+def is_stop_request(text: str) -> bool:
+    """A clear request to stop, read in plain code so that opting out never depends on the model."""
+    if "?" in text:
+        return False
+    norm = _normalise(text)
+    if norm in _STOP_EXACT:
+        return True
+    for start in _STOP_STARTS:
+        if norm == start or (norm.startswith(start + " ") and len(norm[len(start):].split()) <= MAX_WORDS_AFTER_STOP):
+            return True
+    return False

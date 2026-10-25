@@ -369,3 +369,18 @@ def test_an_unsupported_language_keeps_the_last_supported_one(store):
     reply, _ = say(store, "Joan Pere", {"language": "ca", "name": "Joan Pere"})
     assert "experience" in reply.lower()
     assert store.get("c1").state["language"] == "en"
+
+
+@pytest.mark.parametrize("message", ["para", "stop", "me retiro", "no quiero continuar", "ya no quiero seguir", "please stop"])
+def test_a_stop_request_after_consent_withdraws_without_asking_the_model(store, message):
+    consented(store)
+    reply, llm = say(store, message)
+    assert outcome(store) == "WITHDRAWN" and "no te haré más preguntas" in reply or "won't ask" in reply
+    assert not [c for c in llm.calls if c["json_mode"]]
+    assert "withdrawn" in [e.type for e in store.events("c1")]
+
+
+def test_a_sentence_that_merely_contains_a_stop_word_is_not_a_withdrawal(store):
+    consented(store)
+    say(store, "para ser sincero, me llamo Pablo Gil Sanz", {"name": "Pablo Gil Sanz"})
+    assert outcome(store) == "IN_PROGRESS" and store.get("c1").extracted["name"] == "Pablo Gil Sanz"

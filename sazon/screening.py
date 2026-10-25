@@ -163,6 +163,11 @@ class Screening:
             return self.close_directive()
         return Directive(Kind.ASK, field=self.next_field())
 
+    def apply_stop_request(self) -> Directive:
+        """The candidate asked to stop. Read in plain code, so opting out never depends on the model."""
+        self.withdraw()
+        return self.close_directive()
+
     def model_failed(self, kind: str) -> Directive:
         self.record_model_failure(kind)
         return Directive(Kind.TECHNICAL_ERROR)

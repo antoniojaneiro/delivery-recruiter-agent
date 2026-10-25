@@ -98,7 +98,7 @@ with right:
             st.rerun()
 
     for item in store.notes(selected_id):
-        st.markdown(f"**{item.author}** · {item.at:%Y-%m-%d %H:%M}")
+        st.text(f"{item.author} · {item.at:%Y-%m-%d %H:%M}")
         st.text(item.text)
 
 st.divider()
@@ -109,7 +109,7 @@ with conversation:
         st.caption("Sin mensajes.")
     for message in messages:
         with st.chat_message("assistant" if message.role == "agent" else "user"):
-            st.markdown(message.text)
+            st.text(message.text)  # candidate-written text is never rendered as Markdown or HTML
 with audit:
     st.dataframe(
         [{"Cuándo": e.at.strftime("%Y-%m-%d %H:%M"), "Tipo": e.type, "Detalle": e.detail, "Actor": e.actor}

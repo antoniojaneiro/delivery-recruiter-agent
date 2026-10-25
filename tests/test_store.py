@@ -73,3 +73,9 @@ def test_the_summary_is_saved_with_the_turn_and_kept_when_a_later_turn_has_none(
     assert store.get("c1").summary == "Cualificado en Madrid."
     store.commit_turn("c1", T2, {}, {}, "QUALIFIED", [], [], summary="Actualizado.")
     assert store.get("c1").summary == "Actualizado."
+
+
+def test_the_store_creates_its_own_folder_so_a_clean_machine_can_start_with_the_dashboard(tmp_path):
+    path = tmp_path / "data" / "nested" / "sazon.db"
+    turn(Store(path))
+    assert path.exists() and Store(path).get("c1") is not None
