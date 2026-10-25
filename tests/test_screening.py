@@ -362,3 +362,46 @@ def test_nothing_more_is_asked_after_the_chat_ended_off_topic(consented):
 
 def test_nothing_more_is_asked_once_qualified(consented):
     assert fill(consented).next_field() is None
+
+
+def test_review_keeps_the_candidates_own_words_not_the_failed_extraction(consented):
+    for _ in range(4):
+        consented.submit("name", None, TODAY, raw="no sé cómo me llamo jaja")
+    assert consented.values["name"] == "no sé cómo me llamo jaja"
+
+
+def test_language_is_conversation_state_and_survives_reload(consented):
+    assert consented.language == "es"
+    consented.language = "en"
+    restored = Screening.from_state(AREAS, json.loads(json.dumps(consented.to_state())))
+    assert restored.language == "en"
+
+
+def test_reminder_is_sent_once_then_the_candidate_is_stalled_then_resumes(consented):
+    consented.send_reminder()
+    assert consented.reminder_sent and ("reminder_sent", "") in consented.events
+    assert consented.decide().outcome == "IN_PROGRESS"
+    consented.mark_stalled()
+    assert consented.decide().outcome == "STALLED" and consented.next_field() is None
+    consented.resume()
+    assert consented.decide().outcome == "IN_PROGRESS" and ("resumed", "") in consented.events
+    assert consented.next_field() == "name"
+
+
+def test_stalled_never_overrides_a_final_outcome(consented):
+    consented.submit("license", False, TODAY)
+    consented.mark_stalled()
+    assert consented.decide().outcome == "DISQUALIFIED"
+
+
+def test_stall_state_survives_reload(consented):
+    consented.send_reminder()
+    consented.mark_stalled()
+    restored = Screening.from_state(AREAS, json.loads(json.dumps(consented.to_state())))
+    assert restored.decide().outcome == "STALLED" and restored.reminder_sent
+
+
+def test_a_qualified_candidate_is_never_marked_stalled(consented):
+    fill(consented)
+    consented.mark_stalled()
+    assert consented.decide().outcome == "QUALIFIED"

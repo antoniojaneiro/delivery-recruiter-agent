@@ -18,6 +18,7 @@ class Outcome(StrEnum):
     DISQUALIFIED = "DISQUALIFIED"
     ENDED_OFF_TOPIC = "ENDED_OFF_TOPIC"
     WITHDRAWN = "WITHDRAWN"
+    STALLED = "STALLED"
 
 
 class Status(StrEnum):
@@ -31,6 +32,8 @@ class EventType(StrEnum):
     OFF_TOPIC = "off_topic"
     HUMAN_REQUESTED = "human_requested"
     WITHDRAWN = "withdrawn"
+    REMINDER_SENT = "reminder_sent"
+    RESUMED = "resumed"
 
 
 class CityMatchStatus(StrEnum):

@@ -37,6 +37,9 @@ class Screening:
         self.review_fields: set[str] = set()
         self.out_of_area = False
         self.withdrawn = False
+        self.stalled = False
+        self.reminder_sent = False
+        self.language = "es"
         self.events: list[tuple[str, str]] = []
         self.events_synced = 0
         self._off_topic = 0
@@ -63,6 +66,9 @@ class Screening:
             "review_fields": sorted(self.review_fields),
             "out_of_area": self.out_of_area,
             "withdrawn": self.withdrawn,
+            "stalled": self.stalled,
+            "reminder_sent": self.reminder_sent,
+            "language": self.language,
             "validation_flags": self.validation_flags,
             "events": [list(e) for e in self.events],
             "events_synced": self.events_synced,
@@ -81,6 +87,9 @@ class Screening:
             s.values["start_date"] = date.fromisoformat(s.values["start_date"])
         s.out_of_area = state["out_of_area"]
         s.withdrawn = state.get("withdrawn", False)
+        s.stalled = state.get("stalled", False)
+        s.reminder_sent = state.get("reminder_sent", False)
+        s.language = state.get("language", "es")
         s.validation_flags = {k: list(v) for k, v in state.get("validation_flags", {}).items()}
         s.events = [tuple(e) for e in state["events"]]
         s.events_synced = state.get("events_synced", 0)
@@ -98,6 +107,19 @@ class Screening:
 
     def mark_events_synced(self) -> None:
         self.events_synced = len(self.events)
+
+    def send_reminder(self) -> None:
+        self.reminder_sent = True
+        self.events.append((EventType.REMINDER_SENT, ""))
+
+    def mark_stalled(self) -> None:
+        if self.decide().outcome == Outcome.IN_PROGRESS:
+            self.stalled = True
+
+    def resume(self) -> None:
+        if self.stalled:
+            self.stalled = False
+            self.events.append((EventType.RESUMED, ""))
 
     def withdraw(self) -> None:
         self.withdrawn = True
@@ -122,6 +144,8 @@ class Screening:
             reasons.append("OUT_OF_AREA")
         if reasons:
             return Decision(Outcome.DISQUALIFIED, reasons, flags)
+        if self.stalled:
+            return Decision(Outcome.STALLED, [], flags)
         if self._missing_field() is not None:
             return Decision(Outcome.IN_PROGRESS, [], flags)
         return Decision(Outcome.QUALIFIED, [], flags)
@@ -136,12 +160,12 @@ class Screening:
             return Field.CONSENT
         return next((f for f in FIELD_ORDER if f not in self.values), None)
 
-    def submit(self, field: str, value: object, today: date) -> SubmitResult:
+    def submit(self, field: str, value: object, today: date, raw: object = None) -> SubmitResult:
         if not self.consent:
             raise ConsentRequired
         if field == Field.CITY:
             return self._submit_city(value)
-        return self._settle(field, self._validate(field, value, today), value)
+        return self._settle(field, self._validate(field, value, today), value if raw is None else raw)
 
     def confirm_city(self, yes: bool) -> SubmitResult:
         if self._pending_city is None:
