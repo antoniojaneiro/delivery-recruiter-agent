@@ -136,6 +136,7 @@ class Screening:
         return self._settle("city", validators.Validation(False, reason="city not confirmed"), raw)
 
     def _submit_city(self, raw: str) -> SubmitResult:
+        self._pending_city = None
         match = validators.match_city(raw, self.areas)
         if match.status == "confirm":
             self._pending_city = (match.city, raw)
@@ -163,9 +164,9 @@ class Screening:
         raise ValueError(f"unknown field: {field}")
 
     def _settle(self, field: str, result: validators.Validation, raw: object) -> SubmitResult:
-        if field == "city":
-            self.out_of_area = False
         if result.ok:
+            if field == "city":
+                self.out_of_area = False
             self._off_topic = 0
             self.values[field] = result.value
             self.review_fields.discard(field)

@@ -26,7 +26,7 @@ def validate_name(raw: str) -> Validation:
 
 
 def validate_license(value: bool | None) -> Validation:
-    if value is None:
+    if not isinstance(value, bool):
         return Validation(False, reason="need a clear yes or no")
     return Validation(True, value)
 

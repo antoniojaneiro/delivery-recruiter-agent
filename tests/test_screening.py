@@ -285,3 +285,18 @@ def test_withdrawal_survives_a_save_and_reload(consented):
     consented.withdraw()
     restored = Screening.from_state(AREAS, json.loads(json.dumps(consented.to_state())))
     assert restored.decide().outcome == "WITHDRAWN"
+
+
+def test_declined_confirmation_does_not_clear_an_earlier_out_of_area_city(consented):
+    consented.submit("city", "Sevilla", TODAY)
+    consented.submit("city", "Guadalajra", TODAY)
+    consented.confirm_city(False)
+    assert consented.decide().outcome == "DISQUALIFIED"
+    assert consented.decide().reasons == ["OUT_OF_AREA"]
+
+
+def test_stale_pending_city_cannot_overwrite_a_later_city(consented):
+    consented.submit("city", "Guadalajra", TODAY)
+    consented.submit("city", "Madrid", TODAY)
+    assert consented.confirm_city(True).status == "follow_up"
+    assert consented.values["city"] == "Madrid"

@@ -132,3 +132,8 @@ def test_start_date_beyond_12_weeks_is_recorded_and_flagged():
 @pytest.mark.parametrize("value", [None, date(2026, 10, 24)])
 def test_start_date_missing_or_past_is_invalid(value):
     assert not validate_start_date(value, TODAY).ok
+
+
+@pytest.mark.parametrize("value", [0, 1, "no", "yes"])
+def test_license_rejects_values_that_are_not_a_real_boolean(value):
+    assert not validate_license(value).ok
