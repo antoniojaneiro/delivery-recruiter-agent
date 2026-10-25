@@ -285,3 +285,14 @@ def test_text_sent_before_consent_is_not_stored(store):
     turn.start(store, AREAS, "c1", NOW)
     say(store, "me llamo Juan Pérez, mi teléfono es 600123123", {"off_topic": True})
     assert all("600123123" not in m.text for m in store.messages("c1"))
+
+
+def test_every_new_period_of_silence_gets_its_own_single_reminder(store):
+    consented(store)
+    llm = ScriptedLLM()
+    assert turn.wait_24h(llm, store, AREAS, "c1", NOW)
+    say(store, "perdona, estaba ocupado", {"name": "Juan Pérez"})
+    assert turn.wait_24h(llm, store, AREAS, "c1", NOW)
+    assert outcome(store) == "IN_PROGRESS"
+    assert turn.wait_24h(llm, store, AREAS, "c1", NOW) is None
+    assert outcome(store) == "STALLED"

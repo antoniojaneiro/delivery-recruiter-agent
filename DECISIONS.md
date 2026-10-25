@@ -342,3 +342,17 @@ Written into [PHASE1_PROCESS_DESIGN.md](PHASE1_PROCESS_DESIGN.md) as engineering
 
 - **Chosen:** The slot list and the booking offer are built in slice 3 with the dashboard. Until then, qualified candidates hear the Phase 1 fallback: a recruiter will reply within 48 hours. The LLM never invents times.
 - **Decided by:** user, 2026-10-25.
+
+## D37: Fixed texts for closes, reminder and errors (deviates from D30)
+
+- **Chosen:** The closes (qualified, disqualified, withdrawn, off-topic), the reminder and the technical-error message are fixed Spanish and English templates, with the AI-disclosure message (D34). Only questions, follow-ups and city confirmations are LLM-phrased, behind length, URL and one-question checks with template fallbacks.
+- **Options considered:** let the LLM phrase them too (more natural, but it could promise a job, pay or a call time).
+- **Pros of chosen:** the riskiest texts can be reviewed by the client's legal team and cannot be improvised.
+- **Cons of chosen:** less natural wording at the end of the chat.
+- **Decided by:** user, 2026-10-25.
+
+## D38: One reminder per period of silence (refines D35)
+
+- **Chosen:** Any candidate reply resets the reminder, so each period of silence gets one reminder before `STALLED`.
+- **Options considered:** one reminder per candidate in total (stricter on spam, lets a second silence stall with no nudge).
+- **Decided by:** user, 2026-10-25.

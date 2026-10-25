@@ -127,6 +127,7 @@ class Screening:
             self.stalled = True
 
     def resume(self) -> None:
+        self.reminder_sent = False
         if self.stalled:
             self.stalled = False
             self.events.append((EventType.RESUMED, ""))
