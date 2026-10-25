@@ -11,3 +11,5 @@ AREAS = {
 }
 
 DB_PATH = Path("data/sazon.db")
+
+LOG_PATH = Path("data/sazon.log")

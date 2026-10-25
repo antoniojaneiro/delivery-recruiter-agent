@@ -390,3 +390,11 @@ Written into [PHASE1_PROCESS_DESIGN.md](PHASE1_PROCESS_DESIGN.md) as engineering
 - **Pros of chosen:** overwrite conflicts cannot happen, and the agent's decision and the human's decision stay visibly distinct (human oversight).
 - **Cons of chosen:** a recruiter cannot correct an extracted value in place; they add a note.
 - **Decided by:** user, 2026-10-25.
+
+## D43: Unexpected errors in the terminal chat
+
+- **Chosen:** Any unexpected error, in a message or in `/new`, `/resume` or `/wait24h`, never ends the program. The candidate side shows the usual short apology, the full error (type and stack trace, never the candidate's messages) is appended to `data/sazon.log`, and the terminal prints an operator line such as `[error 3f2a1c: see data/sazon.log]`. If the opening of the chat fails, the program stays up and asks for `/new`. A database that cannot be opened at startup exits with a clear message. A log that cannot be written never makes things worse.
+- **Options considered:** log silently with no error line (cleaner demo, but easy to miss a problem); a `--debug` flag that crashes loudly (fast for developers, one more mode).
+- **Pros of chosen:** nothing is hidden, bugs are traceable in a demo or pilot, and candidates never see technical text.
+- **Cons of chosen:** a small log file to look after. The log should be covered by the retention rules (P4), since stack traces can in rare cases include fragments of data.
+- **Decided by:** user, 2026-10-25.
