@@ -46,6 +46,18 @@ def handle_message(llm: LLM, store, areas: dict[str, list[str]], candidate_id: s
                    now: datetime) -> str:
     if not store.accepting_applications():
         return closed_message()  # nothing is read, stored or sent to the model while applications are closed
+    if store.get(candidate_id) is None:  # never started, or erased: they see the disclosure before anything else
+        return start(store, areas, candidate_id, now)
+    for attempt in range(2):
+        try:
+            return _handle(llm, store, areas, candidate_id, message, now)
+        except ConflictError:
+            if store.get(candidate_id) is None:  # erased meanwhile: never bring the record back
+                break
+    return technical_error_message(session.load(store, candidate_id, areas).language)
+
+
+def _handle(llm: LLM, store, areas: dict[str, list[str]], candidate_id: str, message: str, now: datetime) -> str:
     screening = session.load(store, candidate_id, areas)
     screening.resume()
     history = store.messages(candidate_id)
@@ -61,13 +73,7 @@ def handle_message(llm: LLM, store, areas: dict[str, list[str]], candidate_id: s
         if last_question in (reply, short):  # already said once: not the same close word for word
             reply = short
     kept = message if screening.consent else NOT_STORED
-    try:
-        session.commit(store, candidate_id, screening, now,
-                       messages=[("candidate", kept), ("agent", reply)])
-    except ConflictError:
-        # The record changed (or was erased) while this turn ran: save nothing, and the next message starts
-        # from the current record.
-        return technical_error_message(screening.language)
+    session.commit(store, candidate_id, screening, now, messages=[("candidate", kept), ("agent", reply)])
     return reply
 
 

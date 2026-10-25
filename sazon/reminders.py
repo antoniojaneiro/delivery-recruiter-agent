@@ -27,7 +27,7 @@ WATCHED = (Outcome.IN_PROGRESS, Outcome.BLOCKED, Outcome.QUALIFIED)
 @dataclass(frozen=True)
 class Action:
     candidate_id: str
-    kind: str  # "reminder", "stalled" or "gave_up_offer"
+    kind: str  # "reminder", "stalled", "gave_up_offer" or "error"
 
 
 def _naive(moment: datetime) -> datetime:
@@ -44,24 +44,36 @@ def run_once(store: Store, areas: dict[str, list[str]], now: datetime) -> list[A
         last = activity.get(record.candidate_id)
         if record.outcome not in WATCHED or last is None or now - _naive(last) < REMIND_AFTER:
             continue
-        screening = session.load(store, record.candidate_id, areas)
-        if screening.needs_consent:
-            continue  # they have not agreed to anything yet, so they are not contacted again
-        if screening.awaiting_slot_choice:
-            kind, directive = slot_flow.on_idle(store, screening, now)
-        elif screening.is_open:
-            directive = screening.on_silence()
-            kind = "reminder" if directive else "stalled"
-        else:
-            continue
-        text = phrase(None, directive, screening.language) if directive else None  # fixed texts: no model needed
         try:
-            session.commit(store, record.candidate_id, screening, now,
-                           messages=[("agent", text)] if text else [], outbox=[text] if text else [])
-        except ConflictError:
-            continue  # the candidate wrote (or was erased) while we worked: leave them for the next pass
-        actions.append(Action(record.candidate_id, kind))
+            action = _remind(store, areas, record.candidate_id, now)
+        except Exception:  # noqa: BLE001  one damaged record must not stop the pass for everyone else
+            action = Action(record.candidate_id, "error")
+        if action:
+            actions.append(action)
     return actions
+
+
+def _remind(store: Store, areas: dict[str, list[str]], candidate_id: str, now: datetime) -> Action | None:
+    last = store.last_activity_of(candidate_id)  # fresh: they may have written since the pass started
+    if last is None or now - _naive(last) < REMIND_AFTER:
+        return None
+    screening = session.load(store, candidate_id, areas)
+    if screening.needs_consent:
+        return None  # they have not agreed to anything yet, so they are not contacted again
+    if screening.awaiting_slot_choice:
+        kind, directive = slot_flow.on_idle(store, screening, now)
+    elif screening.is_open:
+        directive = screening.on_silence()
+        kind = "reminder" if directive else "stalled"
+    else:
+        return None
+    text = phrase(None, directive, screening.language) if directive else None  # fixed texts: no model needed
+    try:
+        session.commit(store, candidate_id, screening, now,
+                       messages=[("agent", text)] if text else [], outbox=[text] if text else [])
+    except ConflictError:
+        return None  # the candidate wrote (or was erased) while we worked: leave them for the next pass
+    return Action(candidate_id, kind)
 
 
 def main(argv: list[str] | None = None) -> None:

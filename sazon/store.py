@@ -1,6 +1,7 @@
 import hashlib
 import json
 import sqlite3
+import time
 from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime
@@ -25,7 +26,7 @@ class ConflictError(Exception):
     """The candidate's record changed, or was erased, after this copy was loaded."""
 BUSY_TIMEOUT_SECONDS = 10
 
-_SCHEMA = """
+_TABLES = """
 CREATE TABLE IF NOT EXISTS candidates (
     candidate_id TEXT PRIMARY KEY,
     state TEXT NOT NULL DEFAULT '{}',
@@ -70,12 +71,6 @@ CREATE TABLE IF NOT EXISTS slots (
     cancelled_at TEXT,
     cancelled_by TEXT
 );
-CREATE UNIQUE INDEX IF NOT EXISTS one_booking_per_candidate
-    ON slots(candidate_id) WHERE candidate_id IS NOT NULL AND cancelled_at IS NULL;
-CREATE INDEX IF NOT EXISTS idx_candidates_outcome ON candidates(outcome);
-CREATE INDEX IF NOT EXISTS idx_events_candidate ON events(candidate_id, id);
-CREATE INDEX IF NOT EXISTS idx_messages_candidate ON messages(candidate_id, id);
-CREATE INDEX IF NOT EXISTS idx_slots_country_start ON slots(country, starts_at);
 CREATE TABLE IF NOT EXISTS outbox (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     candidate_id TEXT NOT NULL,
@@ -83,7 +78,6 @@ CREATE TABLE IF NOT EXISTS outbox (
     created_at TEXT NOT NULL,
     delivered_at TEXT
 );
-CREATE INDEX IF NOT EXISTS idx_outbox_pending ON outbox(delivered_at, candidate_id);
 CREATE TABLE IF NOT EXISTS settings (
     key TEXT PRIMARY KEY,
     value TEXT NOT NULL,
@@ -104,6 +98,16 @@ CREATE TABLE IF NOT EXISTS notes (
     text TEXT NOT NULL,
     at TEXT NOT NULL
 );
+"""
+
+_INDEXES = """
+CREATE UNIQUE INDEX IF NOT EXISTS one_booking_per_candidate
+    ON slots(candidate_id) WHERE candidate_id IS NOT NULL AND cancelled_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_candidates_outcome ON candidates(outcome);
+CREATE INDEX IF NOT EXISTS idx_events_candidate ON events(candidate_id, id);
+CREATE INDEX IF NOT EXISTS idx_messages_candidate ON messages(candidate_id, id);
+CREATE INDEX IF NOT EXISTS idx_slots_country_start ON slots(country, starts_at);
+CREATE INDEX IF NOT EXISTS idx_outbox_pending ON outbox(delivered_at, candidate_id);
 CREATE INDEX IF NOT EXISTS idx_notes_candidate ON notes(candidate_id, id);
 """
 
@@ -112,6 +116,8 @@ _ADDED_COLUMNS = {
     "candidates": {"reasons": "TEXT NOT NULL DEFAULT '[]'", "flags": "TEXT NOT NULL DEFAULT '[]'",
                    "outcome": "TEXT", "version": "INTEGER NOT NULL DEFAULT 0"},
     "events": {"actor": "TEXT NOT NULL DEFAULT 'agent'"},
+    "slots": {"recruiter": "TEXT", "candidate_id": "TEXT", "booked_at": "TEXT", "cancelled_at": "TEXT",
+              "cancelled_by": "TEXT"},
 }
 
 _CANDIDATE_COLUMNS = ("c.candidate_id, c.state, c.extracted, c.summary, c.outcome, c.reasons, c.flags, "
@@ -204,14 +210,28 @@ class Store:
     def __init__(self, path: Path | str):
         self._path = str(path)
         Path(path).parent.mkdir(parents=True, exist_ok=True)
+        for attempt in range(40):  # several processes may open a new or old file at the same moment
+            try:
+                self._prepare()
+                return
+            except sqlite3.OperationalError as error:
+                if "locked" not in str(error) or attempt == 39:
+                    raise
+                time.sleep(0.25)
+
+    def _prepare(self) -> None:
         with self._connect() as db:
             db.execute("PRAGMA journal_mode=WAL")  # readers (the dashboard) do not block the chat's writes
-            db.executescript(_SCHEMA)
-            for table, columns in _ADDED_COLUMNS.items():
+            db.executescript(_TABLES)
+            for table, columns in _ADDED_COLUMNS.items():  # before the indexes, which may use the new columns
                 existing = {row[1] for row in db.execute(f"PRAGMA table_info({table})")}
                 for name, definition in columns.items():
                     if name not in existing:
-                        db.execute(f"ALTER TABLE {table} ADD COLUMN {name} {definition}")
+                        try:
+                            db.execute(f"ALTER TABLE {table} ADD COLUMN {name} {definition}")
+                        except sqlite3.OperationalError:  # another process added it first
+                            pass
+            db.executescript(_INDEXES)
 
     @contextmanager
     def _connect(self):
@@ -232,6 +252,7 @@ class Store:
         """Saves one turn atomically. With `expected_version` (the version this copy was loaded at, or None for a
         candidate that did not exist) the save is refused with ConflictError if the record changed or vanished."""
         with self._connect() as db:
+            db.execute("BEGIN IMMEDIATE")  # the version is read while holding the write lock, so nobody slips in
             row = db.execute("SELECT version FROM candidates WHERE candidate_id = ?", (candidate_id,)).fetchone()
             if expected_version is not NO_CHECK:
                 if (expected_version is None and row is not None) or (
@@ -266,12 +287,23 @@ class Store:
             if existed:
                 digest = hashlib.sha256(candidate_id.encode("utf-8")).hexdigest()[:12]
                 self._log(db, actor, "candidate_erased", f"id_sha256={digest} reason={reason}", now)
+        if existed:
+            complete = self._checkpoint()
+            with self._connect() as db:
+                db.execute("UPDATE admin_log SET detail = detail || ? WHERE id = (SELECT MAX(id) FROM admin_log)",
+                           (f" checkpoint={'complete' if complete else 'incomplete'}",))
+        else:
+            self._checkpoint()
+        return existed is not None
+
+    def _checkpoint(self) -> bool:
+        """Empties the write-ahead log so erased bytes are not left in it. False if a reader kept it from finishing."""
         raw = sqlite3.connect(self._path, timeout=BUSY_TIMEOUT_SECONDS)
         try:
-            raw.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+            busy = raw.execute("PRAGMA wal_checkpoint(TRUNCATE)").fetchone()[0]
         finally:
             raw.close()
-        return existed is not None
+        return busy == 0
 
     # -- written by recruiters (never touched by chat turns) -----------------
 
@@ -333,6 +365,11 @@ class Store:
         with self._connect() as db:
             rows = db.execute("SELECT candidate_id, MAX(at) FROM messages GROUP BY candidate_id").fetchall()
         return {cid: datetime.fromisoformat(at) for cid, at in rows}
+
+    def last_activity_of(self, candidate_id: str) -> datetime | None:
+        with self._connect() as db:
+            row = db.execute("SELECT MAX(at) FROM messages WHERE candidate_id = ?", (candidate_id,)).fetchone()
+        return datetime.fromisoformat(row[0]) if row and row[0] else None
 
     # -- settings and the admin log (D56) --------------------------------------
 
@@ -401,10 +438,11 @@ class Store:
             found = [s for s in found if slot_time.has_enough_notice(s.country, s.starts_at, now - slot_time.MIN_NOTICE)]
         return found
 
-    def book_slot(self, slot_id: int, candidate_id: str, now: datetime) -> Booking | None:
-        """Books the slot for the candidate, once. Asking again returns the booking they already hold."""
+    def book_slot(self, slot_id: int, candidate_id: str, now: datetime, must_exist: bool = False) -> Booking | None:
+        """Books the slot for the candidate, once. Asking again returns the booking they already hold.
+        With `must_exist` nothing is booked for a candidate whose record is gone (erased a moment ago)."""
         try:
-            return self._book_slot(slot_id, candidate_id, now)
+            return self._book_slot(slot_id, candidate_id, now, must_exist)
         except sqlite3.IntegrityError:  # another process booked for this candidate first
             return self.booking_of(candidate_id)
 
@@ -412,8 +450,11 @@ class Store:
         return db.execute(f"{_BOOKING_SELECT} WHERE candidate_id = ? AND cancelled_at IS NULL",
                           (candidate_id,)).fetchone()
 
-    def _book_slot(self, slot_id: int, candidate_id: str, now: datetime) -> Booking | None:
+    def _book_slot(self, slot_id: int, candidate_id: str, now: datetime, must_exist: bool) -> Booking | None:
         with self._connect() as db:
+            db.execute("BEGIN IMMEDIATE")
+            if must_exist and db.execute("SELECT 1 FROM candidates WHERE candidate_id = ?", (candidate_id,)).fetchone() is None:
+                return None
             held = self._held_booking(db, candidate_id)
             if held:
                 return _booking(held)

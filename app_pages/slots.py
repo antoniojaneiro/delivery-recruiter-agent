@@ -2,7 +2,7 @@ from datetime import datetime, time
 
 import streamlit as st
 
-from sazon import ui
+from sazon import slot_flow, ui
 from sazon.model import Language
 from sazon.phrasing import slot_label
 from sazon.recruiter_view import COUNTRY_LABEL, escape_markdown, explain_error, name_of, slot_state
@@ -58,8 +58,10 @@ if slots:
             if booked_by:
                 booked = store.get(booked_by)
                 who = f"{escape_markdown(name_of(booked))} ({booked_by})" if booked else booked_by
-                st.warning(f"Ese horario estaba reservado por {who}. Avisa al candidato: el asistente no puede "
-                           "escribirle. Se quedó sin llamada reservada.")
+                told = slot_flow.notify_cancelled(store, booked_by, now.replace(tzinfo=None))
+                st.warning(f"Ese horario estaba reservado por {who}. "
+                           + ("El asistente le dejará un aviso en su chat. " if told else "No se pudo dejar el aviso: escríbele tú. ")
+                           + "Se quedó sin llamada reservada.")
             else:
                 st.success("Horario cancelado.")
         slots = store.slots(now)

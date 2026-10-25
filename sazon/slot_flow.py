@@ -2,13 +2,13 @@
 single source of truth for a booking: the screening only remembers which slots are on offer."""
 from datetime import datetime
 
-from sazon import config
+from sazon import config, session
 from sazon.consent import is_stop_request
 from sazon.model import Field, Outcome
-from sazon.phrasing import Directive, Kind, slot_label
+from sazon.phrasing import Directive, Kind, slot_cancelled_message, slot_label
 from sazon.screening import Screening
 from sazon.slot_choice import NONE, read_slot_choice
-from sazon.store import Store
+from sazon.store import ConflictError, Store
 
 OFFER_SIZE = 3
 MAX_UNCLEAR_PICKS = 3  # re-offers of the same list before the 48-hour promise applies
@@ -44,11 +44,25 @@ def handle_pick(store: Store, screening: Screening, candidate_id: str, message: 
         if screening.note_unclear_pick() > MAX_UNCLEAR_PICKS:
             return _give_up(screening)
         return _offer(store, screening, now, "unclear") or _give_up(screening)
-    booking = store.book_slot(offered[choice - 1], candidate_id, now)
+    booking = store.book_slot(offered[choice - 1], candidate_id, now, must_exist=True)
     if booking is None:
         return _offer(store, screening, now, "taken") or _give_up(screening)
     screening.resolve_slots()
     return Directive(Kind.SLOT_BOOKED, label=slot_label(booking.starts_at, screening.language))
+
+
+def notify_cancelled(store: Store, candidate_id: str, now: datetime) -> bool:
+    """Queues the fixed 'your call was cancelled' message for a candidate whose booked slot a recruiter cancelled.
+    False when there is nobody to tell (erased) or the record changed meanwhile."""
+    if store.get(candidate_id) is None:
+        return False
+    screening = session.load(store, candidate_id, config.AREAS)
+    text = slot_cancelled_message(screening.language)
+    try:
+        session.commit(store, candidate_id, screening, now, messages=[("agent", text)], outbox=[text])
+    except ConflictError:
+        return False
+    return True
 
 
 def on_idle(store: Store, screening: Screening, now: datetime) -> tuple[str, Directive]:

@@ -126,6 +126,8 @@ _REMINDER = ("Hola, ¿sigues interesado en la solicitud? Cuando quieras, seguimo
              "Hi, are you still interested in the application? We can pick up where we left off.")
 _ERROR = ("Tuve un problema técnico. ¿Puedes repetir tu último mensaje?",
           "I had a technical problem. Could you repeat your last message?")
+_SLOT_CANCELLED = ("La llamada que tenías reservada ya no está disponible. Un reclutador te escribirá para darte otra hora.",
+                   "The call you had booked is no longer available. A recruiter will write to you with another time.")
 _UNCLEAR = ("No me quedó claro y necesito este dato para continuar. ",
             "That wasn't clear, and I need this to move forward. ")
 
@@ -171,6 +173,10 @@ def consent_text_hash() -> str:
 
 def technical_error_message(language: str) -> str:
     return _pick(_ERROR, language)
+
+
+def slot_cancelled_message(language: str) -> str:
+    return _pick(_SLOT_CANCELLED, language)
 
 
 def closed_message() -> str:
