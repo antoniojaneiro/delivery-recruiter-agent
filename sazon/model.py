@@ -43,6 +43,7 @@ class EventType(StrEnum):
     BLOCKED = "blocked"
     MODEL_FAILURE = "model_failure"
     SLOTS_OFFERED = "slots_offered"
+    PAY_QUESTION = "pay_question"
 
 
 class CityMatchStatus(StrEnum):

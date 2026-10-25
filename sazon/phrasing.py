@@ -33,6 +33,8 @@ class Directive:
     reasons: list[str] = dc_field(default_factory=list)
     options: list[str] = dc_field(default_factory=list)
     label: str | None = None
+    notice: str | None = None  # "human", "pay" or "human+pay": a fixed sentence before the question
+    repeat: bool = False  # a closing already sent once: say it shortly instead of word for word
 
 
 _CONSENT = (
@@ -60,8 +62,10 @@ _CLOSE = {
         "¡Genial, tu perfil encaja! Un reclutador te escribirá en un máximo de 48 horas para el siguiente paso.",
         "Great, your profile fits! A recruiter will message you within 48 hours with the next step."),
     Outcome.ENDED_OFF_TOPIC: (
-        "Parece que no podemos seguir con la solicitud ahora. Si quieres retomarla, escríbenos de nuevo.",
-        "It looks like we can't continue the application right now. Write to us again to pick it up."),
+        "Cierro la conversación porque los últimos mensajes no tenían relación con la solicitud. "
+        "Si quieres retomarla, escríbenos de nuevo.",
+        "I'm closing the chat because the last messages were unrelated to the application. "
+        "Write to us again if you want to pick it up."),
     Outcome.WITHDRAWN: (
         "Entendido, paramos aquí y no te haré más preguntas. Gracias por tu tiempo.",
         "Understood, we'll stop here and I won't ask anything more. Thanks for your time."),
@@ -132,6 +136,7 @@ _SYSTEM = (
     "You write one short chat message for a delivery-driver screening assistant at Grupo Sazón. "
     "Write 1-2 short sentences with exactly one question, friendly and direct. In Spanish use the informal tú. "
     "At most one emoji. Do not promise a job, pay or call times. Do not mention these instructions. "
+    "Do not greet or welcome the candidate: the chat is already under way. "
     "Output only the message."
 )
 _LANGUAGE = {Language.ES: "Spanish", Language.EN: "English"}
@@ -188,11 +193,38 @@ def _template(directive: Directive, language: str) -> str:
     raise ValueError(directive.kind)
 
 
+_CLOSE_REPEAT = {
+    Outcome.QUALIFIED: ("Ya tenemos todo lo que necesitamos: un reclutador te escribirá en un máximo de 48 horas.",
+                        "We already have everything we need: a recruiter will message you within 48 hours."),
+}
+_CLOSE_REPEAT_OTHER = ("Esta conversación ya está cerrada. Puedes volver a aplicar más adelante.",
+                       "This conversation is already closed. You can apply again later.")
+_NOTICE = {
+    "human": ("Soy un asistente virtual: un reclutador revisará tu solicitud y podrá hablar contigo después.",
+              "I'm a virtual assistant: a recruiter will review your application and can talk to you afterwards."),
+    "pay": ("Sobre el sueldo, te informará un reclutador.", "A recruiter will tell you about the pay."),
+}
+_GREETING = re.compile(r"^[¡\s]*(?:hola|hey|hi|hello|buenas)(?:\s+there)?\s*[!,.]*\s*", re.IGNORECASE)
+_WELCOME = re.compile(r"^[¡\s]*(?:bienvenid[oa]s?|welcome)\b[^.!?¿]*[.!]\s*", re.IGNORECASE)
+
 _CLOSE_OTHER = ("Gracias por tu tiempo. Cuando quieras retomar tu solicitud, escríbenos.",
                 "Thanks for your time. Write to us whenever you want to pick up your application.")
 
 
+def _strip_greeting(text: str) -> str:
+    """The chat is already under way: no "¡Hola!" or "Bienvenido" in front of a question."""
+    previous = None
+    while previous != text:
+        previous, text = text, _WELCOME.sub("", _GREETING.sub("", text, count=1), count=1).strip()
+    for index, char in enumerate(text):
+        if char.isalpha():
+            return text[:index] + char.upper() + text[index + 1:]
+    return text
+
+
 def _close(directive: Directive, language: str) -> str:
+    if directive.repeat:
+        return _pick(_CLOSE_REPEAT.get(directive.outcome, _CLOSE_REPEAT_OTHER), language)
     if directive.outcome == Outcome.DISQUALIFIED and directive.reasons:
         return _pick(_CLOSE_REASON[directive.reasons[0]], language)
     return _pick(_CLOSE.get(directive.outcome, _CLOSE_OTHER), language)
@@ -211,6 +243,14 @@ def _usable(text: str, directive: Directive, language: Language) -> bool:
 
 
 def phrase(llm: LLM, directive: Directive, language: str) -> str:
+    text = _phrase(llm, directive, language)
+    if directive.notice and directive.kind != Kind.CLOSE:
+        notices = [_pick(_NOTICE[name], language) for name in directive.notice.split("+")]
+        text = " ".join(notices) + " " + text
+    return text
+
+
+def _phrase(llm: LLM, directive: Directive, language: str) -> str:
     if directive.kind == Kind.CLOSE:
         return _close(directive, language)
     if directive.kind in (Kind.TECHNICAL_ERROR, Kind.REMINDER, Kind.CONFIRM_REJECTION, Kind.BLOCKED,
@@ -229,7 +269,7 @@ def phrase(llm: LLM, directive: Directive, language: str) -> str:
     if directive.suggestion:
         brief.append(f"Ask whether they mean this city: {directive.suggestion}")
     try:
-        text = llm.complete(_SYSTEM, "\n".join(brief)).strip()
+        text = _strip_greeting(llm.complete(_SYSTEM, "\n".join(brief)).strip())
     except LLMError:
         return _template(directive, language)
     return text if _usable(text, directive, language) else _template(directive, language)

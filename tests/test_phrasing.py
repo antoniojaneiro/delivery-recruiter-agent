@@ -104,7 +104,7 @@ def test_an_english_chat_never_gets_a_reply_with_spanish_punctuation(wrong):
 
 def test_a_spanish_chat_keeps_its_spanish_punctuation():
     out = phrase(FakeLLM("¡Hola! ¿Cuál es tu disponibilidad?"), Directive(Kind.ASK, field=Field.AVAILABILITY), "es")
-    assert out == "¡Hola! ¿Cuál es tu disponibilidad?"
+    assert out == "¿Cuál es tu disponibilidad?"  # the greeting goes; the Spanish punctuation stays
 
 
 @pytest.mark.parametrize("outcome", list(__import__("sazon.model", fromlist=["Outcome"]).Outcome))

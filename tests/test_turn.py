@@ -95,7 +95,7 @@ def test_messages_after_the_chat_has_ended_get_the_close_again_without_calling_t
     say(store, "no tengo licencia", {"has_license": False})
     say(store, "correcto", {"confirms_rejection": True})
     reply, llm = say(store, "espera, sí tengo")
-    assert llm.calls == [] and "licencia" in reply
+    assert llm.calls == [] and "ya está cerrada" in reply  # a short note, not the same close again
     assert outcome(store) == "DISQUALIFIED"
 
 

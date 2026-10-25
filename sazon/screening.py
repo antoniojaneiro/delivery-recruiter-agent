@@ -1,9 +1,9 @@
 from contextlib import contextmanager
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import date
 
 from sazon import validators
-from sazon.consent import ConsentReading
+from sazon.consent import ConsentReading, is_hesitation
 from sazon.extraction import Extraction
 from sazon.model import CityMatchStatus, EventType, Field, Language, Outcome, Reason, Status
 from sazon.phrasing import Directive, Kind, consent_text_hash
@@ -185,6 +185,25 @@ class Screening:
 
     def apply(self, ex: Extraction, message: str, today: date) -> Directive:
         """Takes in what the candidate said and returns what to say next."""
+        if ex.off_topic and is_hesitation(message):
+            ex = ex.model_copy(update={"off_topic": False})  # "mmm" or "no sé" did not answer; it is not off-topic
+        directive = self._next_directive(ex, message, today)
+        notice = self._notice(ex)
+        if notice and directive.kind != Kind.CLOSE:
+            directive = replace(directive, notice=notice)
+        return directive
+
+    def _notice(self, ex: Extraction) -> str | None:
+        """A request for a person or a question about pay gets a fixed answer before the next question."""
+        names = []
+        if ex.wants_human:
+            names.append("human")
+        if ex.asks_pay:
+            self.events.append((EventType.PAY_QUESTION, ""))
+            names.append("pay")
+        return "+".join(names) or None
+
+    def _next_directive(self, ex: Extraction, message: str, today: date) -> Directive:
         asking = self.next_field()
         if ex.language:
             self.language = ex.language
@@ -237,7 +256,7 @@ class Screening:
         if not answered:
             if ex.off_topic:
                 self.off_topic()
-            elif asking:
+            elif asking and not (ex.wants_human or ex.asks_pay):  # a question is not an unclear answer
                 note(asking, self.submit(asking, None, today, raw=message))
         return unclear
 

@@ -66,7 +66,22 @@ def _language(tokens: set[str]) -> Language | None:
     return Language.ES if spanish else Language.EN
 
 
+_GREETING = re.compile(
+    r"^[\s¡!¿?.,;:-]*(?:hola|buenas(?:\s+(?:tardes|noches|dias))?|buenos\s+dias|hello|hi|hey|"
+    r"good\s+(?:morning|afternoon|evening))\b[\s,.;:!¡-]*", re.IGNORECASE)
+
+
+def _strip_greeting(text: str) -> str:
+    """"hola, sí" is a yes: a greeting in front of the answer is not part of the answer."""
+    folded = "".join(c for c in unicodedata.normalize("NFKD", text) if not unicodedata.combining(c))
+    return _GREETING.sub("", folded, count=1)
+
+
 def read_consent(text: str) -> ConsentReading:
+    greeted = bool(_GREETING.match("".join(c for c in unicodedata.normalize("NFKD", text) if not unicodedata.combining(c))))
+    text = _strip_greeting(text)
+    if greeted and not text.strip():
+        return ConsentReading(None)
     if "?" in text:
         return ConsentReading(None)
     norm = _normalise(text)
@@ -117,3 +132,21 @@ def is_stop_request(text: str) -> bool:
         if norm == start or (norm.startswith(start + " ") and len(norm[len(start):].split()) <= MAX_WORDS_AFTER_STOP):
             return True
     return False
+
+
+_HESITATION_WORDS = {
+    "no", "se", "ni", "idea", "nose", "pues", "bueno", "ok", "okay", "vale", "ya", "asi", "a", "ver", "es", "que",
+    "bien", "si", "idk", "lol", "well", "um", "uh", "hmm", "dunno", "know", "i", "don", "t", "not", "sure", "maybe",
+    "quiza", "quizas", "tal", "vez", "otra", "esto",
+}
+_HESITATION_SOUNDS = re.compile(r"^(?:m+|h?m+|e+h*|a+h+|u+m+|(?:ja|je|ji|jo|ha|he)+)$")
+MAX_HESITATION_WORDS = 4
+
+
+def is_hesitation(text: str) -> bool:
+    """"mmm", "no sé", "jaja", "ok": a filler or a laugh. The model sometimes calls these off-topic;
+    they are only an answer that did not answer."""
+    tokens = _normalise(text).split()
+    if not tokens or len(tokens) > MAX_HESITATION_WORDS:
+        return False
+    return all(t in _HESITATION_WORDS or _HESITATION_SOUNDS.match(t) for t in tokens)

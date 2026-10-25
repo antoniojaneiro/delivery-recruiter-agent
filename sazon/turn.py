@@ -1,12 +1,13 @@
 """One candidate message in, one reply out. The rules live in Screening; this module only does the
 outside work: calling the model, loading and saving, and writing the reply."""
+from dataclasses import replace
 from datetime import date, datetime
 
 from sazon import session, slot_flow
 from sazon.consent import is_stop_request, read_consent
 from sazon.extraction import Extraction, extract
 from sazon.llm import LLM, LLMError
-from sazon.phrasing import Directive, consent_message, phrase
+from sazon.phrasing import Directive, Kind, consent_message, phrase
 from sazon.screening import ExtractionContext, Screening
 
 NOT_STORED = "[message not stored: no consent]"
@@ -42,6 +43,10 @@ def handle_message(llm: LLM, store, areas: dict[str, list[str]], candidate_id: s
         directive = _directive_for(llm, screening, message, now.date(), last_question)
         directive = slot_flow.after_close(store, screening, candidate_id, directive, now)
     reply = consent_message() if directive is None else phrase(llm, directive, screening.language)
+    if directive is not None and directive.kind == Kind.CLOSE:
+        short = phrase(llm, replace(directive, repeat=True), screening.language)
+        if last_question in (reply, short):  # already said once: not the same close word for word
+            reply = short
     kept = message if screening.consent else NOT_STORED
     session.commit(store, candidate_id, screening, now,
                    messages=[("candidate", kept), ("agent", reply)])
