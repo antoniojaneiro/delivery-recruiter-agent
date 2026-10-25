@@ -158,7 +158,7 @@ def test_unclear_non_eligibility_field_still_qualifies_but_is_flagged(consented)
 
 from datetime import datetime, timedelta
 
-from sazon.screening import is_stalled
+from sazon.session import is_stalled
 
 
 def test_two_off_topic_messages_in_a_row_end_the_chat(consented):
@@ -339,3 +339,11 @@ def test_outcomes_statuses_and_events_are_typed_but_stay_plain_strings_in_json(c
     assert consented.events[-1][0] is EventType.WITHDRAWN
     assert json.dumps(consented.to_state())
     assert Field.LICENSE == "license" and Outcome.QUALIFIED == "QUALIFIED"
+
+
+def test_a_pending_city_confirmation_is_visible_to_the_caller(consented):
+    assert consented.awaiting_confirmation is None
+    consented.submit("city", "Guadalajra", TODAY)
+    assert consented.awaiting_confirmation == "Guadalajara"
+    consented.confirm_city(True)
+    assert consented.awaiting_confirmation is None

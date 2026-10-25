@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from datetime import date, datetime, timedelta
+from datetime import date
 
 from sazon import validators
 from sazon.model import CityMatchStatus, EventType, Field, Outcome, Status
@@ -8,12 +8,7 @@ FIELD_ORDER = (Field.NAME, Field.EXPERIENCE, Field.AVAILABILITY, Field.SCHEDULE,
                Field.CITY, Field.LICENSE)
 MAX_FOLLOW_UPS = 3
 MAX_OFF_TOPIC = 2
-STALL_AFTER = timedelta(hours=24)
 UNCAPPED = (Field.LICENSE, Field.CITY)  # eligibility: keep asking until clear (D27)
-
-
-def is_stalled(last_message_at: datetime, now: datetime) -> bool:
-    return now - last_message_at >= STALL_AFTER
 
 
 class ConsentRequired(Exception):
@@ -48,6 +43,10 @@ class Screening:
         self.validation_flags: dict[str, list[str]] = {}
         self._follow_ups: dict[str, int] = {}
         self._pending_city: tuple[str, str] | None = None
+
+    @property
+    def awaiting_confirmation(self) -> str | None:
+        return self._pending_city[0] if self._pending_city else None
 
     def record_consent(self, given: bool) -> None:
         self.consent = given
