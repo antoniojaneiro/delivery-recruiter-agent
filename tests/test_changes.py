@@ -217,3 +217,36 @@ def test_the_change_is_logged_without_the_values(store):
     talk(store, "sí", phrases=["¿Tienes licencia?"])
     [event] = [e for e in store.events("c1") if e.type == "field_changed"]
     assert event.detail == "city" and "Barcelona" not in event.detail and "Madrid" not in event.detail
+
+
+# --- found by the architecture review ---------------------------------------------------------------------
+
+def test_a_yes_that_leads_to_another_question_does_not_claim_the_answer_was_changed():
+    s = accepted()
+    ask(s, "me mudé a Sevilla", city="Sevilla")
+    directive = s.resolve_change(True, TODAY)
+    assert directive.kind == Kind.CONFIRM_REJECTION and directive.notice is None
+    s2 = accepted()
+    ask(s2, "ahora vivo en Barcelnoa", city="Barcelnoa")
+    assert s2.resolve_change(True, TODAY).notice is None
+
+
+def test_a_yes_that_really_changes_the_answer_says_so():
+    s = accepted()
+    ask(s, "soy Carlos López", name="Carlos López")
+    assert s.resolve_change(True, TODAY).notice == "changed"
+
+
+def test_another_spelling_of_the_saved_city_is_not_a_change():
+    s = accepted()
+    directive = ask(s, "Madrd", city="Madrd")
+    assert not s.awaiting_change and directive.kind != Kind.CONFIRM_CHANGE
+
+
+def test_a_withdrawal_forgets_a_change_question_that_was_waiting():
+    from sazon.consent import is_stop_request
+    s = accepted()
+    ask(s, "soy Carlos López", name="Carlos López")
+    assert s.awaiting_change
+    s.apply_stop_request()
+    assert not s.awaiting_change and s.awaiting_rejection is None and s.awaiting_confirmation is None

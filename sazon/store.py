@@ -13,6 +13,14 @@ AGENT = "agent"
 NO_CHECK = object()  # commit_turn without a version check (tests and tools that own the whole record)
 
 
+class InputError(ValueError):
+    """A recruiter's input was refused. `code` says why, so the pages need not read an English message."""
+
+    def __init__(self, code: str, message: str = ""):
+        super().__init__(message or code)
+        self.code = code
+
+
 class ConflictError(Exception):
     """The candidate's record changed, or was erased, after this copy was loaded."""
 BUSY_TIMEOUT_SECONDS = 10
@@ -268,7 +276,10 @@ class Store:
     # -- written by recruiters (never touched by chat turns) -----------------
 
     def set_status(self, candidate_id: str, status: RecruiterStatus, recruiter: str, now: datetime) -> None:
-        status = RecruiterStatus(status)
+        try:
+            status = RecruiterStatus(status)
+        except ValueError:
+            raise InputError("unknown_status", f"unknown status {status}") from None
         self._recruiter_action(candidate_id, recruiter, now, "recruiter_status", status.value,
                                "INSERT INTO recruiter (candidate_id, status, updated_at) VALUES (?, ?, ?) "
                                "ON CONFLICT(candidate_id) DO UPDATE SET status = excluded.status, "
@@ -278,7 +289,7 @@ class Store:
     def assign(self, candidate_id: str, assignee: str, recruiter: str, now: datetime) -> None:
         assignee = assignee.strip()
         if not assignee:
-            raise ValueError("an assignee name is required")
+            raise InputError("assignee_required", "an assignee name is required")
         self._recruiter_action(candidate_id, recruiter, now, "recruiter_assigned", assignee,
                                "INSERT INTO recruiter (candidate_id, assignee, updated_at) VALUES (?, ?, ?) "
                                "ON CONFLICT(candidate_id) DO UPDATE SET assignee = excluded.assignee, "
@@ -288,7 +299,7 @@ class Store:
     def add_note(self, candidate_id: str, text: str, author: str, now: datetime) -> None:
         text = text.strip()
         if not text:
-            raise ValueError("a note cannot be empty")
+            raise InputError("note_empty", "a note cannot be empty")
         self._recruiter_action(candidate_id, author, now, "recruiter_note", "",
                                "INSERT INTO notes (candidate_id, author, text, at) VALUES (?, ?, ?, ?)",
                                (candidate_id, author.strip(), text, now.isoformat()))
@@ -297,7 +308,7 @@ class Store:
                           detail: str, sql: str, params: tuple) -> None:
         recruiter = recruiter.strip()
         if not recruiter:
-            raise ValueError("the recruiter's name is required")
+            raise InputError("name_required", "the recruiter's name is required")
         with self._connect() as db:
             if db.execute("SELECT 1 FROM candidates WHERE candidate_id = ?", (candidate_id,)).fetchone() is None:
                 raise LookupError(f"no candidate {candidate_id}")
@@ -333,7 +344,7 @@ class Store:
     def set_accepting(self, accepting: bool, recruiter: str, now: datetime) -> None:
         recruiter = (recruiter or "").strip()
         if not recruiter:
-            raise ValueError("the recruiter's name is required")
+            raise InputError("name_required", "the recruiter's name is required")
         with self._connect() as db:
             db.execute("INSERT INTO settings (key, value, changed_by, changed_at) VALUES ('accepting', ?, ?, ?) "
                        "ON CONFLICT(key) DO UPDATE SET value = excluded.value, changed_by = excluded.changed_by, "
@@ -356,13 +367,13 @@ class Store:
                  now: datetime) -> int:
         created_by = (created_by or "").strip()
         if not created_by:
-            raise ValueError("the recruiter's name is required")
+            raise InputError("name_required", "the recruiter's name is required")
         if country not in config.COUNTRY_TZ:
-            raise ValueError(f"unknown country {country}")
+            raise InputError("unknown_country", f"unknown country {country}")
         if not slot_time.wall_time_exists(country, starts_at):
-            raise ValueError("that time does not exist on the day the clocks change")
+            raise InputError("clock_change", "that time does not exist on the day the clocks change")
         if not slot_time.has_enough_notice(country, starts_at, now):
-            raise ValueError("the slot is in the past or too soon")
+            raise InputError("too_soon", "the slot is in the past or too soon")
         with self._connect() as db:
             cursor = db.execute(
                 "INSERT INTO slots (country, starts_at, recruiter, created_by, created_at) VALUES (?, ?, ?, ?, ?)",
@@ -433,7 +444,7 @@ class Store:
         """Cancels a slot. Returns the candidate who had booked it, if any, who must be told."""
         recruiter = (recruiter or "").strip()
         if not recruiter:
-            raise ValueError("the recruiter's name is required")
+            raise InputError("name_required", "the recruiter's name is required")
         with self._connect() as db:
             row = db.execute("SELECT candidate_id, cancelled_at, starts_at, country FROM slots WHERE id = ?",
                              (slot_id,)).fetchone()

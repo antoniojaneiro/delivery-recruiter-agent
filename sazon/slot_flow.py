@@ -3,6 +3,7 @@ single source of truth for a booking: the screening only remembers which slots a
 from datetime import datetime
 
 from sazon import config
+from sazon.consent import is_stop_request
 from sazon.model import Field, Outcome
 from sazon.phrasing import Directive, Kind, slot_label
 from sazon.screening import Screening
@@ -29,6 +30,8 @@ def after_close(store: Store, screening: Screening, candidate_id: str, directive
 def handle_pick(store: Store, screening: Screening, candidate_id: str, message: str,
                 now: datetime) -> Directive:
     """The candidate's reply to the numbered list. Read in plain code; nothing is sent to the model."""
+    if is_stop_request(message):  # a withdrawal is a withdrawal, whatever question was open
+        return screening.apply_stop_request()
     held = store.booking_of(candidate_id)
     if held:  # a retry after a turn that booked but was never saved
         screening.resolve_slots()

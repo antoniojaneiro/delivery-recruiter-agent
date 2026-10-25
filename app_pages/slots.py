@@ -5,7 +5,7 @@ import streamlit as st
 from sazon import ui
 from sazon.model import Language
 from sazon.phrasing import slot_label
-from sazon.recruiter_view import COUNTRY_LABEL, name_of, slot_state
+from sazon.recruiter_view import COUNTRY_LABEL, escape_markdown, explain_error, name_of, slot_state
 
 store = ui.store()
 recruiter = ui.recruiter_name()
@@ -15,14 +15,6 @@ st.title("Horarios para llamadas")
 st.caption("El agente ofrece a cada candidato cualificado los tres próximos horarios libres de su país. "
            "La hora es la del reloj del país: un candidato en México ve la hora de México.")
 
-
-def explain(error: ValueError) -> str:
-    text = str(error)
-    if "does not exist" in text:
-        return "Esa hora no existe: ese día cambia la hora y se salta de las 02:00 a las 03:00. Elige otra."
-    if "past or too soon" in text:
-        return "Ese horario ya ha pasado o falta menos de dos horas. Elige uno más adelante."
-    return NEEDS_NAME
 
 
 with st.form("slot_form"):
@@ -37,8 +29,8 @@ if save:
         if not recruiter:
             raise ValueError(NEEDS_NAME)
         store.add_slot(country, datetime.combine(day, hour), caller, recruiter, datetime.now().astimezone())
-    except ValueError as error:
-        st.error(explain(error))
+    except (ValueError, LookupError) as error:
+        st.error(explain_error(error))
     else:
         st.success("Horario añadido.")
 
@@ -58,10 +50,14 @@ if slots:
         if not recruiter:
             st.error(NEEDS_NAME)
         else:
-            booked_by = store.cancel_slot(to_cancel, recruiter, now)
+            try:
+                booked_by = store.cancel_slot(to_cancel, recruiter, now)
+            except (ValueError, LookupError) as error:
+                st.error(explain_error(error))
+                st.stop()
             if booked_by:
                 booked = store.get(booked_by)
-                who = f"{name_of(booked)} ({booked_by})" if booked else booked_by
+                who = f"{escape_markdown(name_of(booked))} ({booked_by})" if booked else booked_by
                 st.warning(f"Ese horario estaba reservado por {who}. Avisa al candidato: el asistente no puede "
                            "escribirle. Se quedó sin llamada reservada.")
             else:

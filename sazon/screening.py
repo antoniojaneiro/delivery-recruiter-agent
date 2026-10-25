@@ -94,8 +94,8 @@ class Screening:
         notice = "kept"
         if yes:
             self.events.append((EventType.FIELD_CHANGED, str(field)))
-            self.submit(field, candidate, today)  # the usual flows (typo, outside the area, no license) still apply
-            notice = "changed"
+            result = self.submit(field, candidate, today)  # the usual flows (typo, outside the area, no license) still apply
+            notice = "changed" if result.status == Status.OK else None  # else another question follows
         directive = self._directive_now(None)
         return replace(directive, notice=notice) if directive.kind != Kind.CLOSE else directive
 
@@ -107,8 +107,8 @@ class Screening:
             if not isinstance(candidate, str):
                 return
             match = validators.match_city(candidate, self.areas)
-            if match.status == CityMatchStatus.MATCH and match.city == old:
-                return
+            if match.city == old:
+                return  # the same city, however it is spelled (an outside-the-area city has no match)
             shown = match.city or " ".join(candidate.split())[:40]
         else:
             result = self._validate(field, candidate, today)
@@ -209,7 +209,7 @@ class Screening:
         withdrawing (they must ask to continue) and declining consent (a later yes). None: not applicable."""
         if self.consent is False:
             reading = read_consent(message)
-            if reading.answer is not True:
+            if reading.answer is not True and not is_resume_request(message):
                 return self.close_directive()
             if reading.language:
                 self.language = reading.language
@@ -220,6 +220,8 @@ class Screening:
                 return self.close_directive()
             self.withdrawn = False
             self.events.append((EventType.RESUMED, ""))
+            if self.next_field() is None:  # everything was already collected: back to where they were
+                return self.close_directive()
             return Directive(Kind.ASK, field=self.next_field())
         return None
 
@@ -446,6 +448,10 @@ class Screening:
 
     def withdraw(self) -> None:
         self.withdrawn = True
+        # a question that was waiting for an answer must not swallow the answer after they come back
+        self._pending_change = None
+        self._pending_reject = None
+        self._pending_city = None
         self.events.append((EventType.WITHDRAWN, ""))
 
     def human_requested(self) -> None:

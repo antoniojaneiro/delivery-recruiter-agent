@@ -199,11 +199,19 @@ def test_a_retry_after_a_failed_save_finds_the_existing_booking_whatever_the_can
     assert "ya está reservada" in say(store, "gracias")[0]
 
 
-def test_withdrawing_while_slots_are_offered_ends_the_offer_instead_of_repeating_it(store):
+def test_withdrawing_while_slots_are_offered_withdraws_the_candidate_and_does_not_repeat_the_list(store):
     add_slots(store)
     qualify(store)
     reply, _ = say(store, "me retiro, gracias")
-    assert "48 horas" in reply and "1)" not in reply and booked(store) is None
+    assert "«continuar»" in reply and "1)" not in reply and booked(store) is None
+    assert store.get("c1").outcome == "WITHDRAWN"
+
+
+def test_declining_every_slot_without_withdrawing_still_gets_the_48_hour_promise(store):
+    add_slots(store)
+    qualify(store)
+    reply, _ = say(store, "ninguna me viene bien")
+    assert "48 horas" in reply and "1)" not in reply and store.get("c1").outcome == "QUALIFIED"
 
 
 def test_after_three_unclear_replies_the_offer_stops_and_the_48_hour_promise_applies(store):

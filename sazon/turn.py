@@ -4,7 +4,7 @@ from dataclasses import replace
 from datetime import date, datetime
 
 from sazon import session, slot_flow
-from sazon.consent import is_stop_request, read_consent
+from sazon.consent import ConsentReading, is_stop_request, read_consent
 from sazon.extraction import Extraction, extract
 from sazon.llm import LLM, LLMError
 from sazon.phrasing import Directive, Kind, closed_message, consent_message, phrase, technical_error_message
@@ -80,7 +80,10 @@ def _directive_for(llm: LLM, screening: Screening, message: str, today: date,
     if not screening.is_open:
         return screening.close_directive()
     if screening.needs_consent:
-        return screening.apply_consent_reply(read_consent(message))
+        reading = read_consent(message)
+        if reading.answer is None and is_stop_request(message):  # "me retiro" before consent closes it
+            reading = ConsentReading(False, reading.language)
+        return screening.apply_consent_reply(reading)
     if is_stop_request(message):
         return screening.apply_stop_request()
     if screening.awaiting_change:

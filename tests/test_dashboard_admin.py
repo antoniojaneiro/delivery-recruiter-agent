@@ -159,3 +159,64 @@ def test_the_erase_confirmation_does_not_stay_ticked_for_the_next_candidate(db):
     at.button(key="erase_candidate").click().run()
     at.selectbox(key="candidate").select("c2").run()
     assert at.checkbox(key="confirm_erase").value is False
+
+
+# --- found by the architecture review ---------------------------------------------------------------------
+
+def test_a_status_and_assignee_saved_for_one_candidate_do_not_carry_over_to_the_next(db):
+    candidate(db, "c1", "Juan Pérez")
+    candidate(db, "c2", "María García")
+    at = signed_in()
+    at.selectbox(key="candidate").select("c1").run()
+    at.selectbox(key="new_status").select("hired")
+    at.form_submit_button(key="save_status").click().run()
+    at.text_input(key="assignee").set_value("Luis")
+    at.form_submit_button(key="save_assignee").click().run()
+    at.selectbox(key="candidate").select("c2").run()
+    assert at.selectbox(key="new_status").value == "new" and at.text_input(key="assignee").value == ""
+    at.form_submit_button(key="save_status").click().run()  # saving without touching anything
+    assert db.recruiter("c2").status == RecruiterStatus.NEW and db.recruiter("c2").assignee is None
+
+
+def test_a_note_typed_for_one_candidate_is_not_left_in_the_box_for_the_next(db):
+    candidate(db, "c1", "Juan Pérez")
+    candidate(db, "c2", "María García")
+    at = signed_in()
+    at.selectbox(key="candidate").select("c1").run()
+    at.text_area(key="note").set_value("nota a medias")
+    at.selectbox(key="candidate").select("c2").run()
+    assert at.text_area(key="note").value == ""
+
+
+def test_acting_on_a_candidate_erased_in_the_meantime_shows_a_message_instead_of_crashing(db):
+    candidate(db, "c1", "Juan Pérez")
+    candidate(db, "c2", "María García")
+    at = signed_in()
+    at.selectbox(key="candidate").select("c1").run()
+    db.erase_candidate("c1", "recruiter:Luis", NOW, "request")
+    at.selectbox(key="new_status").select("contacted")
+    at.form_submit_button(key="save_status").click().run()
+    assert not at.exception, at.exception
+    assert any("ya no está en la lista" in str(w.value) for w in at.warning)
+    assert db.get("c1") is None
+
+
+def test_the_contact_hint_only_shows_for_qualified_candidates_nobody_has_contacted(db):
+    candidate(db, "c1", "Juan Pérez")
+    candidate(db, "c2", "María García")
+    db.set_status("c2", RecruiterStatus.CONTACTED, "Ana", NOW)
+    at = signed_in()
+    at.selectbox(key="candidate").select("c1").run()
+    assert any("contáctalo" in str(e.value) for e in [*at.caption, *at.markdown, *at.text])
+    at.selectbox(key="candidate").select("c2").run()
+    assert not any("contáctalo" in str(e.value) for e in [*at.caption, *at.markdown, *at.text])
+
+
+def test_signing_out_clears_everything_the_previous_recruiter_had_open(db):
+    candidate(db, "c1", "Juan Pérez")
+    at = signed_in("Ana")
+    at.text_input(key="f_search").set_value("zzz").run()
+    logout(at)
+    login(at, "Luis")
+    assert at.text_input(key="f_search").value == "" and at.session_state["recruiter"] == "Luis"
+    assert at.selectbox(key="candidate").value is None

@@ -178,3 +178,41 @@ def test_the_switch_needs_a_name(store):
 def test_the_closed_notice_is_bilingual_because_the_language_is_not_known_yet():
     text = closed_message()
     assert "no estamos aceptando solicitudes" in text and "not accepting applications" in text
+
+
+# --- found by the architecture review ---------------------------------------------------------------------
+
+@pytest.mark.parametrize("message", ["me retiro", "cancelar", "basta", "stop"])
+def test_asking_to_stop_at_the_consent_question_closes_it_instead_of_asking_again(store, message):
+    turn.start(store, config.AREAS, "c1", NOW)
+    say(store, message)
+    record = store.get("c1")
+    assert record.outcome == "DISQUALIFIED" and record.reasons == ["NO_CONSENT"]
+
+
+def test_a_candidate_who_declined_consent_can_also_restart_with_continuar(store):
+    turn.start(store, config.AREAS, "c1", NOW)
+    say(store, "no gracias")
+    reply, _ = say(store, "continuar", phrases=["¿Cómo te llamas?"])
+    assert outcome(store) == "IN_PROGRESS" and "llamas" in reply
+
+
+def test_a_stop_while_slots_are_offered_withdraws_the_candidate_and_continuar_offers_them_again(store):
+    from tests.test_turn_slots import add_slots, qualify
+    add_slots(store)
+    qualify(store)
+    reply, llm = say(store, "me retiro")
+    assert outcome(store) == "WITHDRAWN" and "«continuar»" in reply and llm.calls == []
+    back, _ = say(store, "continuar")
+    assert outcome(store) == "QUALIFIED" and "1)" in back and "48 horas" in back
+
+
+def test_a_pending_change_question_does_not_swallow_the_answer_after_coming_back(store):
+    started(store)
+    for message, ex in [("Juan Pérez", {"name": "Juan Pérez"}), ("2 años con Glovo", {"experience_years": 2, "platforms": ["Glovo"]})]:
+        say(store, message, ex)
+    say(store, "en realidad me llamo Carlos López", {"name": "Carlos López"})
+    say(store, "me retiro")
+    say(store, "continuar")
+    say(store, "no", {})  # an answer to the next question, not to the forgotten change
+    assert store.get("c1").extracted["name"] == "Juan Pérez"

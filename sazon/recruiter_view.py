@@ -33,8 +33,33 @@ def slot_state(slot: Slot, booked_name: str | None, now) -> str:
     if slot.candidate_id:
         return f"Reservado: {booked_name or '(sin nombre)'} ({slot.candidate_id})"
     if not slot_time.has_enough_notice(slot.country, slot.starts_at, now):
-        return "Ya no se ofrece (faltan menos de 2 horas)"
+        hours = int(slot_time.MIN_NOTICE.total_seconds() // 3600)
+        return f"Ya no se ofrece (faltan menos de {hours} horas)"
     return "Libre"
+
+
+_INPUT_ERRORS = {
+    "name_required": "Inicia sesión con tu cuenta para registrar acciones.",
+    "unknown_status": "Ese estado no existe.",
+    "assignee_required": "Escribe a quién se asigna.",
+    "note_empty": "La nota no puede estar vacía.",
+    "unknown_country": "Ese país no existe.",
+    "clock_change": "Esa hora no existe: ese día cambia la hora y se salta de las 02:00 a las 03:00. Elige otra.",
+    "too_soon": "Ese horario ya ha pasado o falta muy poco. Elige uno más adelante.",
+}
+GONE = "Eso ya no existe: puede que lo hayan borrado o cancelado mientras tanto."
+
+
+def explain_error(error: Exception) -> str:
+    """The Spanish message for a refused input, chosen by its code and never by the English text."""
+    if isinstance(error, LookupError):
+        return GONE
+    return _INPUT_ERRORS.get(getattr(error, "code", ""), "No se pudo guardar. Revisa lo que has escrito.")
+
+
+def escape_markdown(text: str) -> str:
+    """Candidate-written text shown through Markdown (a heading, a warning) must not become a link or image."""
+    return re.sub(r"([\\`*_{}\[\]()#+!<>|~])", r"\\\1", text)
 
 
 def name_of(record: Record) -> str:

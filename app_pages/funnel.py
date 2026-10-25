@@ -14,7 +14,6 @@ if not funnel.total:
     st.info("Todavía no hay candidatos.")
     st.stop()
 
-stages = dict(funnel.stages)
 cols = st.columns(4)
 cols[0].metric("Empezaron", funnel.total)
 cols[1].metric("Dieron su consentimiento", funnel.consented, f"{funnel.rates['consent']:.0%}", delta_color="off")
@@ -22,8 +21,8 @@ cols[2].metric("Cualificaron", funnel.qualified, f"{funnel.rates['qualified']:.0
 cols[3].metric("Reservaron una llamada", funnel.booked, f"{funnel.rates['booked_of_qualified']:.0%} de los cualificados",
                delta_color="off")
 st.caption(f"El agente cerró por su cuenta (sin licencia, fuera de zona o fuera de tema) al "
-           f"{funnel.rates['closed_by_agent']:.0%} de los candidatos: ese trabajo ya no llega a un reclutador "
-           "(los descartes siguen en la cola de revisión).")
+           f"{funnel.rates['closed_by_agent']:.0%} de los candidatos. Los que ningún reclutador ha revisado "
+           "siguen en «Descartes por revisar».")
 
 st.subheader("Hasta dónde llegan")
 st.dataframe([{"Etapa": name, "Candidatos": count} for name, count in funnel.stages], hide_index=True, width="stretch")

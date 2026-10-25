@@ -117,3 +117,22 @@ def test_the_review_queue_holds_agent_rejections_nobody_has_looked_at(store):
 def test_the_review_only_filter_keeps_just_the_queue(store):
     records = store.list_candidates()
     assert ids(filter_records(records, outcomes=[], statuses=[], search="", review_only=True)) == ["c3"]
+
+
+def test_markdown_in_a_name_is_shown_as_text():
+    from sazon.recruiter_view import escape_markdown
+    nasty = "**Juan** [clic](http://evil.example) ![x](http://evil.example/p.png) <b>#a_b`c`"
+    escaped = escape_markdown(nasty)
+    for char in "*[]()!<#_`":
+        assert escaped.count(char) == escaped.count("\\" + char), char
+    assert escape_markdown("María García-López") == "María García-López"
+
+
+def test_the_notice_period_shown_to_recruiters_comes_from_the_one_rule():
+    from sazon import slot_time
+    from sazon.recruiter_view import slot_state
+    from sazon.store import Slot
+    soon = Slot(1, "ES", datetime(2026, 10, 26, 10, 30), None, None, False)
+    now = datetime(2026, 10, 26, 8, 0, tzinfo=timezone.utc)
+    hours = int(slot_time.MIN_NOTICE.total_seconds() // 3600)
+    assert f"menos de {hours} horas" in slot_state(soon, None, now)

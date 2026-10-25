@@ -4,8 +4,8 @@ import streamlit as st
 
 from sazon import ui
 from sazon.model import Outcome, RecruiterStatus
-from sazon.recruiter_view import (OUTCOME_LABEL, STATUS_LABEL, call_label, filter_records, kpis, name_of,
-                                  table_rows)
+from sazon.recruiter_view import (OUTCOME_LABEL, STATUS_LABEL, call_label, escape_markdown, explain_error,
+                                  filter_records, kpis, name_of, table_rows)
 
 store = ui.store()
 recruiter = ui.recruiter_name()
@@ -47,7 +47,9 @@ st.dataframe(table_rows(shown), hide_index=True, width="stretch")
 
 by_id = {r.candidate_id: r for r in shown}
 if st.session_state.get("candidate") not in by_id:
-    st.session_state["candidate"] = None  # e.g. the candidate was just erased
+    if st.session_state.get("candidate"):
+        st.warning("El candidato que tenías abierto ya no está en la lista (¿lo han borrado?).")
+    st.session_state["candidate"] = None
 selected_id = st.selectbox(
     "Ver candidato", list(by_id), index=None, placeholder="Elige un candidato", key="candidate",
     bind="query-params",
@@ -57,7 +59,7 @@ if selected_id is None:
 
 record = by_id[selected_id]
 st.divider()
-st.subheader(name_of(record))
+st.subheader(escape_markdown(name_of(record)))
 left, right = st.columns([3, 2])
 
 with left:
@@ -72,13 +74,18 @@ with right:
         caller = f" · llama {record.booking.recruiter}" if record.booking.recruiter else ""
         st.markdown(f"**Llamada:** {call_label(record.booking)}{caller}")
     else:
-        hint = " Está cualificado: contáctalo." if record.outcome == Outcome.QUALIFIED else ""
+        waiting = record.outcome == Outcome.QUALIFIED and record.status == RecruiterStatus.NEW
+        hint = " Está cualificado: contáctalo." if waiting else ""
         st.caption("Sin llamada reservada." + hint)
 
     st.markdown("**Gestión del reclutador**")
     if not recruiter:
         st.warning("Escribe tu nombre en la barra lateral para registrar acciones.")
     statuses_all = [s.value for s in RecruiterStatus]
+    if st.session_state.get("_forms_for") != selected_id:
+        # Widget keys keep their value when another candidate is chosen: start the forms from this candidate's data.
+        st.session_state.update(new_status=record.status.value, assignee=record.assignee or "", note="",
+                                confirm_erase=False, _forms_for=selected_id)
     with st.form("status_form"):
         new_status = st.selectbox("Estado", statuses_all, index=statuses_all.index(record.status.value),
                                   format_func=lambda value: STATUS_LABEL[value], key="new_status")
@@ -101,8 +108,8 @@ with right:
                 store.assign(selected_id, assignee, recruiter, now)
             if save_note:
                 store.add_note(selected_id, note, recruiter, now)
-        except ValueError as error:
-            st.error(str(error) if "nombre" in str(error) else "Revisa lo que has escrito: no puede estar vacío.")
+        except (ValueError, LookupError) as error:
+            st.error(explain_error(error))
         else:
             st.rerun()
 

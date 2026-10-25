@@ -36,7 +36,8 @@ with st.sidebar:
     st.header("Reclutador")
     st.write(f"Sesión: **{st.session_state['recruiter']}**")
     if st.button("Cerrar sesión", key="logout"):
-        del st.session_state["recruiter"]
+        for key in list(st.session_state):  # filters, the open candidate, messages: nothing is left for the next person
+            del st.session_state[key]
         st.rerun()
     st.divider()
     accepting = store.accepting_applications()
