@@ -59,6 +59,12 @@ class RecruiterStatus(StrEnum):
     UNREACHABLE = "unreachable"
 
 
+class Reason(StrEnum):
+    NO_CONSENT = "NO_CONSENT"
+    NO_LICENSE = "NO_LICENSE"
+    OUT_OF_AREA = "OUT_OF_AREA"
+
+
 class Language(StrEnum):
     ES = "es"
     EN = "en"

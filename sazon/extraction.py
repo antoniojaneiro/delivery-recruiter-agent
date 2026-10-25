@@ -5,7 +5,7 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, ValidationError
 
 from sazon.llm import LLM
-from sazon.model import Field
+from sazon.model import Field, Language
 
 
 class StartDate(BaseModel):
@@ -29,7 +29,7 @@ class StartDate(BaseModel):
 
 class Extraction(BaseModel):
     model_config = ConfigDict(extra="ignore")
-    language: Literal["es", "en"] | None = None
+    language: Language | None = None
     confirms_city: bool | None = None
     confirms_rejection: bool | None = None
     withdraw: bool = False

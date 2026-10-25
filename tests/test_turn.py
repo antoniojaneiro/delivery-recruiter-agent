@@ -361,3 +361,11 @@ def test_an_english_yes_switches_the_chat_to_english(store):
     turn.start(store, AREAS, "c1", NOW)
     reply, _ = say(store, "yes, sure")
     assert "full name" in reply.lower()
+
+
+def test_an_unsupported_language_keeps_the_last_supported_one(store):
+    turn.start(store, AREAS, "c1", NOW)
+    say(store, "yes")
+    reply, _ = say(store, "Joan Pere", {"language": "ca", "name": "Joan Pere"})
+    assert "experience" in reply.lower()
+    assert store.get("c1").state["language"] == "en"

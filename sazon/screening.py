@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from datetime import date
 
 from sazon import validators
-from sazon.model import CityMatchStatus, EventType, Field, Outcome, Status
+from sazon.model import CityMatchStatus, EventType, Field, Language, Outcome, Reason, Status
 
 FIELD_ORDER = (Field.NAME, Field.EXPERIENCE, Field.AVAILABILITY, Field.SCHEDULE, Field.START_DATE,
                Field.CITY, Field.LICENSE)
@@ -41,7 +41,7 @@ class Screening:
         self.withdrawn = False
         self.stalled = False
         self.reminder_sent = False
-        self.language = "es"
+        self.language = Language.ES
         self.events: list[tuple[str, str]] = []
         self.events_synced = 0
         self._off_topic = 0
@@ -127,7 +127,7 @@ class Screening:
         s.withdrawn = state.get("withdrawn", False)
         s.stalled = state.get("stalled", False)
         s.reminder_sent = state.get("reminder_sent", False)
-        s.language = state.get("language", "es")
+        s.language = Language(state.get("language", Language.ES))
         s.validation_flags = {k: list(v) for k, v in state.get("validation_flags", {}).items()}
         s.partial = dict(state.get("partial", {}))
         pending = state.get("pending_reject")
@@ -177,16 +177,16 @@ class Screening:
     def decide(self) -> Decision:
         flags = sorted(f for fl in self.validation_flags.values() for f in fl)
         if self.consent is False:
-            return Decision(Outcome.DISQUALIFIED, ["NO_CONSENT"], [])
+            return Decision(Outcome.DISQUALIFIED, [Reason.NO_CONSENT], [])
         if self.withdrawn:
             return Decision(Outcome.WITHDRAWN, [], flags)
         if self._off_topic >= MAX_OFF_TOPIC:
             return Decision(Outcome.ENDED_OFF_TOPIC, [], flags)
         reasons = []
         if self.values.get(Field.LICENSE) is False:
-            reasons.append("NO_LICENSE")
+            reasons.append(Reason.NO_LICENSE)
         if self.out_of_area:
-            reasons.append("OUT_OF_AREA")
+            reasons.append(Reason.OUT_OF_AREA)
         if reasons:
             return Decision(Outcome.DISQUALIFIED, reasons, flags)
         if self.stalled:
@@ -247,17 +247,17 @@ class Screening:
 
     def _validate(self, field: str, value: object, today: date) -> validators.Validation:
         match field:
-            case "name":
+            case Field.NAME:
                 return validators.validate_name(value)
-            case "experience":
+            case Field.EXPERIENCE:
                 if not isinstance(value, (tuple, list)) or len(value) != 2:
                     return validators.Validation(False, reason="need years and platform")
                 return validators.validate_experience(*value)
-            case "availability":
+            case Field.AVAILABILITY:
                 return validators.validate_availability(value)
-            case "schedule":
+            case Field.SCHEDULE:
                 return validators.validate_schedule(value)
-            case "start_date":
+            case Field.START_DATE:
                 return validators.validate_start_date(value, today)
             case Field.LICENSE:
                 return validators.validate_license(value)

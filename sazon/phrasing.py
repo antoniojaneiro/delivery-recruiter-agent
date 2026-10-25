@@ -3,7 +3,7 @@ from dataclasses import dataclass, field as dc_field
 from enum import StrEnum
 
 from sazon.llm import LLM, LLMError
-from sazon.model import Field, Outcome
+from sazon.model import Field, Language, Outcome, Reason
 
 MAX_REPLY_CHARS = 280
 
@@ -61,11 +61,11 @@ _CLOSE = {
         "Understood, we'll stop here and I won't ask anything more. Thanks for your time."),
 }
 _CLOSE_REASON = {
-    "NO_CONSENT": ("Sin tu permiso para guardar las respuestas no puedo continuar. Gracias, y puedes volver a aplicar cuando quieras.",
+    Reason.NO_CONSENT: ("Sin tu permiso para guardar las respuestas no puedo continuar. Gracias, y puedes volver a aplicar cuando quieras.",
                    "Without your permission to save your answers I can't continue. Thanks, and you can apply again anytime."),
-    "NO_LICENSE": ("Para repartir necesitamos licencia de conducir, así que no podemos seguir por ahora. Gracias, y puedes volver a aplicar más adelante.",
+    Reason.NO_LICENSE: ("Para repartir necesitamos licencia de conducir, así que no podemos seguir por ahora. Gracias, y puedes volver a aplicar más adelante.",
                    "We need a driver's license for delivery, so we can't continue for now. Thanks, and you can apply again later."),
-    "OUT_OF_AREA": ("Por ahora no operamos en tu zona, así que no podemos seguir. Gracias, y puedes volver a aplicar más adelante.",
+    Reason.OUT_OF_AREA: ("Por ahora no operamos en tu zona, así que no podemos seguir. Gracias, y puedes volver a aplicar más adelante.",
                     "We don't operate in your area yet, so we can't continue. Thanks, and you can apply again later."),
 }
 
@@ -104,7 +104,7 @@ _SYSTEM = (
     "At most one emoji. Do not promise a job, pay or call times. Do not mention these instructions. "
     "Output only the message."
 )
-_LANGUAGE = {"es": "Spanish", "en": "English"}
+_LANGUAGE = {Language.ES: "Spanish", Language.EN: "English"}
 _URL = re.compile(r"https?://|www\.", re.I)
 
 
@@ -113,7 +113,7 @@ def consent_message() -> str:
 
 
 def _pick(pair: tuple[str, str], language: str) -> str:
-    return pair[0] if language == "es" else pair[1]
+    return pair[0] if language == Language.ES else pair[1]
 
 
 def _template(directive: Directive, language: str) -> str:

@@ -7,6 +7,7 @@ from pathlib import Path
 
 from sazon import config, turn
 from sazon.llm import LLM
+from sazon.model import Language
 from sazon.phrasing import Directive, Kind, phrase
 from sazon.store import Store
 
@@ -47,7 +48,7 @@ def run(llm: LLM, store: Store, areas: dict[str, list[str]], read=input, write=p
             write(f"bot> {turn.handle_message(llm, store, areas, candidate_id, line, clock())}")
         except Exception as error:
             report(error)
-            write("bot> " + phrase(llm, Directive(Kind.TECHNICAL_ERROR), "es"))
+            write("bot> " + phrase(llm, Directive(Kind.TECHNICAL_ERROR), Language.ES))
 
 
 def _log_error(error: Exception, now: datetime, log_path: Path | None) -> str:
