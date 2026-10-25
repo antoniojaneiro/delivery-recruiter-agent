@@ -7,13 +7,15 @@ from sazon import session, slot_flow
 from sazon.consent import is_stop_request, read_consent
 from sazon.extraction import Extraction, extract
 from sazon.llm import LLM, LLMError
-from sazon.phrasing import Directive, Kind, consent_message, phrase
+from sazon.phrasing import Directive, Kind, closed_message, consent_message, phrase
 from sazon.screening import ExtractionContext, Screening
 
 NOT_STORED = "[message not stored: no consent]"
 
 
 def start(store, areas: dict[str, list[str]], candidate_id: str, now: datetime) -> str:
+    if not store.accepting_applications():
+        return closed_message()
     screening = session.load(store, candidate_id, areas)
     text = consent_message()
     session.commit(store, candidate_id, screening, now, messages=[("agent", text)])
@@ -22,6 +24,8 @@ def start(store, areas: dict[str, list[str]], candidate_id: str, now: datetime) 
 
 def wait_24h(llm: LLM, store, areas: dict[str, list[str]], candidate_id: str, now: datetime) -> str | None:
     """Simulates 24 hours of silence: first a reminder, then STALLED (D35)."""
+    if not store.accepting_applications():
+        return None
     screening = session.load(store, candidate_id, areas)
     if not screening.is_open:
         return None
@@ -33,6 +37,8 @@ def wait_24h(llm: LLM, store, areas: dict[str, list[str]], candidate_id: str, no
 
 def handle_message(llm: LLM, store, areas: dict[str, list[str]], candidate_id: str, message: str,
                    now: datetime) -> str:
+    if not store.accepting_applications():
+        return closed_message()  # nothing is read, stored or sent to the model while applications are closed
     screening = session.load(store, candidate_id, areas)
     screening.resume()
     history = store.messages(candidate_id)
@@ -56,6 +62,9 @@ def handle_message(llm: LLM, store, areas: dict[str, list[str]], candidate_id: s
 def _directive_for(llm: LLM, screening: Screening, message: str, today: date,
                    last_question: str | None) -> Directive | None:
     """What to say next. None means the consent question is asked again."""
+    back = screening.returning(message)
+    if back is not None:
+        return back
     if not screening.is_open:
         return screening.close_directive()
     if screening.needs_consent:

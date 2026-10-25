@@ -61,6 +61,19 @@ CREATE INDEX IF NOT EXISTS idx_candidates_outcome ON candidates(outcome);
 CREATE INDEX IF NOT EXISTS idx_events_candidate ON events(candidate_id, id);
 CREATE INDEX IF NOT EXISTS idx_messages_candidate ON messages(candidate_id, id);
 CREATE INDEX IF NOT EXISTS idx_slots_country_start ON slots(country, starts_at);
+CREATE TABLE IF NOT EXISTS settings (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL,
+    changed_by TEXT,
+    changed_at TEXT
+);
+CREATE TABLE IF NOT EXISTS admin_log (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    at TEXT NOT NULL,
+    actor TEXT NOT NULL,
+    action TEXT NOT NULL,
+    detail TEXT NOT NULL DEFAULT ''
+);
 CREATE TABLE IF NOT EXISTS notes (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     candidate_id TEXT NOT NULL,
@@ -138,6 +151,14 @@ class Booking:
     country: str
     starts_at: datetime
     recruiter: str | None
+
+
+@dataclass(frozen=True)
+class AdminEntry:
+    at: datetime
+    actor: str
+    action: str
+    detail: str
 
 
 @dataclass(frozen=True)
@@ -228,6 +249,33 @@ class Store:
             db.execute(sql, params)
             db.execute("INSERT INTO events (candidate_id, type, detail, actor, at) VALUES (?, ?, ?, ?, ?)",
                        (candidate_id, event_type, detail, f"recruiter:{recruiter}", now.isoformat()))
+
+    # -- settings and the admin log (D56) --------------------------------------
+
+    def accepting_applications(self) -> bool:
+        with self._connect() as db:
+            row = db.execute("SELECT value FROM settings WHERE key = 'accepting'").fetchone()
+        return row is None or row[0] == "1"
+
+    def set_accepting(self, accepting: bool, recruiter: str, now: datetime) -> None:
+        recruiter = (recruiter or "").strip()
+        if not recruiter:
+            raise ValueError("the recruiter's name is required")
+        with self._connect() as db:
+            db.execute("INSERT INTO settings (key, value, changed_by, changed_at) VALUES ('accepting', ?, ?, ?) "
+                       "ON CONFLICT(key) DO UPDATE SET value = excluded.value, changed_by = excluded.changed_by, "
+                       "changed_at = excluded.changed_at", ("1" if accepting else "0", recruiter, now.isoformat()))
+            self._log(db, f"recruiter:{recruiter}", "applications_opened" if accepting else "applications_closed", "", now)
+
+    def admin_log(self) -> list[AdminEntry]:
+        with self._connect() as db:
+            rows = db.execute("SELECT at, actor, action, detail FROM admin_log ORDER BY id").fetchall()
+        return [AdminEntry(datetime.fromisoformat(at), actor, action, detail) for at, actor, action, detail in rows]
+
+    @staticmethod
+    def _log(db, actor: str, action: str, detail: str, now: datetime) -> None:
+        db.execute("INSERT INTO admin_log (at, actor, action, detail) VALUES (?, ?, ?, ?)",
+                   (now.isoformat(), actor, action, detail))
 
     # -- call slots (D48) ----------------------------------------------------
 

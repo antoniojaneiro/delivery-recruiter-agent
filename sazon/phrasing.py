@@ -167,6 +167,11 @@ def consent_text_hash() -> str:
     return hashlib.sha256(_CONSENT.encode("utf-8")).hexdigest()[:12]
 
 
+def closed_message() -> str:
+    """Bilingual: before the candidate has written anything the language is not known."""
+    return _CLOSED
+
+
 def consent_message() -> str:
     return _CONSENT
 
@@ -207,6 +212,12 @@ _CLOSE_REPEAT = {
     Outcome.QUALIFIED: ("Ya tenemos todo lo que necesitamos: un reclutador te escribirá en un máximo de 48 horas.",
                         "We already have everything we need: a recruiter will message you within 48 hours."),
 }
+_CLOSE_REPEAT_WITHDRAWN = ("Has dejado la solicitud. Si quieres retomarla, escribe «continuar».",
+                           "You have left the application. If you want to pick it up, write «continue».")
+_CLOSED = (
+    "Por ahora no estamos aceptando solicitudes. ¡Gracias por tu interés!\n"
+    "We are not accepting applications right now. Thank you for your interest!"
+)
 _CLOSE_REPEAT_OTHER = ("Esta conversación ya está cerrada. Un reclutador revisará tu caso.",
                        "This conversation is closed. A recruiter will review your case.")
 _NOTICE = {
@@ -235,7 +246,9 @@ def _strip_greeting(text: str) -> str:
 
 
 def _close(directive: Directive, language: str) -> str:
-    if directive.repeat:
+    if directive.repeat and Reason.NO_CONSENT not in directive.reasons:
+        if directive.outcome == Outcome.WITHDRAWN:
+            return _pick(_CLOSE_REPEAT_WITHDRAWN, language)
         return _pick(_CLOSE_REPEAT.get(directive.outcome, _CLOSE_REPEAT_OTHER), language)
     if directive.outcome == Outcome.DISQUALIFIED and directive.reasons:
         return _pick(_CLOSE_REASON[directive.reasons[0]], language)

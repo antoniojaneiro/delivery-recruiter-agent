@@ -3,7 +3,7 @@ from dataclasses import dataclass, replace
 from datetime import date
 
 from sazon import validators
-from sazon.consent import ConsentReading, is_hesitation
+from sazon.consent import ConsentReading, is_hesitation, is_resume_request, read_consent
 from sazon.extraction import Extraction
 from sazon.model import CityMatchStatus, EventType, Field, Language, Outcome, Reason, Status
 from sazon.phrasing import Directive, Kind, consent_text_hash
@@ -163,6 +163,25 @@ class Screening:
         if not reading.answer:
             return self.close_directive()
         return Directive(Kind.ASK, field=self.next_field())
+
+    def returning(self, message: str) -> Directive | None:
+        """A candidate coming back to a closed chat (D56). Only two closes can be undone by the candidate:
+        withdrawing (they must ask to continue) and declining consent (a later yes). None: not applicable."""
+        if self.consent is False:
+            reading = read_consent(message)
+            if reading.answer is not True:
+                return self.close_directive()
+            if reading.language:
+                self.language = reading.language
+            self.record_consent(True)
+            return Directive(Kind.ASK, field=self.next_field())
+        if self.withdrawn:
+            if not is_resume_request(message):
+                return self.close_directive()
+            self.withdrawn = False
+            self.events.append((EventType.RESUMED, ""))
+            return Directive(Kind.ASK, field=self.next_field())
+        return None
 
     def apply_stop_request(self) -> Directive:
         """The candidate asked to stop. Read in plain code, so opting out never depends on the model."""

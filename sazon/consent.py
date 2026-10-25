@@ -150,3 +150,21 @@ def is_hesitation(text: str) -> bool:
     if not tokens or len(tokens) > MAX_HESITATION_WORDS:
         return False
     return all(t in _HESITATION_WORDS or _HESITATION_SOUNDS.match(t) for t in tokens)
+
+
+_RESUME_EXACT = {"continuar", "retomar", "reanudar", "sigamos", "continue", "resume"}
+_RESUME_STARTS = (
+    "quiero continuar", "quiero retomar", "quiero seguir", "me gustaria continuar", "i want to continue",
+    "i want to resume", "let s continue", "lets continue",
+)
+
+
+def is_resume_request(text: str) -> bool:
+    """An explicit wish to carry on after withdrawing. A polite "vale" or "gracias" to the farewell is not one."""
+    if "?" in text:
+        return False
+    norm = _normalise(text)
+    if norm in _RESUME_EXACT:
+        return True
+    return any(norm == start or (norm.startswith(start + " ") and len(norm[len(start):].split()) <= MAX_WORDS_AFTER_STOP)
+               for start in _RESUME_STARTS)
