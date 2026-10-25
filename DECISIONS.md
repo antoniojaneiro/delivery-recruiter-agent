@@ -298,3 +298,29 @@ Written into [PHASE1_PROCESS_DESIGN.md](PHASE1_PROCESS_DESIGN.md) as engineering
 - **Pros of chosen:** GDPR-aligned, gives uncapped license and city questions (D28) a real exit.
 - **Cons of chosen:** an LLM misreading could end a chat early. Include withdraw wording in the slice 2 extraction evals.
 - **Decided by:** user, 2026-10-25.
+
+## D30: Who writes candidate messages
+
+- **Chosen:** Code decides what to ask and why; the LLM phrases 1-2 short sentences in the candidate's language (D11, D15, D18). A length check and a fixed fallback template protect against bad output.
+- **Options considered:** fixed templates in both languages (predictable, robotic); hybrid with fixed consent/close texts (safer legal wording, more code).
+- **Pros of chosen:** natural, handles language switching.
+- **Cons of chosen:** wording varies run to run. The consent and AI-disclosure text should be reviewed by the client's legal team (D12), so it may become fixed later.
+- **Decided by:** user, 2026-10-25.
+
+## D31: Extraction
+
+- **Chosen:** One JSON call per candidate message, validated by a Pydantic schema. The call returns every field it can see plus intent flags (consent, withdraw, wants human, off-topic). The candidate text is passed as delimited data, never as instructions. Invalid output becomes a follow-up, not a crash.
+- **Options considered:** separate small calls per intent and field (simpler prompts, 3-4x the calls on a rate-limited free tier).
+- **Decided by:** user, 2026-10-25.
+
+## D32: Terminal chat
+
+- **Chosen:** Plain loop with commands: `/new`, `/resume <id>`, `/wait24h` (simulates the stall and reminder, D10), `/quit`. All writes go through `session.commit`.
+- **Options considered:** also a scripted demo mode without the LLM (safer to present, extra code).
+- **Decided by:** user, 2026-10-25.
+
+## D33: Gemini model and data
+
+- **Chosen:** The model name is read from `LLM_MODEL` in `.env` with a default, because Gemini names drift (a 404 gives a clear message). The client uses the OpenAI SDK against Gemini's OpenAI-compatible endpoint with timeouts and bounded retries on 429/5xx.
+- **Data rule:** Gemini free-tier prompts may be used by Google to improve its products. Use only fictional candidates until a paid or EU-compliant tier is chosen. Add to D2's cons.
+- **Decided by:** user (D2, D23), 2026-10-25. The refinements are mine.
