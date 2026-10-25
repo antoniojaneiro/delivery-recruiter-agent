@@ -537,7 +537,7 @@ Four reviewers (security and compliance, conversation robustness, data and opera
 - Return rules: a withdrawn candidate resumes only on an explicit "continuar" (so "vale" or "gracias" does not reopen it); declined consent restarts on a plain "sí"; qualified, rejected and the off-topic exit stay closed. The applications switch is checked first on every entry point and stores and sends nothing to the model.
 - A changed answer is confirmed, comparing validated values (availability as a set, years as numbers, the canonical city, names ignoring case and accents). The yes or no is read in plain code and an unclear reply drops the question.
 - Saves are versioned: a stale chat turn, job or erase can no longer revert another writer's change or re-create an erased candidate (it is refused, and the chat turn answers with the technical-problem message and the next message starts from the current record).
-- Erasure overwrites the data (`secure_delete`) and truncates the write-ahead log; a test reads the raw database bytes. `python -m sazon.retention` lists, or with `--apply` erases, rejected, withdrawn and off-topic candidates older than 183 days.
+- Erasure on request overwrites the data (`secure_delete`) and truncates the write-ahead log; a test reads the raw database bytes. (The retention command was removed again, D60.)
 - Recruiter accounts (scrypt hashes, constant-time comparison, no accounts file means no access), a dashboard switch for applications, the review queue, an erase button, and a funnel page.
 - The reminder job and its outbox, which also covers qualified candidates who ignore the slot offer (closing the D48 gap).
 
@@ -549,3 +549,10 @@ Four reviewers (security and compliance, conversation robustness, data and opera
 - The structural findings of the slice 3 review (store size, mixed naive and aware datetimes, repeated checks in the dashboard pages) are still open.
 - The free tier of the model cannot serve the client's volume; a paid tier with a data-processing agreement is needed.
 - The voice agent and CV upload are not built (D58).
+
+## D60: Everything is saved; nothing is erased on a timer (supersedes the retention command of D53)
+
+- **Chosen:** The brief asks to save conversations and extracted data, so every conversation and its data are kept. The `sazon.retention` command and its six-month rule are removed. The only erasure left is the dashboard's "Borrar los datos de este candidato" action, used when a candidate asks (the right to erasure in GDPR and Mexico's law), which really overwrites the data and leaves an anonymous log line. The retention period for the rest (P4) becomes an open question for the client's lawyers.
+- **Options considered:** keep both (a storage limit, but data erased on a timer); remove all erasure (matches the brief literally, but no way to honour a deletion request).
+- **Cons of chosen:** data is kept without an end date until the client sets one.
+- **Decided by:** user, 2026-10-25.

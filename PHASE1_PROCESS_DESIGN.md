@@ -69,6 +69,6 @@ Candidates can come back while applications are open, except after qualifying, a
 
 ## 8. Compliance and open items
 
-- Hiring is high-risk under the EU AI Act (Annex III); Mexico has its own data law. Built in: AI disclosure and consent first, with the exact wording recorded; human oversight (review queue, D52); every decision logged with its actor; erasure on request and a six-month retention command (D53); a login per recruiter (D57); no emotion or personality inference; untrusted candidate text. An engineering baseline, not legal advice.
-- **Retention** (*proposed default*): rejected, withdrawn and off-topic candidates are erased after 6 months unless a recruiter is working with them; other data is kept for the active hiring cycle.
-- **Open for the client:** the real service areas; legal review of the consent, farewell and retention wording; approved answers about pay; the 12-week rule; single sign-on; a paid model tier with a data-processing agreement.
+- Hiring is high-risk under the EU AI Act (Annex III); Mexico has its own data law. Built in: AI disclosure and consent first, with the exact wording recorded; human oversight (review queue, D52); every decision logged with its actor; erasure on request, and nothing erased automatically (D53, D60); a login per recruiter (D57); no emotion or personality inference; untrusted candidate text. An engineering baseline, not legal advice.
+- **Retention:** every conversation and its data are saved and kept. A recruiter erases one candidate only when they ask (D60); how long to keep the rest is a question for the client's lawyers.
+- **Open for the client:** the real service areas; legal review of the consent and farewell wording and of how long data may be kept; approved answers about pay; the 12-week rule; single sign-on; a paid model tier with a data-processing agreement.

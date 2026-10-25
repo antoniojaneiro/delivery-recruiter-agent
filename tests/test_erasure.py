@@ -1,11 +1,10 @@
-"""D53: erasing a candidate really removes the data, and retention erases rejected candidates after six months."""
+"""D53: erasing a candidate on request really removes the data. (D60: nothing is ever erased on a timer.)"""
 import sqlite3
-from datetime import datetime, timedelta
+from datetime import datetime
 from pathlib import Path
 
 import pytest
 
-from sazon import retention
 from sazon.model import RecruiterStatus
 from sazon.store import Store
 
@@ -84,70 +83,3 @@ def test_the_admin_log_keeps_an_anonymous_line_with_who_and_why(store):
 def test_erasing_an_unknown_candidate_does_nothing_and_says_so(store):
     assert store.erase_candidate("ghost", "recruiter:Ana", NOW, "request") is False
     assert [e for e in store.admin_log() if e.action == "candidate_erased"] == []
-
-
-# --- retention ---------------------------------------------------------------------------------------------
-
-OLD = NOW - timedelta(days=200)
-RECENT = NOW - timedelta(days=30)
-
-
-def populate(store):
-    fill(store, "old-rejected", outcome="DISQUALIFIED", when=OLD, recruiter=False)
-    fill(store, "old-withdrawn", outcome="WITHDRAWN", when=OLD, recruiter=False)
-    fill(store, "old-offtopic", outcome="ENDED_OFF_TOPIC", when=OLD, recruiter=False)
-    fill(store, "old-qualified", outcome="QUALIFIED", when=OLD, recruiter=False)
-    fill(store, "old-progress", outcome="IN_PROGRESS", when=OLD, recruiter=False)
-    fill(store, "old-blocked", outcome="BLOCKED", when=OLD, recruiter=False)
-    fill(store, "recent-rejected", outcome="DISQUALIFIED", when=RECENT, recruiter=False)
-
-
-def test_only_old_rejected_withdrawn_and_off_topic_candidates_are_due(store):
-    populate(store)
-    due = sorted(r.candidate_id for r in retention.due(store, NOW))
-    assert due == ["old-offtopic", "old-rejected", "old-withdrawn"]
-
-
-def test_the_limit_is_six_months_by_default_and_can_be_changed(store):
-    populate(store)
-    assert "recent-rejected" not in [r.candidate_id for r in retention.due(store, NOW)]
-    assert "recent-rejected" in [r.candidate_id for r in retention.due(store, NOW, days=10)]
-
-
-def test_applying_erases_the_due_candidates_as_the_retention_job(store):
-    populate(store)
-    erased = retention.apply(store, NOW)
-    assert sorted(erased) == ["old-offtopic", "old-rejected", "old-withdrawn"]
-    assert store.get("old-rejected") is None and store.get("old-qualified") is not None
-    log = [e for e in store.admin_log() if e.action == "candidate_erased"]
-    assert len(log) == 3 and all(e.actor == "retention" and "reason=retention" in e.detail for e in log)
-
-
-def test_a_dry_run_changes_nothing_and_lists_who_would_go(store, path, monkeypatch, capsys):
-    populate(store)
-    monkeypatch.setenv("SAZON_DB", str(path))
-    retention.main(["--now", NOW.isoformat()])
-    out = capsys.readouterr().out
-    assert "old-rejected" in out and "dry run" in out.lower() and "--apply" in out
-    assert store.get("old-rejected") is not None
-
-
-def test_the_command_with_apply_erases(store, path, monkeypatch, capsys):
-    populate(store)
-    monkeypatch.setenv("SAZON_DB", str(path))
-    retention.main(["--apply", "--now", NOW.isoformat()])
-    assert store.get("old-rejected") is None and "3" in capsys.readouterr().out
-
-
-@pytest.mark.parametrize("status", [RecruiterStatus.HIRED, RecruiterStatus.INTERVIEW_SCHEDULED, RecruiterStatus.CONTACTED])
-def test_a_candidate_a_recruiter_overruled_or_is_working_with_is_never_erased_by_retention(store, status):
-    fill(store, "overruled", outcome="DISQUALIFIED", when=OLD, status=status)
-    assert retention.due(store, NOW) == []
-    assert retention.apply(store, NOW) == []
-    assert store.get("overruled") is not None
-
-
-@pytest.mark.parametrize("status", [RecruiterStatus.NEW, RecruiterStatus.REJECTED, RecruiterStatus.UNREACHABLE])
-def test_a_rejection_a_recruiter_confirmed_or_never_looked_at_is_erased_after_the_period(store, status):
-    fill(store, "old", outcome="DISQUALIFIED", when=OLD, status=status)
-    assert [r.candidate_id for r in retention.due(store, NOW)] == ["old"]

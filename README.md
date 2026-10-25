@@ -25,7 +25,6 @@ python -m sazon.chat        # terminal chat; commands: /new, /resume <id>, /stat
 python -m sazon.accounts add Ana     # create a recruiter account (asks for the password); the dashboard needs one
 streamlit run dashboard.py  # recruiter dashboard (local only; sign in with an account)
 python -m sazon.reminders --every 600   # the 24-hour reminder job (queues messages for the real channel; see /inbox)
-python -m sazon.retention [--apply]     # list (or erase) rejected/withdrawn/off-topic candidates older than 6 months
 python -m sazon.demo --list # fictional scenarios played on the real agent; transcripts go to data/demo_transcripts.md
 python -m pytest -q         # unit tests, no network (the live tests are skipped)
 python -m pytest -m live -q # real-model checks; needs the key; fictional data only
@@ -58,8 +57,7 @@ Hiring is high-risk under the EU AI Act (Annex III) and Mexico has its own data 
 candidate it is an AI and asks for consent first, keeps a human decision-maker, logs every decision with its actor,
 collects only the screening fields, infers nothing about emotions or personality, and treats candidate text as
 untrusted. Candidates can be erased on request from the dashboard (the data is overwritten, not just deleted) and
-`sazon.retention` erases rejected candidates after six months (a default to confirm with legal). The consent text
-names the external AI service. The login is a prototype measure: a real deployment needs the company's single
+nothing is ever erased automatically. The consent text names the external AI service. The login is a prototype measure: a real deployment needs the company's single
 sign-on. This is an engineering baseline, not legal advice.
 
 Design: [PHASE1_PROCESS_DESIGN.md](PHASE1_PROCESS_DESIGN.md). Decisions and open items: [DECISIONS.md](DECISIONS.md).
