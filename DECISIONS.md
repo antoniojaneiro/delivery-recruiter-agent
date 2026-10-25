@@ -288,5 +288,5 @@ Written into [PHASE1_PROCESS_DESIGN.md](PHASE1_PROCESS_DESIGN.md) as engineering
 - **Chosen:** License and city are asked again, with a specific explanation each time, until the answer is clear. The 3-follow-up cap (D17) applies to the other fields only. There is no NEEDS_REVIEW outcome for eligibility.
 - **Options considered:** higher cap then recruiter review; disqualify as unverifiable.
 - **Pros of chosen:** eligibility is always known before qualifying or rejecting.
-- **Cons of chosen:** risk of long loops and drop-off. The off-topic rule still ends a chat that stops answering. Revisit if pilot data shows loops.
+- **Cons of chosen:** risk of long loops and drop-off. Today the only exit from a loop is the 24-hour stall, because there is no withdraw path yet and unclear answers reset the off-topic counter. Revisit if pilot data shows loops.
 - **Decided by:** user, 2026-10-25.
