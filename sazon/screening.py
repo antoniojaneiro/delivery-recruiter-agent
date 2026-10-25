@@ -47,6 +47,38 @@ class Screening:
     def record_consent(self, given: bool) -> None:
         self.consent = given
 
+    def extracted(self) -> dict:
+        return {
+            k: v.isoformat() if isinstance(v, date) else v for k, v in self.values.items()
+        }
+
+    def to_state(self) -> dict:
+        return {
+            "consent": self.consent,
+            "values": self.extracted(),
+            "review_fields": sorted(self.review_fields),
+            "out_of_area": self.out_of_area,
+            "events": [list(e) for e in self.events],
+            "off_topic": self._off_topic,
+            "follow_ups": self._follow_ups,
+            "pending_city": list(self._pending_city) if self._pending_city else None,
+        }
+
+    @classmethod
+    def from_state(cls, areas: dict[str, list[str]], state: dict) -> "Screening":
+        s = cls(areas)
+        s.consent = state["consent"]
+        s.values = dict(state["values"])
+        if isinstance(s.values.get("start_date"), str):
+            s.values["start_date"] = date.fromisoformat(s.values["start_date"])
+        s.review_fields = set(state["review_fields"])
+        s.out_of_area = state["out_of_area"]
+        s.events = [tuple(e) for e in state["events"]]
+        s._off_topic = state["off_topic"]
+        s._follow_ups = dict(state["follow_ups"])
+        s._pending_city = tuple(state["pending_city"]) if state["pending_city"] else None
+        return s
+
     def off_topic(self) -> None:
         self._off_topic += 1
         self.events.append(("off_topic", ""))

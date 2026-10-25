@@ -227,3 +227,41 @@ def test_declined_city_confirmation_keeps_asking_without_a_cap(consented):
         statuses.add(consented.confirm_city(False).status)
     assert statuses == {"follow_up"}
     assert "city" not in consented.values
+
+
+import json
+
+
+def test_extracted_is_json_serialisable_with_iso_dates(consented):
+    fill(consented)
+    extracted = consented.extracted()
+    assert json.loads(json.dumps(extracted)) == extracted
+    assert extracted["start_date"] == "2026-11-01"
+    assert extracted["city"] == "Madrid"
+
+
+def test_half_finished_screening_survives_a_save_and_reload(consented):
+    consented.submit("name", "Juan", TODAY)
+    consented.submit("name", "Juan", TODAY)
+    consented.submit("city", "Guadalajra", TODAY)
+    consented.off_topic()
+    consented.human_requested()
+    state = json.loads(json.dumps(consented.to_state()))
+
+    restored = Screening.from_state(AREAS, state)
+
+    restored.off_topic()
+    assert restored.decide().outcome == "ENDED_OFF_TOPIC"
+    assert restored.confirm_city(True).status == "ok"
+    assert restored.values["city"] == "Guadalajara"
+    assert restored.submit("name", "Juan", TODAY).status == "follow_up"
+    assert restored.submit("name", "Juan", TODAY).status == "review"
+    assert ("human_requested", "") in restored.events
+
+
+def test_reloaded_screening_keeps_dates_review_flags_and_consent(consented):
+    fill(consented, name="Juan")
+    restored = Screening.from_state(AREAS, json.loads(json.dumps(consented.to_state())))
+    assert restored.values["start_date"] == date(2026, 11, 1)
+    assert restored.review_fields == {"name"}
+    assert restored.decide() == consented.decide()
