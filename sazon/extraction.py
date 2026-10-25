@@ -1,14 +1,11 @@
 import json
 from datetime import date, timedelta
-from typing import Literal, Protocol
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, ValidationError
 
+from sazon.llm import LLM
 from sazon.model import Field
-
-
-class LLM(Protocol):
-    def complete(self, system: str, user: str, json_mode: bool = False) -> str: ...
 
 
 class StartDate(BaseModel):
