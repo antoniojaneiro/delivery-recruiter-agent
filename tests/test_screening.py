@@ -98,13 +98,6 @@ def test_city_outside_service_area_is_recorded_not_a_follow_up(consented):
     assert consented.out_of_area
 
 
-def test_city_review_keeps_what_the_candidate_typed_not_our_suggestion(consented):
-    for _ in range(4):
-        consented.submit("city", "Guadalajra", TODAY)
-        result = consented.confirm_city(False)
-    assert result.status == "review"
-    assert consented.values["city"] == "Guadalajra"
-
 
 def fill(s, **overrides):
     answers = {
@@ -155,14 +148,6 @@ def test_disqualifier_known_early_decides_before_all_fields_are_filled(consented
     assert consented.decide().outcome == "DISQUALIFIED"
 
 
-def test_unclear_eligibility_field_after_cap_needs_review_not_qualified(consented):
-    decision = fill(consented, license=None).decide()
-    assert decision.outcome == "NEEDS_REVIEW" and decision.reasons == ["LICENSE_UNCLEAR"]
-
-
-def test_disqualifier_wins_over_unclear_eligibility(consented):
-    decision = fill(consented, city="Sevilla", license=None).decide()
-    assert decision.outcome == "DISQUALIFIED" and decision.reasons == ["OUT_OF_AREA"]
 
 
 def test_unclear_non_eligibility_field_still_qualifies_but_is_flagged(consented):
@@ -228,7 +213,17 @@ def test_stray_confirmation_with_nothing_pending_is_a_follow_up_not_a_crash(cons
     assert consented.confirm_city(True).status == "follow_up"
 
 
-def test_unclear_eligibility_stays_in_progress_until_all_fields_are_collected(consented):
-    for _ in range(4):
-        consented.submit("license", None, TODAY)
+def test_license_is_asked_again_without_a_cap_until_clear(consented):
+    statuses = {consented.submit("license", None, TODAY).status for _ in range(10)}
+    assert statuses == {"follow_up"}
+    assert consented.next_field() == "license"
     assert consented.decide().outcome == "IN_PROGRESS"
+
+
+def test_declined_city_confirmation_keeps_asking_without_a_cap(consented):
+    statuses = set()
+    for _ in range(10):
+        consented.submit("city", "Guadalajra", TODAY)
+        statuses.add(consented.confirm_city(False).status)
+    assert statuses == {"follow_up"}
+    assert "city" not in consented.values

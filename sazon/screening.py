@@ -7,7 +7,7 @@ FIELD_ORDER = ("name", "experience", "availability", "schedule", "start_date", "
 MAX_FOLLOW_UPS = 3
 MAX_OFF_TOPIC = 2
 STALL_AFTER = timedelta(hours=24)
-ELIGIBILITY = {"license": "LICENSE_UNCLEAR", "city": "CITY_UNCLEAR"}
+UNCAPPED = ("license", "city")  # eligibility: keep asking until clear (D27)
 
 
 def is_stalled(last_message_at: datetime, now: datetime) -> bool:
@@ -27,7 +27,7 @@ class SubmitResult:
 
 @dataclass(frozen=True)
 class Decision:
-    outcome: str  # IN_PROGRESS, QUALIFIED, DISQUALIFIED or NEEDS_REVIEW
+    outcome: str  # IN_PROGRESS, QUALIFIED, DISQUALIFIED or ENDED_OFF_TOPIC
     reasons: list[str]
     flags: list[str]
 
@@ -55,7 +55,7 @@ class Screening:
         self.events.append(("human_requested", ""))
 
     def decide(self) -> Decision:
-        flags = [f"{f.upper()}_NEEDS_REVIEW" for f in FIELD_ORDER if f in self.review_fields and f not in ELIGIBILITY]
+        flags = [f"{f.upper()}_NEEDS_REVIEW" for f in FIELD_ORDER if f in self.review_fields]
         if self.consent is False:
             return Decision("DISQUALIFIED", ["NO_CONSENT"], [])
         if self._off_topic >= MAX_OFF_TOPIC:
@@ -67,9 +67,6 @@ class Screening:
             reasons.append("OUT_OF_AREA")
         if reasons:
             return Decision("DISQUALIFIED", reasons, flags)
-        unclear = [code for f, code in ELIGIBILITY.items() if f in self.review_fields]
-        if unclear and self.next_field() is None:
-            return Decision("NEEDS_REVIEW", unclear, flags)
         if self.next_field() is not None:
             return Decision("IN_PROGRESS", [], flags)
         return Decision("QUALIFIED", [], flags)
@@ -135,7 +132,7 @@ class Screening:
             return SubmitResult("ok")
         self._off_topic = 0
         asked = self._follow_ups.get(field, 0)
-        if asked >= MAX_FOLLOW_UPS:
+        if asked >= MAX_FOLLOW_UPS and field not in UNCAPPED:
             self.values[field] = raw
             self.review_fields.add(field)
             return SubmitResult("review", result.reason)

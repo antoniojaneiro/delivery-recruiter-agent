@@ -274,3 +274,19 @@ Written into [PHASE1_PROCESS_DESIGN.md](PHASE1_PROCESS_DESIGN.md) as engineering
 - **P1 confirmed (changed):** name is 2+ words of letters, spaces, hyphens and apostrophes (accents allowed).
 - **P2 confirmed:** start date more than 12 weeks away is recorded and flagged, never rejected.
 - **Decided by:** user, 2026-10-25.
+
+## D27: Early disqualification (updates D6)
+
+- **Chosen:** A disqualifier that is already known (no license, out-of-area city) ends the chat with a polite close, even if other fields are still missing. Friendly question order (D6) stays, but the decision is not delayed.
+- **Options considered:** finish the flow and decide at the end (D6 as written): full data on everyone, but ineligible candidates answer more questions.
+- **Pros of chosen:** saves candidate and recruiter time, which is the client's core problem. Closes the tension noted in D6.
+- **Cons of chosen:** less data on rejected candidates.
+- **Decided by:** user, 2026-10-25.
+
+## D28: Eligibility fields are not capped (updates D17, replaces the D26 assumption)
+
+- **Chosen:** License and city are asked again, with a specific explanation each time, until the answer is clear. The 3-follow-up cap (D17) applies to the other fields only. There is no NEEDS_REVIEW outcome for eligibility.
+- **Options considered:** higher cap then recruiter review; disqualify as unverifiable.
+- **Pros of chosen:** eligibility is always known before qualifying or rejecting.
+- **Cons of chosen:** risk of long loops and drop-off. The off-topic rule still ends a chat that stops answering. Revisit if pilot data shows loops.
+- **Decided by:** user, 2026-10-25.
