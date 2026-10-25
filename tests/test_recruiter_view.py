@@ -1,0 +1,73 @@
+"""What the recruiter dashboard shows, as plain functions (no Streamlit)."""
+from datetime import datetime
+
+import pytest
+
+from sazon.model import RecruiterStatus
+from sazon.recruiter_view import (OUTCOME_LABEL, STATUS_LABEL, filter_records, kpis, matches, table_rows)
+from sazon.store import Store
+
+T1 = datetime(2026, 10, 25, 10, 0)
+T2 = datetime(2026, 10, 26, 9, 30)
+
+
+@pytest.fixture
+def store(tmp_path):
+    s = Store(tmp_path / "s.db")
+
+    def add(cid, name, city, outcome, now=T1, reasons=()):
+        extracted = {k: v for k, v in (("name", name), ("city", city)) if v}
+        s.commit_turn(cid, now, {}, extracted, outcome, [], [], reasons=list(reasons))
+
+    add("c1", "Juan Pérez", "Madrid", "QUALIFIED")
+    add("c2", "María García-López", "Guadalajara", "QUALIFIED", T2)
+    add("c3", "Ana Ruiz", "Sevilla", "DISQUALIFIED", reasons=["OUT_OF_AREA"])
+    add("c4", None, None, "BLOCKED", reasons=["BLOCKED_ON_NAME"])
+    add("c5", "Luis Soto", "Madrid", "STALLED")
+    s.set_status("c2", RecruiterStatus.CONTACTED, "Ana", T2)
+    return s
+
+
+def ids(records):
+    return [r.candidate_id for r in records]
+
+
+def test_every_outcome_and_status_has_a_spanish_label():
+    from sazon.model import Outcome
+    assert set(OUTCOME_LABEL) == set(Outcome) and set(STATUS_LABEL) == set(RecruiterStatus)
+    assert OUTCOME_LABEL["QUALIFIED"] == "Cualificado" and STATUS_LABEL["interview_scheduled"] == "Entrevista programada"
+
+
+def test_the_table_has_one_row_per_candidate_with_spanish_columns(store):
+    rows = table_rows(store.list_candidates())
+    row = next(r for r in rows if r["Id"] == "c2")
+    assert row["Nombre"] == "María García-López" and row["Ciudad"] == "Guadalajara"
+    assert row["Agente"] == "Cualificado" and row["Reclutador"] == "Contactado"
+    assert row["Actualizado"] == "2026-10-26 09:30"
+
+
+def test_a_candidate_without_a_name_is_still_listed(store):
+    row = next(r for r in table_rows(store.list_candidates()) if r["Id"] == "c4")
+    assert row["Nombre"] == "(sin nombre)" and row["Agente"] == "Bloqueado"
+
+
+@pytest.mark.parametrize("text,expected", [
+    ("garcia", ["c2"]), ("GARCÍA LOPEZ", ["c2"]), ("juan", ["c1"]), ("madrid", ["c1", "c5"]),
+    ("sevilla", ["c3"]), ("c4", ["c4"]), ("   ", ["c1", "c2", "c3", "c4", "c5"]), ("zzz", []),
+])
+def test_search_ignores_accents_and_case_and_looks_at_name_city_and_id(store, text, expected):
+    found = [r for r in store.list_candidates() if matches(r, text)]
+    assert sorted(ids(found)) == sorted(expected)
+
+
+def test_filters_combine_outcome_status_and_search(store):
+    records = store.list_candidates()
+    assert sorted(ids(filter_records(records, outcomes=["QUALIFIED"], statuses=[], search=""))) == ["c1", "c2"]
+    assert ids(filter_records(records, outcomes=["QUALIFIED"], statuses=["new"], search="")) == ["c1"]
+    assert ids(filter_records(records, outcomes=[], statuses=["contacted"], search="garcia")) == ["c2"]
+    assert len(filter_records(records, outcomes=[], statuses=[], search="")) == 5
+
+
+def test_the_key_numbers_count_what_a_recruiter_must_act_on(store):
+    numbers = kpis(store.list_candidates())
+    assert numbers == {"total": 5, "to_contact": 1, "blocked": 1, "stalled": 1}

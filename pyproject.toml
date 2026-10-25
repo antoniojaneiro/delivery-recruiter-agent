@@ -5,7 +5,8 @@ requires-python = ">=3.12"
 dependencies = ["pydantic>=2", "openai>=1.50", "python-dotenv>=1"]
 
 [project.optional-dependencies]
-dev = ["pytest>=8"]
+dashboard = ["streamlit>=1.57"]
+dev = ["pytest>=8", "streamlit>=1.57"]
 
 [build-system]
 requires = ["setuptools>=68"]

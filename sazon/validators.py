@@ -41,7 +41,7 @@ class CityMatch:
     city: str | None = None
 
 
-def _fold(text: str) -> str:
+def fold(text: str) -> str:
     decomposed = unicodedata.normalize("NFKD", text)
     stripped = "".join(c for c in decomposed if not unicodedata.combining(c))
     return " ".join(stripped.casefold().split())
@@ -51,8 +51,8 @@ def match_city(raw: str, areas: dict[str, list[str]]) -> CityMatch:
     names = {}
     for city, aliases in areas.items():
         for label in [city, *aliases]:
-            names[_fold(label)] = city
-    key = _fold(raw)
+            names[fold(label)] = city
+    key = fold(raw)
     if key in names:
         return CityMatch(CityMatchStatus.MATCH, names[key])
     close = difflib.get_close_matches(key, names, n=1, cutoff=0.8)
@@ -87,7 +87,7 @@ def validate_experience(years: float | None, platforms: list[str]) -> Validation
         return Validation(False, reason="need the delivery platform")
     if years > 0 and not platforms:
         return Validation(False, reason="need the delivery platform")
-    cleaned = [_fold(p) for p in platforms]
+    cleaned = [fold(p) for p in platforms]
     normalised = [p if p in KNOWN_PLATFORMS else "other" for p in cleaned]
     return Validation(True, {"years": years, "platforms": list(dict.fromkeys(normalised))})
 

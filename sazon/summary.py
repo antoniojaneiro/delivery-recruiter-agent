@@ -3,7 +3,7 @@ the candidate's own words and never says anything about the person beyond the fa
 from sazon.model import EventType, Field, Language, Outcome, Reason
 from sazon.screening import Screening
 
-_OUTCOME = {
+OUTCOME_LABEL = {
     Outcome.IN_PROGRESS: "En curso",
     Outcome.QUALIFIED: "Cualificado",
     Outcome.DISQUALIFIED: "Descartado por el agente",
@@ -36,7 +36,7 @@ def summarise(screening: Screening) -> str:
     head = [data.get(Field.NAME) or "Candidato sin nombre"]
     if consented and data.get(Field.CITY):
         head.append(data[Field.CITY])
-    head.append(_OUTCOME[decision.outcome])
+    head.append(OUTCOME_LABEL[decision.outcome])
     lines = [" · ".join(head)]
     reasons = [_reason(code, data) for code in decision.reasons]
     if reasons:

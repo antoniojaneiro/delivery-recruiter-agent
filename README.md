@@ -8,6 +8,7 @@ python -m pip install -e ".[dev]"
 copy .env.example .env      # Windows (use cp on macOS/Linux), then add your GEMINI_API_KEY; never commit .env
 python -m sazon.chat        # terminal chat (errors are logged to data/sazon.log); commands: /new, /resume <id>, /wait24h, /quit
 python -m sazon.chat --list-models   # if the default model name returns 404
+streamlit run dashboard.py  # recruiter dashboard (needs the dashboard extra; local, no login)
 python -m pytest -q         # unit tests, no network
 python -m pytest -m live -q # real-model checks, needs the key; use fictional data only
 ```

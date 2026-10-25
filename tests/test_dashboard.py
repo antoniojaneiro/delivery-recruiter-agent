@@ -1,0 +1,164 @@
+"""The Streamlit recruiter dashboard, driven in-process with AppTest (no browser)."""
+from datetime import datetime
+from pathlib import Path
+
+import pytest
+from streamlit.testing.v1 import AppTest
+
+from sazon.model import RecruiterStatus
+from sazon.store import Store
+
+T1 = datetime(2026, 10, 25, 10, 0)
+APP = str(Path(__file__).resolve().parent.parent / "dashboard.py")
+
+
+@pytest.fixture
+def db(tmp_path, monkeypatch):
+    path = tmp_path / "sazon.db"
+    monkeypatch.setenv("SAZON_DB", str(path))
+    return Store(path)
+
+
+def seed(store):
+    def add(cid, name, city, outcome, summary, reasons=(), messages=(), events=()):
+        extracted = {k: v for k, v in (("name", name), ("city", city)) if v}
+        store.commit_turn(cid, T1, {}, extracted, outcome, list(events), list(messages),
+                          reasons=list(reasons), summary=summary)
+
+    add("c1", "Juan Pérez", "Madrid", "QUALIFIED", "Juan Pérez · Madrid · Cualificado\nLicencia: sí",
+        messages=[("agent", "Hola, soy el asistente virtual"), ("candidate", "sí"), ("agent", "¿Cómo te llamas?")],
+        events=[("consent_given", ""), ("field_accepted", "name")])
+    add("c2", "María García-López", "Guadalajara", "QUALIFIED", "María García-López · Guadalajara · Cualificado")
+    add("c3", "Ana Ruiz", "Sevilla", "DISQUALIFIED", "Ana Ruiz · Sevilla · Descartado por el agente",
+        reasons=["OUT_OF_AREA"])
+    add("c4", None, None, "BLOCKED", "Candidato sin nombre · Bloqueado", reasons=["BLOCKED_ON_NAME"])
+    store.set_status("c2", RecruiterStatus.CONTACTED, "Ana", T1)
+
+
+def run():
+    at = AppTest.from_file(APP, default_timeout=10).run()
+    assert not at.exception, at.exception
+    return at
+
+
+def rows(at):
+    return at.dataframe[0].value
+
+
+def metrics(at):
+    return {m.label: m.value for m in at.metric}
+
+
+def choose(at, candidate_id):
+    at.selectbox(key="candidate").select(candidate_id).run()
+    assert not at.exception, at.exception
+    return at
+
+
+def texts(at):
+    return "\n".join(str(e.value) for e in [*at.text, *at.markdown, *at.caption, *at.code])
+
+
+def test_an_empty_database_says_so_instead_of_showing_an_empty_table(db):
+    at = run()
+    assert any("No hay candidatos" in str(i.value) for i in at.info)
+
+
+def test_the_key_numbers_and_the_candidate_table_are_shown(db):
+    seed(db)
+    at = run()
+    assert metrics(at) == {"Candidatos": "4", "Cualificados por contactar": "1", "Bloqueados": "1", "Sin respuesta": "0"}
+    assert sorted(rows(at)["Id"]) == ["c1", "c2", "c3", "c4"]
+    assert set(rows(at).columns) >= {"Id", "Nombre", "Ciudad", "Agente", "Reclutador", "Asignado a", "Actualizado"}
+
+
+def test_filtering_by_the_agents_outcome_and_the_recruiters_status(db):
+    seed(db)
+    at = run()
+    at.multiselect(key="f_outcome").select("QUALIFIED").run()
+    assert sorted(rows(at)["Id"]) == ["c1", "c2"]
+    at.multiselect(key="f_status").select("new").run()
+    assert list(rows(at)["Id"]) == ["c1"]
+
+
+def test_search_ignores_accents_and_case(db):
+    seed(db)
+    at = run()
+    at.text_input(key="f_search").set_value("GARCIA lopez").run()
+    assert list(rows(at)["Id"]) == ["c2"]
+
+
+def test_no_match_says_so(db):
+    seed(db)
+    at = run()
+    at.text_input(key="f_search").set_value("zzz").run()
+    assert any("Ningún candidato" in str(i.value) for i in at.info)
+
+
+def test_choosing_a_candidate_shows_the_summary_the_conversation_and_the_audit_log(db):
+    seed(db)
+    at = choose(run(), "c1")
+    shown = texts(at)
+    assert "Juan Pérez · Madrid · Cualificado" in shown and "Licencia: sí" in shown
+    chat = [(m.name, m.markdown[0].value) for m in at.chat_message]
+    assert chat == [("assistant", "Hola, soy el asistente virtual"), ("user", "sí"), ("assistant", "¿Cómo te llamas?")]
+    events = next(df.value for df in at.dataframe[1:] if "Tipo" in df.value.columns)
+    assert list(events["Tipo"]) == ["consent_given", "field_accepted"]
+
+
+def test_acting_without_a_name_is_refused_and_saves_nothing(db):
+    seed(db)
+    at = choose(run(), "c1")
+    at.selectbox(key="new_status").select("contacted")
+    at.form_submit_button(key="save_status").click().run()
+    assert any("nombre" in str(e.value) for e in at.error)
+    assert db.recruiter("c1").status == RecruiterStatus.NEW
+
+
+def test_a_recruiter_can_change_the_status_and_it_is_logged_with_their_name(db):
+    seed(db)
+    at = run()
+    at.sidebar.text_input(key="recruiter").set_value("Ana").run()
+    choose(at, "c1")
+    at.selectbox(key="new_status").select("interview_scheduled")
+    at.form_submit_button(key="save_status").click().run()
+    assert not at.exception, at.exception
+    assert db.recruiter("c1").status == RecruiterStatus.INTERVIEW_SCHEDULED
+    assert [e.actor for e in db.events("c1") if e.type == "recruiter_status"] == ["recruiter:Ana"]
+    assert metrics(at)["Cualificados por contactar"] == "0"
+
+
+def test_a_recruiter_can_assign_and_add_notes(db):
+    seed(db)
+    at = run()
+    at.sidebar.text_input(key="recruiter").set_value("Ana").run()
+    choose(at, "c1")
+    at.text_input(key="assignee").set_value("Luis")
+    at.form_submit_button(key="save_assignee").click().run()
+    at.text_area(key="note").set_value("Llamé, volverá a llamar")
+    at.form_submit_button(key="save_note").click().run()
+    assert not at.exception, at.exception
+    assert db.recruiter("c1").assignee == "Luis"
+    assert [(n.author, n.text) for n in db.notes("c1")] == [("Ana", "Llamé, volverá a llamar")]
+    assert "Llamé, volverá a llamar" in texts(at)
+
+
+def test_an_empty_note_is_refused(db):
+    seed(db)
+    at = run()
+    at.sidebar.text_input(key="recruiter").set_value("Ana").run()
+    choose(at, "c1")
+    at.text_area(key="note").set_value("   ")
+    at.form_submit_button(key="save_note").click().run()
+    assert at.error and db.notes("c1") == []
+
+
+def test_a_recruiter_may_overrule_the_agents_rejection(db):
+    seed(db)
+    at = run()
+    at.sidebar.text_input(key="recruiter").set_value("Ana").run()
+    choose(at, "c3")
+    at.selectbox(key="new_status").select("interview_scheduled")
+    at.form_submit_button(key="save_status").click().run()
+    assert db.recruiter("c3").status == RecruiterStatus.INTERVIEW_SCHEDULED
+    assert db.get("c3").outcome == "DISQUALIFIED"
