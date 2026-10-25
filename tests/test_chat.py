@@ -169,3 +169,16 @@ def test_state_before_anything_is_said_does_not_crash(store):
 def test_help_lists_the_commands(store):
     out = run(store, ["/help", "/quit"])
     assert any("/state" in line and "/wait24h" in line for line in out)
+
+
+def test_inbox_shows_the_queued_messages_for_the_current_candidate_once(store):
+    out = run(store, ["/quit"])
+    cid = store.list_candidates()[0].candidate_id
+    store.commit_turn(cid, NOW, {}, {}, "IN_PROGRESS", [], [], outbox=["Hola, ¿sigues interesado?"])
+    shown = run_resume(store, cid, ["/inbox", "/inbox", "/quit"])
+    assert sum("Hola, ¿sigues interesado?" in line for line in shown) == 1
+    assert any("no queued messages" in line.lower() for line in shown)
+
+
+def run_resume(store, cid, lines):
+    return run(store, [f"/resume {cid}", *lines])

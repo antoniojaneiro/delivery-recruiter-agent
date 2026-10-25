@@ -48,6 +48,14 @@ def handle_pick(store: Store, screening: Screening, candidate_id: str, message: 
     return Directive(Kind.SLOT_BOOKED, label=slot_label(booking.starts_at, screening.language))
 
 
+def on_idle(store: Store, screening: Screening, now: datetime) -> tuple[str, Directive]:
+    """24 hours without an answer to the slot list: remind once with the free slots, then give up (D58)."""
+    if screening.reminder_sent:
+        return "gave_up_offer", _give_up(screening)
+    screening.send_reminder()
+    return "reminder", _offer(store, screening, now, "reminder") or _give_up(screening)
+
+
 def _offer(store: Store, screening: Screening, now: datetime, reason: str) -> Directive | None:
     country = config.COUNTRY_OF.get(screening.values.get(Field.CITY))
     free = store.free_slots(country, now, OFFER_SIZE) if country else []

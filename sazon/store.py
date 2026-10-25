@@ -68,6 +68,14 @@ CREATE INDEX IF NOT EXISTS idx_candidates_outcome ON candidates(outcome);
 CREATE INDEX IF NOT EXISTS idx_events_candidate ON events(candidate_id, id);
 CREATE INDEX IF NOT EXISTS idx_messages_candidate ON messages(candidate_id, id);
 CREATE INDEX IF NOT EXISTS idx_slots_country_start ON slots(country, starts_at);
+CREATE TABLE IF NOT EXISTS outbox (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    candidate_id TEXT NOT NULL,
+    text TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    delivered_at TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_outbox_pending ON outbox(delivered_at, candidate_id);
 CREATE TABLE IF NOT EXISTS settings (
     key TEXT PRIMARY KEY,
     value TEXT NOT NULL,
@@ -162,6 +170,14 @@ class Booking:
 
 
 @dataclass(frozen=True)
+class OutboxEntry:
+    id: int
+    candidate_id: str
+    text: str
+    created_at: datetime
+
+
+@dataclass(frozen=True)
 class AdminEntry:
     at: datetime
     actor: str
@@ -204,7 +220,7 @@ class Store:
                     outcome: str, events: list[tuple[str, str]],
                     messages: list[tuple[str, str]], reasons: list[str] = (),
                     flags: list[str] = (), summary: str | None = None,
-                    expected_version: object = NO_CHECK) -> int:
+                    expected_version: object = NO_CHECK, outbox: list[str] = ()) -> int:
         """Saves one turn atomically. With `expected_version` (the version this copy was loaded at, or None for a
         candidate that did not exist) the save is refused with ConflictError if the record changed or vanished."""
         with self._connect() as db:
@@ -225,6 +241,8 @@ class Store:
                            [(candidate_id, t, d, AGENT, now.isoformat()) for t, d in events])
             db.executemany("INSERT INTO messages (candidate_id, role, text, at) VALUES (?, ?, ?, ?)",
                            [(candidate_id, r, x, now.isoformat()) for r, x in messages])
+            db.executemany("INSERT INTO outbox (candidate_id, text, created_at) VALUES (?, ?, ?)",
+                           [(candidate_id, text, now.isoformat()) for text in outbox])
             return db.execute("SELECT version FROM candidates WHERE candidate_id = ?", (candidate_id,)).fetchone()[0]
 
     def erase_candidate(self, candidate_id: str, actor: str, now: datetime, reason: str) -> bool:
@@ -234,7 +252,7 @@ class Store:
         with self._connect() as db:
             db.execute("PRAGMA secure_delete = ON")
             existed = db.execute("SELECT 1 FROM candidates WHERE candidate_id = ?", (candidate_id,)).fetchone()
-            for table in ("candidates", "events", "messages", "notes", "recruiter"):
+            for table in ("candidates", "events", "messages", "notes", "recruiter", "outbox"):
                 db.execute(f"DELETE FROM {table} WHERE candidate_id = ?", (candidate_id,))
             db.execute("UPDATE slots SET candidate_id = NULL, booked_at = NULL WHERE candidate_id = ?", (candidate_id,))
             if existed:
@@ -286,6 +304,24 @@ class Store:
             db.execute(sql, params)
             db.execute("INSERT INTO events (candidate_id, type, detail, actor, at) VALUES (?, ?, ?, ?, ?)",
                        (candidate_id, event_type, detail, f"recruiter:{recruiter}", now.isoformat()))
+
+    # -- messages waiting to be delivered by a real channel (D58) ---------------
+
+    def outbox_pending(self, candidate_id: str | None = None) -> list[OutboxEntry]:
+        with self._connect() as db:
+            rows = db.execute("SELECT id, candidate_id, text, created_at FROM outbox WHERE delivered_at IS NULL "
+                              "AND (? IS NULL OR candidate_id = ?) ORDER BY id", (candidate_id, candidate_id)).fetchall()
+        return [OutboxEntry(i, c, t, datetime.fromisoformat(at)) for i, c, t, at in rows]
+
+    def mark_delivered(self, entry_id: int, now: datetime) -> None:
+        with self._connect() as db:
+            db.execute("UPDATE outbox SET delivered_at = ? WHERE id = ?", (now.isoformat(), entry_id))
+
+    def last_activity(self) -> dict[str, datetime]:
+        """When each candidate last wrote or was written to in the chat (the chat writes naive local times)."""
+        with self._connect() as db:
+            rows = db.execute("SELECT candidate_id, MAX(at) FROM messages GROUP BY candidate_id").fetchall()
+        return {cid: datetime.fromisoformat(at) for cid, at in rows}
 
     # -- settings and the admin log (D56) --------------------------------------
 

@@ -17,7 +17,7 @@ def load(store: Store, candidate_id: str, areas: dict[str, list[str]]) -> Screen
 
 
 def commit(store: Store, candidate_id: str, screening: Screening, now: datetime,
-           messages: list[tuple[str, str]] = ()) -> None:
+           messages: list[tuple[str, str]] = (), outbox: list[str] = ()) -> None:
     decision = screening.decide()
     previous = store.get(candidate_id)
     with screening.syncing_events() as new_events:
@@ -29,4 +29,4 @@ def commit(store: Store, candidate_id: str, screening: Screening, now: datetime,
         screening.version = store.commit_turn(candidate_id, now, screening.to_state(), screening.extracted(),
                           str(decision.outcome), events, list(messages),
                           reasons=decision.reasons, flags=decision.flags, summary=summarise(screening),
-                          expected_version=screening.version)
+                          expected_version=screening.version, outbox=list(outbox))

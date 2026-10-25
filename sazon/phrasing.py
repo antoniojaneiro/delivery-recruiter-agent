@@ -111,6 +111,7 @@ _OFFER = {
     "taken": ("Ese horario ya no está libre. Estas son las opciones disponibles:",
               "That time is no longer free. These are the options available:"),
     "unclear": ("No me quedó claro. Elige una opción:", "I didn't quite get that. Pick an option:"),
+    "reminder": ("Te recuerdo las horas disponibles para tu llamada:", "A reminder of the times available for your call:"),
 }
 _OFFER_END = (
     "Responde con el número. Si ninguna te viene bien, responde 'ninguna' y un reclutador te escribirá en un máximo de 48 horas.",

@@ -12,7 +12,7 @@ from sazon.model import Language
 from sazon.phrasing import Directive, Kind, phrase
 from sazon.store import Store
 
-HELP = "Commands: /new, /resume <id>, /state, /wait24h, /help, /quit"
+HELP = "Commands: /new, /resume <id>, /state, /inbox, /wait24h, /help, /quit"
 
 
 def run(llm: LLM, store: Store, areas: dict[str, list[str]], read=input, write=print,
@@ -93,6 +93,8 @@ def _command(command, arg, candidate_id, llm, store, areas, clock, write) -> str
     if command == "/help":
         write(HELP)
         return candidate_id
+    if command == "/inbox":
+        return _show_inbox(store, candidate_id, clock, write)
     if command == "/state":
         return _show_state(store, candidate_id, write)
     if command == "/wait24h":
@@ -103,6 +105,17 @@ def _command(command, arg, candidate_id, llm, store, areas, clock, write) -> str
         write(f"bot> {reply}" if reply else "[no reply: stalled or already finished]")
         return candidate_id
     write(f"[unknown command {command}] {HELP}")
+    return candidate_id
+
+
+def _show_inbox(store, candidate_id, clock, write) -> str | None:
+    """Messages the reminder job queued for this candidate: the terminal has no way to send them by itself."""
+    pending = store.outbox_pending(candidate_id) if candidate_id else []
+    if not pending:
+        write("[no queued messages for this candidate]")
+    for entry in pending:
+        write(f"bot> {entry.text}")
+        store.mark_delivered(entry.id, clock())
     return candidate_id
 
 
