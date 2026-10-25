@@ -27,7 +27,7 @@ class SubmitResult:
 
 @dataclass(frozen=True)
 class Decision:
-    outcome: str  # IN_PROGRESS, QUALIFIED, DISQUALIFIED or ENDED_OFF_TOPIC
+    outcome: str  # IN_PROGRESS, QUALIFIED, DISQUALIFIED, ENDED_OFF_TOPIC or WITHDRAWN
     reasons: list[str]
     flags: list[str]
 
@@ -39,6 +39,7 @@ class Screening:
         self.values: dict[str, object] = {}
         self.review_fields: set[str] = set()
         self.out_of_area = False
+        self.withdrawn = False
         self.events: list[tuple[str, str]] = []
         self._off_topic = 0
         self._follow_ups: dict[str, int] = {}
@@ -58,6 +59,7 @@ class Screening:
             "values": self.extracted(),
             "review_fields": sorted(self.review_fields),
             "out_of_area": self.out_of_area,
+            "withdrawn": self.withdrawn,
             "events": [list(e) for e in self.events],
             "off_topic": self._off_topic,
             "follow_ups": self._follow_ups,
@@ -73,6 +75,7 @@ class Screening:
             s.values["start_date"] = date.fromisoformat(s.values["start_date"])
         s.review_fields = set(state["review_fields"])
         s.out_of_area = state["out_of_area"]
+        s.withdrawn = state.get("withdrawn", False)
         s.events = [tuple(e) for e in state["events"]]
         s._off_topic = state["off_topic"]
         s._follow_ups = dict(state["follow_ups"])
@@ -83,6 +86,10 @@ class Screening:
         self._off_topic += 1
         self.events.append(("off_topic", ""))
 
+    def withdraw(self) -> None:
+        self.withdrawn = True
+        self.events.append(("withdrawn", ""))
+
     def human_requested(self) -> None:
         self.events.append(("human_requested", ""))
 
@@ -90,6 +97,8 @@ class Screening:
         flags = [f"{f.upper()}_NEEDS_REVIEW" for f in FIELD_ORDER if f in self.review_fields]
         if self.consent is False:
             return Decision("DISQUALIFIED", ["NO_CONSENT"], [])
+        if self.withdrawn:
+            return Decision("WITHDRAWN", [], flags)
         if self._off_topic >= MAX_OFF_TOPIC:
             return Decision("ENDED_OFF_TOPIC", [], flags)
         reasons = []
@@ -106,7 +115,7 @@ class Screening:
     def next_field(self) -> str | None:
         if self.consent is None:
             return "consent"
-        if not self.consent:
+        if not self.consent or self.withdrawn:
             return None
         return next((f for f in FIELD_ORDER if f not in self.values), None)
 

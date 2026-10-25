@@ -265,3 +265,23 @@ def test_reloaded_screening_keeps_dates_review_flags_and_consent(consented):
     assert restored.values["start_date"] == date(2026, 11, 1)
     assert restored.review_fields == {"name"}
     assert restored.decide() == consented.decide()
+
+
+def test_withdrawing_ends_the_chat_asks_nothing_more_and_is_logged(consented):
+    consented.submit("name", "Juan Pérez", TODAY)
+    consented.withdraw()
+    assert consented.decide().outcome == "WITHDRAWN"
+    assert consented.next_field() is None
+    assert ("withdrawn", "") in consented.events
+
+
+def test_withdrawing_wins_over_a_known_disqualifier(consented):
+    consented.submit("license", False, TODAY)
+    consented.withdraw()
+    assert consented.decide().outcome == "WITHDRAWN"
+
+
+def test_withdrawal_survives_a_save_and_reload(consented):
+    consented.withdraw()
+    restored = Screening.from_state(AREAS, json.loads(json.dumps(consented.to_state())))
+    assert restored.decide().outcome == "WITHDRAWN"
