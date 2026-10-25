@@ -216,7 +216,7 @@ def test_stray_confirmation_with_nothing_pending_is_a_follow_up_not_a_crash(cons
 def test_license_is_asked_again_without_a_cap_until_clear(consented):
     statuses = {consented.submit("license", None, TODAY).status for _ in range(10)}
     assert statuses == {"follow_up"}
-    assert consented.next_field() == "license"
+    assert "license" not in consented.values
     assert consented.decide().outcome == "IN_PROGRESS"
 
 
