@@ -1,6 +1,6 @@
 # Phase 1: Process Design — Driver Screening Agent (Grupo Sazón)
 
-Status: draft for review. Every decision traces to [DECISIONS.md](DECISIONS.md) (D1–D41). Items marked **Proposed default** are engineering choices to confirm with the client.
+Status: draft for review. Every decision traces to [DECISIONS.md](DECISIONS.md) (D1–D44). Items marked **Proposed default** are engineering choices to confirm with the client.
 
 ## 1. Purpose
 
@@ -19,7 +19,7 @@ Phase 2 starts in the terminal and moves to a real messaging channel later (D1).
 
 | Stage | What happens | Exit |
 | --- | --- | --- |
-| **0. Consent** | AI disclosure and consent to store answers (D12). | No consent → polite close, reason `NO_CONSENT`. Yes → stage 1. |
+| **0. Consent** | AI disclosure and consent to store answers (D12). The reply is read in plain code, so nothing reaches the model before a yes (D44). | A clear no (or "stop") → polite close, reason `NO_CONSENT`. A clear yes → stage 1. Anything unclear → the question is asked again. |
 | **1. Name** | Full name. | Valid → 2. |
 | **2. Experience** | Years and platform(s) (D19: recorded, never disqualifies). | Always → 3. |
 | **3. Availability** | Full-time, part-time, weekends (one or more). | Valid → 4. |

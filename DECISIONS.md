@@ -398,3 +398,15 @@ Written into [PHASE1_PROCESS_DESIGN.md](PHASE1_PROCESS_DESIGN.md) as engineering
 - **Pros of chosen:** nothing is hidden, bugs are traceable in a demo or pilot, and candidates never see technical text.
 - **Cons of chosen:** a small log file to look after. The log should be covered by the retention rules (P4), since stack traces can in rare cases include fragments of data.
 - **Decided by:** user, 2026-10-25.
+
+## D44: The consent reply is read in plain code, never by the model (refines D12, D26, D31)
+
+- **Chosen:** The answer to the consent question is read by `sazon/consent.py`, a conservative Spanish and English word list. No extraction call is made and nothing the candidate writes reaches the model until they have said yes. The reply is read as:
+  - **yes** for short, clear agreement ("sí", "vale", "ok", "yes", "no hay problema", "no problem"), or a clear agreement word followed by punctuation and more text without a condition ("sí, soy Juan de Madrid"). The extra text is ignored and asked for normally after the yes.
+  - **no** only for short, explicit refusals ("no", "no gracias", "no quiero", "no thanks"), and also "stop", "para" and "no quiero continuar" said before consent. All close the chat as `NO_CONSENT` at once, with no confirmation question, because nothing has been stored.
+  - **unclear** for anything else (questions, conditions, unknown words, long messages). The consent question is asked again, with no limit: it costs no model call and the 24-hour stall ends an abandoned chat.
+- **Why:** the consent answer used to be sent to Google's model before the candidate had agreed to anything, the weakest point of the privacy design. A misread "no" would also end a chat for good, so a refusal must be short and explicit.
+- **Options considered:** keep the model for the consent reply (understands any wording and keeps data given with the yes, but the text leaves our system before consent); ask "just to confirm" before closing on a no (no accidental close, but pressing someone who has just refused can read as pushy under GDPR).
+- **Cons of chosen:** an unusual way of saying yes is read as unclear and asked again. Data given with the yes is asked for again.
+- **Supersedes:** the part of D26 that used data from the consent reply, and the consent intent in D31.
+- **Decided by:** user, 2026-10-25.

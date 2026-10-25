@@ -47,13 +47,6 @@ def test_consent_no_closes_politely_and_nothing_is_kept(store):
     assert store.get("c1").extracted == {}
 
 
-def test_data_in_the_consent_reply_is_used_only_after_a_yes(store):
-    turn.start(store, AREAS, "c1", NOW)
-    reply, _ = say(store, "sí, soy Juan Pérez de Madrid",
-                   {"consent": True, "name": "Juan Pérez", "city": "Madrid"})
-    assert store.get("c1").extracted == {"name": "Juan Pérez", "city": "Madrid"}
-    assert "ciudad" not in reply and "años" in reply  # next missing field is experience
-
 
 def test_an_unanswered_consent_question_is_asked_again(store):
     turn.start(store, AREAS, "c1", NOW)
@@ -234,7 +227,7 @@ def test_consent_and_each_screening_step_are_written_to_the_audit_log(store):
 
 def test_a_declined_consent_is_logged_and_the_candidates_text_is_not_kept(store):
     turn.start(store, AREAS, "c1", NOW)
-    say(store, "no, soy Juan Pérez y vivo en Madrid", {"consent": False, "name": "Juan Pérez"})
+    say(store, "no gracias, soy Juan Pérez")
     assert "consent_declined" in [e.type for e in store.events("c1")]
     assert all("Juan" not in m.text for m in store.messages("c1"))
 
@@ -320,3 +313,51 @@ def test_a_misread_license_never_rejects_in_one_step(store):
     say(store, "no tengo coche", {"has_license": False})
     assert store.get("c1").outcome == "IN_PROGRESS"
     assert "license" not in store.get("c1").extracted
+
+
+
+@pytest.mark.parametrize("reply", [
+    "sí", "no", "no gracias", "yes", "no hay problema", "¿quién eres?", "hola, mi teléfono es 600123123",
+    "stop", "sí, soy Juan Pérez de Madrid",
+])
+def test_the_consent_turn_sends_nothing_the_candidate_wrote_to_the_model(store, reply):
+    turn.start(store, AREAS, "c1", NOW)
+    _, llm = say(store, reply, {"name": "should never be read"})
+    assert not any(call["json_mode"] for call in llm.calls)  # no extraction call
+    assert all(reply not in call["user"] and reply not in call["system"] for call in llm.calls)
+
+
+def test_data_given_with_the_yes_is_ignored_and_asked_for_normally(store):
+    turn.start(store, AREAS, "c1", NOW)
+    reply, _ = say(store, "sí, soy Juan Pérez de Madrid", {"name": "Juan Pérez", "city": "Madrid"})
+    assert store.get("c1").extracted == {}
+    assert "llamas" in reply and store.get("c1").state["consent"] is True
+
+
+def test_agreeing_with_a_phrase_that_contains_no_is_not_a_refusal(store):
+    turn.start(store, AREAS, "c1", NOW)
+    reply, _ = say(store, "no hay problema")
+    assert store.get("c1").outcome == "IN_PROGRESS" and "llamas" in reply
+
+
+@pytest.mark.parametrize("reply", ["stop", "para", "no quiero continuar", "no thanks"])
+def test_refusing_or_stopping_before_consent_counts_as_no_consent(store, reply):
+    turn.start(store, AREAS, "c1", NOW)
+    say(store, reply)
+    record = store.get("c1")
+    assert record.outcome == "DISQUALIFIED" and record.reasons == ["NO_CONSENT"]
+    assert record.extracted == {}
+
+
+def test_an_unclear_consent_reply_is_asked_again_every_time_and_costs_nothing(store):
+    turn.start(store, AREAS, "c1", NOW)
+    for _ in range(6):
+        reply, llm = say(store, "¿qué es esto?")
+        assert reply == consent_message() and llm.calls == []
+    assert store.get("c1").outcome == "IN_PROGRESS"
+
+
+def test_an_english_yes_switches_the_chat_to_english(store):
+    turn.start(store, AREAS, "c1", NOW)
+    reply, _ = say(store, "yes, sure")
+    assert "full name" in reply.lower()

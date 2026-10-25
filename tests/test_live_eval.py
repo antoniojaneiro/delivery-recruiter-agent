@@ -31,7 +31,6 @@ def ask(llm, message, asking, awaiting=None):
 
 
 def test_a_bare_yes_answers_the_question_that_was_asked(llm):
-    assert ask(llm, "sí", Field.CONSENT).consent is True
     assert ask(llm, "sí", Field.LICENSE).has_license is True
     assert ask(llm, "no", Field.CITY, awaiting="Guadalajara").confirms_city is False
 

@@ -1,6 +1,7 @@
 from datetime import date, datetime
 
 from sazon import session
+from sazon.consent import read_consent
 from sazon.extraction import Extraction, extract
 from sazon.llm import LLM, LLMError
 from sazon.model import Field, Outcome, Status
@@ -58,6 +59,20 @@ def _extract_with_one_retry(llm: LLM, screening: Screening, message: str, asking
     return None
 
 
+def _read_consent_reply(screening: Screening, message: str) -> Directive | None:
+    """Reads the consent answer in plain code (D44): nothing reaches the model before a yes.
+    Anything else the message says is ignored, and an unclear reply asks the question again (None)."""
+    reading = read_consent(message)
+    if reading.language:
+        screening.language = reading.language
+    if reading.answer is None:
+        return None
+    screening.record_consent(reading.answer)
+    if not reading.answer:
+        return _close(screening)
+    return Directive(Kind.ASK, field=screening.next_field())
+
+
 def _close(screening: Screening) -> Directive:
     decision = screening.decide()
     return Directive(Kind.CLOSE, outcome=decision.outcome, reasons=decision.reasons)
@@ -68,6 +83,8 @@ def _directive_for(llm: LLM, screening: Screening, message: str, today: date,
     """Applies the message to the screening and returns what to say next (None re-asks consent)."""
     if screening.decide().outcome not in LIVE:
         return _close(screening)
+    if screening.consent is None:
+        return _read_consent_reply(screening, message)
     asking = screening.next_field()
     try:
         extraction = _extract_with_one_retry(llm, screening, message, asking, today, last_question)
@@ -84,14 +101,6 @@ def _directive_for(llm: LLM, screening: Screening, message: str, today: date,
     if extraction.withdraw:
         screening.withdraw()
         return _close(screening)
-    if screening.consent is None:
-        if extraction.consent is None:
-            if extraction.off_topic:
-                screening.off_topic()
-            return _close(screening) if screening.decide().outcome not in LIVE else None
-        screening.record_consent(extraction.consent)
-        if not extraction.consent:
-            return _close(screening)
     unclear = _apply(screening, extraction, message, asking, today)
     if screening.decide().outcome not in LIVE:
         return _close(screening)
@@ -137,7 +146,7 @@ def _apply(screening: Screening, ex: Extraction, message: str, asking: Field | N
     if not answered:
         if ex.off_topic:
             screening.off_topic()
-        elif asking and asking != Field.CONSENT:
+        elif asking:
             note(asking, screening.submit(asking, None, today, raw=message))
     return unclear
 

@@ -57,3 +57,8 @@ class RecruiterStatus(StrEnum):
     HIRED = "hired"
     REJECTED = "rejected"
     UNREACHABLE = "unreachable"
+
+
+class Language(StrEnum):
+    ES = "es"
+    EN = "en"
