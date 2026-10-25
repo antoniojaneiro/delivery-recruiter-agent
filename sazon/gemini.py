@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 from sazon.llm import LLMError
 
 BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai/"
-DEFAULT_MODEL = "gemini-3.8-flash"  # unverified: check with --list-models
+DEFAULT_MODEL = "gemini-3.5-flash-lite"  # gemini-3.8-flash is capped at 5 requests/minute on the free tier
 TIMEOUT_SECONDS = 20
 MAX_RETRIES = 2
 

@@ -75,3 +75,9 @@ def test_a_response_without_choices_is_an_llm_error():
     sdk.chat.completions.create = lambda **kw: SimpleNamespace(choices=[])
     with pytest.raises(LLMError):
         client(sdk).complete("s", "u")
+
+
+def test_the_default_model_is_the_lite_one_that_fits_the_free_tier(monkeypatch):
+    monkeypatch.setenv("GEMINI_API_KEY", "test-key-not-real")
+    monkeypatch.delenv("LLM_MODEL", raising=False)
+    assert from_env(load_dotenv_file=False).model == "gemini-3.5-flash-lite"
