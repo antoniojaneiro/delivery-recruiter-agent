@@ -1,15 +1,8 @@
 import json
-from datetime import datetime, timedelta
+from datetime import datetime
 
 from sazon.screening import Screening
 from sazon.store import Store
-
-
-STALL_AFTER = timedelta(hours=24)
-
-
-def is_stalled(last_message_at: datetime, now: datetime) -> bool:
-    return now - last_message_at >= STALL_AFTER
 
 
 def load(store: Store, candidate_id: str, areas: dict[str, list[str]]) -> Screening:

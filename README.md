@@ -4,8 +4,8 @@ An AI-powered candidate screening agent for a fictional client that has a restau
 ## Run it
 
 ```
-python -m pip install -e .[dev] 2>/dev/null || python -m pip install pydantic openai python-dotenv pytest
-cp .env.example .env        # then add your GEMINI_API_KEY (never commit .env)
+python -m pip install -e ".[dev]"
+copy .env.example .env      # Windows (use cp on macOS/Linux), then add your GEMINI_API_KEY; never commit .env
 python -m sazon.chat        # terminal chat; commands: /new, /resume <id>, /wait24h, /quit
 python -m sazon.chat --list-models   # if the default model name returns 404
 python -m pytest -q         # unit tests, no network

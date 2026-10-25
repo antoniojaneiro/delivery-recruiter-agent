@@ -1,6 +1,6 @@
 # Phase 1: Process Design — Driver Screening Agent (Grupo Sazón)
 
-Status: draft for review. Every decision traces to [DECISIONS.md](DECISIONS.md) (D1–D28). Items marked **Proposed default** are engineering choices to confirm with the client.
+Status: draft for review. Every decision traces to [DECISIONS.md](DECISIONS.md) (D1–D36). Items marked **Proposed default** are engineering choices to confirm with the client.
 
 ## 1. Purpose
 
@@ -49,9 +49,9 @@ Order is friendly (D6): name and experience first, eligibility questions last. A
 
 | Outcome | When | What the candidate hears | What the recruiter gets |
 | --- | --- | --- | --- |
-| **Qualified** | License yes, city in area, all fields collected. | Thanks, then offer the next free call slots from the recruiter's list (D7, D8). If they pick one, confirm it. If none fits, say a recruiter will reply within 48 hours. | Summary card, slot booked or "no slot chosen". |
+| **Qualified** | License yes, city in area, all fields collected. | Thanks, and a recruiter will reply within 48 hours. The slot offer from the recruiter's list (D7, D8) comes with the dashboard (D36); the agent never invents call times. | Summary card with all fields and flags. |
 | **Disqualified** | `NO_LICENSE`, `OUT_OF_AREA`, or `NO_CONSENT`. | Polite close: thanks, the reason in one sentence, and that they can apply again later (D9). | Reason code only. |
-| **Stalled** | No reply for 24 hours after the last agent message. One reminder is sent first (D10). | Reminder: short, one line, offer to continue. | Status `STALLED`, last stage reached. |
+| **Stalled** | No reply for 24 hours: one reminder is sent, and after 24 more hours without a reply the candidate is marked `STALLED` (D10, D35). A new message resumes the chat. | Reminder: short, one line, offer to continue. | Status `STALLED`, last stage reached. |
 | **Withdrawn** | The candidate asks to stop at any time (D29). | Confirmation that the chat is closed, no more questions. | Status `WITHDRAWN`, last stage reached. |
 | **Needs review** | A field other than license or city hit the 3-follow-up cap. The rest of the flow continues. | Normal path. | The raw answer, flagged. |
 
@@ -75,10 +75,11 @@ Order is friendly (D6): name and experience first, eligibility questions last. A
 - **Length:** 1–2 short sentences, one question per message (D18). Reads like a phone chat.
 - **Tone:** friendly "tú", no jargon, at most one emoji, and only where it fits.
 - **Never:** long lists, legal text in the chat, or promises about the job.
-- **Disclosure line** (stage 0), example in Spanish:
-  > "Hola, soy el asistente virtual de Grupo Sazón. Te haré unas preguntas para tu solicitud de repartidor. ¿Te parece bien que guarde tus respuestas para el equipo de reclutamiento?"
+- **Disclosure line** (stage 0) is fixed text, never written by the model (D34). Spanish line, then English line:
+  > "Hola, soy el asistente virtual (una IA) de Grupo Sazón. Te haré unas preguntas para tu solicitud de repartidor. ¿Te parece bien que guarde tus respuestas para el equipo de reclutamiento?"
+  > "Hi, I'm Grupo Sazón's virtual assistant (an AI). I'll ask a few questions for your delivery driver application. Is it OK if I save your answers for the recruiting team?"
 - **Qualified close, example:**
-  > "¡Genial, tu perfil encaja! ¿Te viene bien el martes por la tarde para una llamada corta con el equipo?"
+  > "¡Genial, tu perfil encaja! Un reclutador te escribirá en un máximo de 48 horas para el siguiente paso."
 
 ## 8. Compliance and data
 

@@ -158,7 +158,6 @@ def test_unclear_non_eligibility_field_still_qualifies_but_is_flagged(consented)
 
 from datetime import datetime, timedelta
 
-from sazon.session import is_stalled
 
 
 def test_two_off_topic_messages_in_a_row_end_the_chat(consented):
@@ -186,15 +185,8 @@ def test_off_topic_messages_are_logged_as_events(consented):
     assert ("off_topic", "") in consented.events
 
 
-LAST = datetime(2026, 10, 25, 10, 0)
 
 
-def test_not_stalled_before_24_hours():
-    assert not is_stalled(LAST, LAST + timedelta(hours=23, minutes=59))
-
-
-def test_stalled_at_24_hours():
-    assert is_stalled(LAST, LAST + timedelta(hours=24))
 
 
 def test_correcting_an_out_of_area_city_clears_the_disqualifier(consented):
