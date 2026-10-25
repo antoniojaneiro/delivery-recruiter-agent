@@ -51,8 +51,8 @@ def test_events_are_kept_in_order_and_survive_later_saves(store):
 
 
 def test_list_candidates_filters_by_outcome(store):
-    store.save("c1", state={"outcome": "QUALIFIED"}, now=T1)
-    store.save("c2", state={"outcome": "DISQUALIFIED"}, now=T1)
+    store.save("c1", outcome="QUALIFIED", now=T1)
+    store.save("c2", outcome="DISQUALIFIED", now=T1)
     assert [r.candidate_id for r in store.list_candidates(outcome="QUALIFIED")] == ["c1"]
     assert {r.candidate_id for r in store.list_candidates()} == {"c1", "c2"}
 
@@ -73,3 +73,25 @@ def test_messages_of_other_candidates_are_not_mixed(store):
     store.add_message("c1", "candidate", "uno", now=T1)
     store.add_message("c2", "candidate", "dos", now=T1)
     assert [m.text for m in store.messages("c2")] == ["dos"]
+
+
+def test_a_real_screening_can_be_filtered_by_its_decided_outcome(store):
+    from datetime import date
+
+    from sazon.screening import Screening
+
+    areas = {"Madrid": []}
+    qualified = Screening(areas)
+    qualified.record_consent(True)
+    for field, value in [("name", "Juan Pérez"), ("experience", (0, [])), ("availability", ["weekends"]),
+                         ("schedule", "flexible"), ("start_date", date(2026, 11, 1)),
+                         ("city", "Madrid"), ("license", True)]:
+        qualified.submit(field, value, date(2026, 10, 25))
+    declined = Screening(areas)
+    declined.record_consent(False)
+    for cid, s in (("q", qualified), ("d", declined)):
+        store.save(cid, state=s.to_state(), extracted=s.extracted(),
+                   outcome=s.decide().outcome, now=T1)
+    assert [r.candidate_id for r in store.list_candidates(outcome="QUALIFIED")] == ["q"]
+    assert [r.candidate_id for r in store.list_candidates(outcome="DISQUALIFIED")] == ["d"]
+    assert store.get("q").outcome == "QUALIFIED"

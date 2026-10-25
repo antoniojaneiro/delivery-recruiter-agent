@@ -11,6 +11,7 @@ CREATE TABLE IF NOT EXISTS candidates (
     state TEXT NOT NULL DEFAULT '{}',
     extracted TEXT NOT NULL DEFAULT '{}',
     summary TEXT,
+    outcome TEXT,
     updated_at TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS events (
@@ -43,6 +44,7 @@ class Record:
     state: dict
     extracted: dict
     summary: str | None
+    outcome: str | None
     updated_at: datetime
 
 
@@ -69,7 +71,8 @@ class Store:
             db.close()
 
     def save(self, candidate_id: str, now: datetime, state: dict | None = None,
-             extracted: dict | None = None, summary: str | None = None) -> None:
+             extracted: dict | None = None, summary: str | None = None,
+             outcome: str | None = None) -> None:
         with self._connect() as db:
             db.execute(
                 "INSERT OR IGNORE INTO candidates (candidate_id, updated_at) VALUES (?, ?)",
@@ -79,6 +82,9 @@ class Store:
                 if value is not None:
                     db.execute(f"UPDATE candidates SET {column} = ? WHERE candidate_id = ?",
                                (json.dumps(value, ensure_ascii=False), candidate_id))
+            if outcome is not None:
+                db.execute("UPDATE candidates SET outcome = ? WHERE candidate_id = ?",
+                           (outcome, candidate_id))
             if summary is not None:
                 db.execute("UPDATE candidates SET summary = ? WHERE candidate_id = ?",
                            (summary, candidate_id))
@@ -88,19 +94,17 @@ class Store:
     def get(self, candidate_id: str) -> Record | None:
         with self._connect() as db:
             row = db.execute(
-                "SELECT candidate_id, state, extracted, summary, updated_at "
+                "SELECT candidate_id, state, extracted, summary, outcome, updated_at "
                 "FROM candidates WHERE candidate_id = ?", (candidate_id,)).fetchone()
         return _record(row) if row else None
 
     def list_candidates(self, outcome: str | None = None) -> list[Record]:
         with self._connect() as db:
             rows = db.execute(
-                "SELECT candidate_id, state, extracted, summary, updated_at "
-                "FROM candidates ORDER BY updated_at DESC").fetchall()
-        records = [_record(r) for r in rows]
-        if outcome:
-            records = [r for r in records if r.state.get("outcome") == outcome]
-        return records
+                "SELECT candidate_id, state, extracted, summary, outcome, updated_at "
+                "FROM candidates WHERE ? IS NULL OR outcome = ? ORDER BY updated_at DESC",
+                (outcome, outcome)).fetchall()
+        return [_record(r) for r in rows]
 
     def add_event(self, candidate_id: str, type: str, detail: str, now: datetime) -> None:
         with self._connect() as db:
@@ -127,6 +131,6 @@ class Store:
 
 
 def _record(row) -> Record:
-    candidate_id, state, extracted, summary, updated_at = row
-    return Record(candidate_id, json.loads(state), json.loads(extracted), summary,
+    candidate_id, state, extracted, summary, outcome, updated_at = row
+    return Record(candidate_id, json.loads(state), json.loads(extracted), summary, outcome,
                   datetime.fromisoformat(updated_at))
