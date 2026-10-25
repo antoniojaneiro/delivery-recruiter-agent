@@ -25,7 +25,7 @@ A candidate screening agent for Grupo Sazón (fictional): a restaurant chain hir
 - Opus is not used for routine edits or lookups.
 - The launch flags `claude --advisor opus --subagents haiku` come from a post. They are unverified here. If `claude --help` in your terminal confirms them, you can also start with them. The roles above work without the flags.
 
-**Last architecture review:** 2026-10-25 at commit `795de1c` (slice 3). Its bugs are fixed (D49); the structural findings (store size, screening/slots split, repeated dashboard checks, labels in phrasing, mixed datetimes) are open for discussion. 1 commit since. Update this line each time a review happens.
+**Last architecture review:** 2026-10-25 at commit `1fb5be0` (whole product, four reviewers plus a real-model scenario run, D50). Its bugs are fixed; its decisions are listed as open in D50, and the structural findings from the slice 3 review (D49) are still open. 0 commits since. Update this line each time a review happens.
 
 ## Decisions
 

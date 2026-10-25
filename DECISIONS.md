@@ -456,3 +456,30 @@ Written into [PHASE1_PROCESS_DESIGN.md](PHASE1_PROCESS_DESIGN.md) as engineering
 - **A booking race** for the same candidate (two processes) returns the existing booking instead of failing. Every outcome has a polite close, so none can crash the chat.
 - **Not fixed yet (structural, for discussion):** the store has grown into one large class; the screening still holds the slot offer while the slots table holds the booking; recruiter-name checks and error routing by message text are repeated in the dashboard pages; labels live in `phrasing.py`; `screening.py` is large; naive and aware datetimes are mixed between the chat and the dashboard.
 - **Decided by:** the assistant, as bug fixes within decisions the user already made (D48), 2026-10-25.
+
+## D50: Whole-product review and the first real-model scenario run
+
+Four reviewers (security and compliance, conversation robustness, data and operations, brief coverage) read the whole product, and 18 fictional conversations were played on the real model (`python -m sazon.demo`). Fixed, each with tests:
+
+- **Opt-out never depends on the model.** "para", "stop", "me retiro", "no quiero continuar" and similar withdraw the candidate by plain-code rules (`is_stop_request`), while ordinary sentences containing those words do not.
+- **A greeting before the answer.** "hola, sí" was not read as consent and the disclosure was repeated forever. Greetings are now ignored in front of the answer.
+- **Hesitation is not off-topic.** "mmm", "no sé", "jaja", "ok" are an answer that did not answer. They count toward the five insistences (D41), no longer toward the two off-topic messages that end the chat. The prompt says so, and plain code enforces it.
+- **No repeated "¡Hola!" or "Bienvenido"** before every question; the model is told not to, and a leading greeting is removed from its text.
+- **Asking for a person or about pay** now gets a fixed sentence before the next question (a recruiter will review the application and answer about pay), is not counted as an unclear answer, and is logged (`human_requested`, `pay_question`).
+- **A closing is not repeated word for word.** Later messages get a short note. The off-topic close now says why the chat ended.
+- **Injection hardening.** Both of our data tags are removed from candidate text in any spelling, earlier-turn text sits inside its own data block, and messages are cut at 2000 characters.
+- **Dashboard.** Candidate text and recruiter names are shown as plain text (no Markdown images or links), the server listens on localhost only, and the store creates its own folder (a clean machine crashed if the dashboard was started first).
+- **Dates, years, names, cities.** "dentro de 3 meses" and "el lunes" resolve in code; impossible years (NaN, over 60) are refused; "Dr. Juan Pérez" and initials are valid names; "Madrid, España", "Zapopan", "Chamberí" and similar count as their service area (sample list of nearby towns, to be replaced by the client's real list, D13).
+- **Model-phrased text** is rejected when it mentions pay, a hire or a clock time.
+- **Evidence and traceability.** The consent event stores a hash of the exact wording shown; model-failure events say which kind of error it was; ids are 12 characters and never reused; the chat and dashboard use the same database file; SQLite runs in WAL mode with indexes; a saved state from another version still loads.
+- **`.gitignore`** now covers `.env.*`, database side files, logs and the `data/` folder.
+
+**Open, needing the user's decision (not changed):**
+- What happens when a later message contradicts an accepted answer (today it silently overwrites).
+- Whether a rejected or closed candidate can correct a misunderstanding, and how a returning applicant is recognised (the terminal has no phone number).
+- Consent wording: the disclosure does not say that answers are processed by an external AI service (Gemini). Legal text, so not changed without approval.
+- Erasure and retention are not implemented (no delete on request, no six-month purge).
+- Automated rejection: the agent itself tells a candidate "no podemos seguir" (no license, out of area), against "a recruiter makes every hiring decision".
+- The off-topic limit of two in a row (P3) is still an unconfirmed default.
+- The dashboard has no real login: the recruiter name is free text.
+- The free tier (about 5 requests per minute) cannot serve the client's volume.
