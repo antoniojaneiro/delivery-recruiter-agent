@@ -2,8 +2,9 @@
 name = "sazon-screening"
 version = "0.1.0"
 requires-python = ">=3.12"
-dependencies = ["pydantic>=2"]
+dependencies = ["pydantic>=2", "openai>=1.50", "python-dotenv>=1"]
 
 [tool.pytest.ini_options]
 pythonpath = ["."]
 testpaths = ["tests"]
+markers = ["live: calls the real Gemini API; skipped unless GEMINI_API_KEY is set"]
