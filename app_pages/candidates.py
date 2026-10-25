@@ -11,6 +11,9 @@ store = ui.store()
 recruiter = ui.recruiter_name()
 
 st.title("Candidatos")
+if "erase_message" in st.session_state:
+    kind, text = st.session_state.pop("erase_message")
+    (st.success if kind == "success" else st.error)(text)
 
 records = store.list_candidates()
 if not records:
@@ -18,11 +21,14 @@ if not records:
     st.stop()
 
 numbers = kpis(records)
-cols = st.columns(4)
+cols = st.columns(5)
 cols[0].metric("Candidatos", numbers["total"])
 cols[1].metric("Cualificados por contactar", numbers["to_contact"])
-cols[2].metric("Bloqueados", numbers["blocked"])
-cols[3].metric("Sin respuesta", numbers["stalled"])
+cols[2].metric("Descartes por revisar", numbers["to_review"],
+               help="Candidatos que el agente descartó (sin licencia, fuera de zona o fuera de tema) y que "
+                    "ningún reclutador ha revisado todavía. Ponles un estado cuando los hayas mirado.")
+cols[3].metric("Bloqueados", numbers["blocked"])
+cols[4].metric("Sin respuesta", numbers["stalled"])
 
 with st.container(horizontal=True, vertical_alignment="bottom"):
     outcomes = st.multiselect("Estado del agente", [o.value for o in Outcome], key="f_outcome",
@@ -30,8 +36,9 @@ with st.container(horizontal=True, vertical_alignment="bottom"):
     statuses = st.multiselect("Estado del reclutador", [s.value for s in RecruiterStatus], key="f_status",
                               format_func=lambda value: STATUS_LABEL[value])
     search = st.text_input("Buscar por nombre, ciudad o id", key="f_search")
+    review_only = st.checkbox("Solo descartes por revisar", key="f_review")
 
-shown = filter_records(records, outcomes, statuses, search)
+shown = filter_records(records, outcomes, statuses, search, review_only)
 if not shown:
     st.info("Ningún candidato coincide con los filtros.")
     st.stop()
@@ -39,6 +46,8 @@ if not shown:
 st.dataframe(table_rows(shown), hide_index=True, width="stretch")
 
 by_id = {r.candidate_id: r for r in shown}
+if st.session_state.get("candidate") not in by_id:
+    st.session_state["candidate"] = None  # e.g. the candidate was just erased
 selected_id = st.selectbox(
     "Ver candidato", list(by_id), index=None, placeholder="Elige un candidato", key="candidate",
     bind="query-params",
@@ -100,6 +109,24 @@ with right:
     for item in store.notes(selected_id):
         st.text(f"{item.author} · {item.at:%Y-%m-%d %H:%M}")
         st.text(item.text)
+
+
+def erase_selected() -> None:
+    """Runs before the page is redrawn, so the selection and the confirmation can be reset safely."""
+    if not st.session_state.get("confirm_erase"):
+        st.session_state["erase_message"] = ("error", "Marca la casilla de confirmación para borrar.")
+        return
+    store.erase_candidate(st.session_state["candidate"], f"recruiter:{recruiter}", datetime.now(), "request")
+    st.session_state["candidate"] = None
+    st.session_state["confirm_erase"] = False
+    st.session_state["erase_message"] = ("success", "Datos borrados. Solo queda un registro anónimo de quién los borró.")
+
+
+with st.expander("Borrar los datos de este candidato"):
+    st.caption("Derecho de supresión: elimina sus respuestas, la conversación, las notas y la reserva. "
+               "No se puede deshacer.")
+    st.checkbox("Confirmo que quiero borrar todos los datos de este candidato", key="confirm_erase")
+    st.button("Borrar datos", key="erase_candidate", on_click=erase_selected)
 
 st.divider()
 conversation, audit = st.tabs(["Conversación", "Auditoría"])

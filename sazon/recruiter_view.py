@@ -1,7 +1,7 @@
 """What the recruiter dashboard shows, as plain functions so they are testable without Streamlit."""
 import re
 
-from sazon.model import Outcome, RecruiterStatus
+from sazon.model import Language, Outcome, Reason, RecruiterStatus
 from sazon.phrasing import slot_label
 from sazon.model import Language
 from sazon.store import Booking, Record, Slot
@@ -68,9 +68,19 @@ def matches(record: Record, search: str) -> bool:
     return needle in haystack
 
 
-def filter_records(records: list[Record], outcomes: list[str], statuses: list[str], search: str) -> list[Record]:
+def needs_review(record: Record) -> bool:
+    """An automated close nobody has looked at yet (D52): the agent rejected the candidate, or ended the chat for
+    off-topic messages. Declined consent is the candidate's own choice, so it is not in the queue."""
+    return (record.outcome in (Outcome.DISQUALIFIED, Outcome.ENDED_OFF_TOPIC)
+            and Reason.NO_CONSENT not in record.reasons
+            and record.status == RecruiterStatus.NEW)
+
+
+def filter_records(records: list[Record], outcomes: list[str], statuses: list[str], search: str,
+                   review_only: bool = False) -> list[Record]:
     return [r for r in records
-            if (not outcomes or r.outcome in outcomes)
+            if (not review_only or needs_review(r))
+            and (not outcomes or r.outcome in outcomes)
             and (not statuses or r.status in statuses)
             and matches(r, search)]
 
@@ -78,6 +88,7 @@ def filter_records(records: list[Record], outcomes: list[str], statuses: list[st
 def kpis(records: list[Record]) -> dict[str, int]:
     return {
         "total": len(records),
+        "to_review": sum(1 for r in records if needs_review(r)),
         "to_contact": sum(1 for r in records if r.outcome == Outcome.QUALIFIED and r.status == RecruiterStatus.NEW
                          and r.booking is None),
         "blocked": sum(1 for r in records if r.outcome == Outcome.BLOCKED),

@@ -7,6 +7,7 @@ from streamlit.testing.v1 import AppTest
 
 from sazon.model import RecruiterStatus
 from sazon.store import Store
+from tests.dash import login, logout, seed_accounts
 
 T1 = datetime(2026, 10, 25, 10, 0)
 APP = str(Path(__file__).resolve().parent.parent / "dashboard.py")
@@ -16,6 +17,8 @@ APP = str(Path(__file__).resolve().parent.parent / "dashboard.py")
 def db(tmp_path, monkeypatch):
     path = tmp_path / "sazon.db"
     monkeypatch.setenv("SAZON_DB", str(path))
+    monkeypatch.setenv("SAZON_ACCOUNTS", str(tmp_path / "recruiters.json"))
+    seed_accounts(tmp_path / "recruiters.json")
     return Store(path)
 
 
@@ -35,8 +38,9 @@ def seed(store):
     store.set_status("c2", RecruiterStatus.CONTACTED, "Ana", T1)
 
 
-def run():
+def run(as_user="Ana"):
     at = AppTest.from_file(APP, default_timeout=10).run()
+    login(at, as_user)
     assert not at.exception, at.exception
     return at
 
@@ -67,7 +71,8 @@ def test_an_empty_database_says_so_instead_of_showing_an_empty_table(db):
 def test_the_key_numbers_and_the_candidate_table_are_shown(db):
     seed(db)
     at = run()
-    assert metrics(at) == {"Candidatos": "4", "Cualificados por contactar": "1", "Bloqueados": "1", "Sin respuesta": "0"}
+    assert metrics(at) == {"Candidatos": "4", "Cualificados por contactar": "1", "Descartes por revisar": "1",
+                           "Bloqueados": "1", "Sin respuesta": "0"}
     assert sorted(rows(at)["Id"]) == ["c1", "c2", "c3", "c4"]
     assert set(rows(at).columns) >= {"Id", "Nombre", "Ciudad", "Agente", "Reclutador", "Asignado a", "Actualizado"}
 
@@ -106,19 +111,10 @@ def test_choosing_a_candidate_shows_the_summary_the_conversation_and_the_audit_l
     assert list(events["Tipo"]) == ["consent_given", "field_accepted"]
 
 
-def test_acting_without_a_name_is_refused_and_saves_nothing(db):
-    seed(db)
-    at = choose(run(), "c1")
-    at.selectbox(key="new_status").select("contacted")
-    at.form_submit_button(key="save_status").click().run()
-    assert any("nombre" in str(e.value) for e in at.error)
-    assert db.recruiter("c1").status == RecruiterStatus.NEW
-
 
 def test_a_recruiter_can_change_the_status_and_it_is_logged_with_their_name(db):
     seed(db)
     at = run()
-    at.sidebar.text_input(key="recruiter").set_value("Ana").run()
     choose(at, "c1")
     at.selectbox(key="new_status").select("interview_scheduled")
     at.form_submit_button(key="save_status").click().run()
@@ -131,7 +127,6 @@ def test_a_recruiter_can_change_the_status_and_it_is_logged_with_their_name(db):
 def test_a_recruiter_can_assign_and_add_notes(db):
     seed(db)
     at = run()
-    at.sidebar.text_input(key="recruiter").set_value("Ana").run()
     choose(at, "c1")
     at.text_input(key="assignee").set_value("Luis")
     at.form_submit_button(key="save_assignee").click().run()
@@ -146,7 +141,6 @@ def test_a_recruiter_can_assign_and_add_notes(db):
 def test_an_empty_note_is_refused(db):
     seed(db)
     at = run()
-    at.sidebar.text_input(key="recruiter").set_value("Ana").run()
     choose(at, "c1")
     at.text_area(key="note").set_value("   ")
     at.form_submit_button(key="save_note").click().run()
@@ -156,7 +150,6 @@ def test_an_empty_note_is_refused(db):
 def test_a_recruiter_may_overrule_the_agents_rejection(db):
     seed(db)
     at = run()
-    at.sidebar.text_input(key="recruiter").set_value("Ana").run()
     choose(at, "c3")
     at.selectbox(key="new_status").select("interview_scheduled")
     at.form_submit_button(key="save_status").click().run()
@@ -182,7 +175,7 @@ def test_a_recruiters_note_and_name_are_shown_as_plain_text(db):
     at = choose(run(), "c1")
     assert any(EVIL == t.value for t in at.text)
     assert any(t.value.startswith("**Ana** · ") for t in at.text)
-    assert not any("evil.example" in str(md.value) or "Ana" in str(md.value) for md in at.markdown)
+    assert not any("evil.example" in str(md.value) or "**Ana** ·" in str(md.value) for md in at.markdown)
 
 
 def test_the_dashboard_only_listens_on_this_machine():

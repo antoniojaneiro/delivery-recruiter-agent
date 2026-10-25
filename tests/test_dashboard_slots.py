@@ -6,6 +6,7 @@ import pytest
 from streamlit.testing.v1 import AppTest
 
 from sazon.store import Store
+from tests.dash import login, logout, seed_accounts
 
 APP = str(Path(__file__).resolve().parent.parent / "dashboard.py")
 SLOTS_PAGE = "app_pages/slots.py"
@@ -17,6 +18,8 @@ FUTURE = date.today() + timedelta(days=40)
 def db(tmp_path, monkeypatch):
     path = tmp_path / "sazon.db"
     monkeypatch.setenv("SAZON_DB", str(path))
+    monkeypatch.setenv("SAZON_ACCOUNTS", str(tmp_path / "recruiters.json"))
+    seed_accounts(tmp_path / "recruiters.json")
     return Store(path)
 
 
@@ -25,8 +28,9 @@ def candidate(store, cid, name, city="Madrid", outcome="QUALIFIED"):
                       summary=f"{name} · {city} · Cualificado")
 
 
-def run():
+def run(as_user="Ana"):
     at = AppTest.from_file(APP, default_timeout=10).run()
+    login(at, as_user)
     assert not at.exception, at.exception
     return at
 
@@ -38,7 +42,10 @@ def slots_page(at):
 
 
 def name_as(at, name="Ana"):
-    at.sidebar.text_input(key="recruiter").set_value(name).run()
+    """Signed in as `name` (the tests start as Ana)."""
+    if at.session_state["recruiter"] != name:
+        logout(at)
+        login(at, name)
     return at
 
 
@@ -65,11 +72,6 @@ def test_a_recruiter_can_add_a_slot_in_a_countrys_own_time(db):
     table = at.dataframe[0].value
     assert list(table["País"]) == ["México"] and list(table["Estado"]) == ["Libre"]
 
-
-def test_adding_a_slot_needs_the_recruiters_name(db):
-    at = slots_page(run())
-    add_slot(at)
-    assert at.error and db.slots(NOW) == []
 
 
 @pytest.mark.parametrize("when", [
@@ -112,13 +114,6 @@ def test_cancelling_a_booked_slot_tells_the_recruiter_to_warn_the_candidate(db):
     assert db.booking_of("c1") is None
     assert [e.actor for e in db.events("c1") if e.type == "slot_cancelled"] == ["recruiter:Ana"]
 
-
-def test_cancelling_needs_the_recruiters_name(db):
-    slot_id = db.add_slot("ES", datetime.combine(FUTURE, time(10, 0)), "Ana", "Ana", NOW)
-    at = slots_page(run())
-    at.selectbox(key="cancel_slot").select(slot_id)
-    at.button(key="confirm_cancel").click().run()
-    assert at.error and len(db.slots(NOW)) == 1
 
 
 def test_the_candidate_page_and_table_show_the_booked_call(db):

@@ -70,7 +70,7 @@ def test_filters_combine_outcome_status_and_search(store):
 
 def test_the_key_numbers_count_what_a_recruiter_must_act_on(store):
     numbers = kpis(store.list_candidates())
-    assert numbers == {"total": 5, "to_contact": 1, "blocked": 1, "stalled": 1}
+    assert numbers == {"total": 5, "to_contact": 1, "to_review": 1, "blocked": 1, "stalled": 1}
 
 
 def test_a_booked_call_shows_in_the_table_and_leaves_the_to_contact_number(store):
@@ -98,3 +98,22 @@ def test_the_slot_state_says_when_a_free_slot_is_too_close_to_be_offered():
     assert slot_state(later, None, now) == "Libre"
     assert slot_state(soon, None, now) == "Ya no se ofrece (faltan menos de 2 horas)"
     assert slot_state(taken, "Juan Pérez", now) == "Reservado: Juan Pérez (c1)"
+
+
+def test_the_review_queue_holds_agent_rejections_nobody_has_looked_at(store):
+    from sazon.recruiter_view import needs_review
+    records = {r.candidate_id: r for r in store.list_candidates()}
+    assert needs_review(records["c3"])          # DISQUALIFIED for OUT_OF_AREA, status new
+    assert not needs_review(records["c1"])      # qualified
+    store.commit_turn("x1", T1, {}, {}, "DISQUALIFIED", [], [], reasons=["NO_CONSENT"])
+    store.commit_turn("x2", T1, {}, {}, "ENDED_OFF_TOPIC", [], [])
+    store.commit_turn("x3", T1, {}, {}, "DISQUALIFIED", [], [], reasons=["NO_LICENSE"])
+    store.set_status("x3", RecruiterStatus.REJECTED, "Ana", T1)
+    after = {r.candidate_id: r for r in store.list_candidates()}
+    assert not needs_review(after["x1"]) and needs_review(after["x2"]) and not needs_review(after["x3"])
+    assert kpis(store.list_candidates())["to_review"] == 2
+
+
+def test_the_review_only_filter_keeps_just_the_queue(store):
+    records = store.list_candidates()
+    assert ids(filter_records(records, outcomes=[], statuses=[], search="", review_only=True)) == ["c3"]
