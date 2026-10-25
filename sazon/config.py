@@ -11,6 +11,13 @@ AREAS = {
     "Monterrey": [],
 }
 
+# Where each service area is, and the time zone of each country (D48).
+COUNTRY_OF = {
+    "Madrid": "ES", "Barcelona": "ES", "Valencia": "ES",
+    "Ciudad de México": "MX", "Guadalajara": "MX", "Monterrey": "MX",
+}
+COUNTRY_TZ = {"ES": "Europe/Madrid", "MX": "America/Mexico_City"}
+
 DB_PATH = Path("data/sazon.db")
 
 LOG_PATH = Path("data/sazon.log")
