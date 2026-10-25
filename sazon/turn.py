@@ -47,6 +47,16 @@ def handle_message(llm: LLM, store, areas: dict[str, list[str]], candidate_id: s
     return reply
 
 
+def _extract_with_one_retry(llm: LLM, screening: Screening, message: str, asking: Field | None,
+                            today: date, last_question: str | None) -> Extraction | None:
+    for _ in range(2):
+        result = extract(llm, message, asking, screening.awaiting_confirmation, today,
+                         last_question, screening.previous_answer(asking))
+        if result is not None:
+            return result
+    return None
+
+
 def _close(screening: Screening) -> Directive:
     decision = screening.decide()
     return Directive(Kind.CLOSE, outcome=decision.outcome, reasons=decision.reasons)
@@ -59,9 +69,12 @@ def _directive_for(llm: LLM, screening: Screening, message: str, today: date,
         return _close(screening)
     asking = screening.next_field()
     try:
-        extraction = extract(llm, message, asking, screening.awaiting_confirmation, today,
-                             last_question, screening.previous_answer(asking)) or Extraction()
+        extraction = _extract_with_one_retry(llm, screening, message, asking, today, last_question)
     except LLMError:
+        screening.record_model_failure("unreachable")
+        return Directive(Kind.TECHNICAL_ERROR)
+    if extraction is None:
+        screening.record_model_failure("unparseable")
         return Directive(Kind.TECHNICAL_ERROR)
     if extraction.language:
         screening.language = extraction.language

@@ -68,3 +68,10 @@ def test_the_model_comes_from_the_environment(monkeypatch):
     monkeypatch.setenv("GEMINI_API_KEY", "test-key-not-real")
     monkeypatch.setenv("LLM_MODEL", "my-model")
     assert from_env(load_dotenv_file=False).model == "my-model"
+
+
+def test_a_response_without_choices_is_an_llm_error():
+    sdk = FakeSDK()
+    sdk.chat.completions.create = lambda **kw: SimpleNamespace(choices=[])
+    with pytest.raises(LLMError):
+        client(sdk).complete("s", "u")

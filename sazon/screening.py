@@ -118,6 +118,9 @@ class Screening:
     def mark_events_synced(self) -> None:
         self.events_synced = len(self.events)
 
+    def record_model_failure(self, kind: str) -> None:
+        self.events.append((EventType.MODEL_FAILURE, kind))
+
     def send_reminder(self) -> None:
         self.reminder_sent = True
         self.events.append((EventType.REMINDER_SENT, ""))

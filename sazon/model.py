@@ -39,6 +39,7 @@ class EventType(StrEnum):
     FIELD_ACCEPTED = "field_accepted"
     FOLLOW_UP = "follow_up"
     REVIEW = "review"
+    MODEL_FAILURE = "model_failure"
 
 
 class CityMatchStatus(StrEnum):

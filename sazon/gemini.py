@@ -28,7 +28,7 @@ class GeminiClient:
             response = self._sdk.chat.completions.create(**kwargs)
         except openai.OpenAIError as error:
             raise LLMError(f"{type(error).__name__}: {error}") from error
-        content = response.choices[0].message.content
+        content = response.choices[0].message.content if response.choices else None
         if not content:
             raise LLMError("the model returned an empty answer")
         return content

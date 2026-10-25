@@ -356,3 +356,10 @@ Written into [PHASE1_PROCESS_DESIGN.md](PHASE1_PROCESS_DESIGN.md) as engineering
 - **Chosen:** Any candidate reply resets the reminder, so each period of silence gets one reminder before `STALLED`.
 - **Options considered:** one reminder per candidate in total (stricter on spam, lets a second silence stall with no nudge).
 - **Decided by:** user, 2026-10-25.
+
+## D39: Model failures never cost the candidate a follow-up (refines D31)
+
+- **Chosen:** Unparseable model output is retried once. If it still fails, or the model is unreachable, the candidate gets the fixed technical-problem message, no follow-up is counted, and a `model_failure` event (`unparseable` or `unreachable`, no candidate data) is logged. An empty response from Gemini is treated as unreachable.
+- **Options considered:** keep charging a follow-up and log it (loops always end, but our glitches can push answers to REVIEW); apologise at once with no retry (cheaper, more glitches reach the candidate).
+- **Cons of chosen:** one extra call on a rate-limited tier. A message that always breaks the model repeats the apology until the 24-hour stall.
+- **Decided by:** user, 2026-10-25.

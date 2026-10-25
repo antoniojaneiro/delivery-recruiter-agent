@@ -176,22 +176,6 @@ def test_declining_a_city_confirmation_asks_the_city_again_without_disqualifying
     assert outcome(store) == "IN_PROGRESS" and "No me quedó claro" in reply
 
 
-def test_an_unreachable_model_apologises_and_changes_nothing(store):
-    consented(store)
-    before = store.get("c1").state
-    reply, _ = say(store, "Juan Pérez", LLMError("429"))
-    assert "problema técnico" in reply
-    assert store.get("c1").state == before
-    assert store.messages("c1")[-2].text == "Juan Pérez"
-
-
-def test_unparseable_model_output_counts_as_an_unclear_answer_not_an_endless_apology(store):
-    consented(store)
-    for _ in range(3):
-        reply, _ = say(store, "Juan Pérez", "this is not json")
-        assert "No me quedó claro" in reply
-    say(store, "Juan Pérez", "this is not json")
-    assert store.get("c1").extracted["name"] == "Juan Pérez"
 
 
 def test_asking_for_a_human_is_logged_and_screening_continues(store):
@@ -296,3 +280,38 @@ def test_every_new_period_of_silence_gets_its_own_single_reminder(store):
     assert outcome(store) == "IN_PROGRESS"
     assert turn.wait_24h(llm, store, AREAS, "c1", NOW) is None
     assert outcome(store) == "STALLED"
+
+
+
+def failures(store):
+    return [e.detail for e in store.events("c1") if e.type == "model_failure"]
+
+
+def test_an_unreachable_model_apologises_charges_nothing_and_is_logged(store):
+    consented(store)
+    before = store.get("c1").extracted
+    reply, _ = say(store, "Juan Pérez", LLMError("429"))
+    assert "problema técnico" in reply
+    assert store.get("c1").extracted == before
+    assert failures(store) == ["unreachable"]
+    assert "follow_up" not in [e.type for e in store.events("c1")]
+    assert store.messages("c1")[-2].text == "Juan Pérez"
+
+
+def test_unparseable_output_is_retried_once_and_the_retry_is_used(store):
+    consented(store)
+    reply, llm = say(store, "Juan Pérez", "this is not json", {"name": "Juan Pérez"})
+    assert store.get("c1").extracted["name"] == "Juan Pérez"
+    assert sum(c["json_mode"] for c in llm.calls) == 2
+    assert failures(store) == []
+
+
+def test_output_that_stays_unparseable_apologises_charges_nothing_and_is_logged(store):
+    consented(store)
+    for _ in range(5):
+        reply, _ = say(store, "Juan Pérez", "not json", "still not json")
+        assert "problema técnico" in reply
+    record = store.get("c1")
+    assert "name" not in record.extracted and record.outcome == "IN_PROGRESS"
+    assert "follow_up" not in [e.type for e in store.events("c1")]
+    assert failures(store) == ["unparseable"] * 5
