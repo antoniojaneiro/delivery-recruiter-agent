@@ -236,3 +236,32 @@ Written into [PHASE1_PROCESS_DESIGN.md](PHASE1_PROCESS_DESIGN.md) as engineering
 - **Pros of chosen:** versioned with the code, free, readable on GitHub, can be exported to PDF later.
 - **Cons of chosen:** less polished for a non-technical reader.
 - **Decided by:** user, 2026-10-25.
+
+## D22: Conversation engine
+
+- **Chosen:** Pure-Python state machine owns fields, follow-up caps and the qualified/disqualified decision. The LLM only extracts fields from the candidate message and phrases the short reply.
+- **Options considered:**
+  - LangGraph state graph: matches course module 4, but heavy for a linear flow with hybrid skipping.
+  - Single LLM with tool calls: least code, but hard to test, the model makes the decision, and it is weak against prompt injection.
+- **Pros of chosen:** rules are unit-testable offline (D5, D16, D17). Candidate text can never change a decision.
+- **Cons of chosen:** more code than a prompt-only agent.
+- **Decided by:** user, 2026-10-25.
+
+## D23: LLM client
+
+- **Chosen:** Own thin client (`openai` SDK against Gemini's OpenAI-compatible endpoint), key from this repo's `.env`, behind an interface so tests use a fake. Refines D2: the course wrapper is read for the pattern only, not imported.
+- **Options considered:** import `course_llm.py` by absolute path (zero code, but breaks on other machines, couples the repo to private course files, may touch the course `.env`).
+- **Pros of chosen:** self-contained, no course content copied, no real keys read.
+- **Cons of chosen:** a little extra code.
+- **Decided by:** user, 2026-10-25.
+
+## D24: Build order
+
+- **Chosen:** Slice 1 domain core with no LLM (models, validators, follow-up cap, decision, SQLite store). Slice 2 LLM extraction and terminal chat. Slice 3 summary and Streamlit dashboard.
+- **Options considered:** thin end-to-end first (earlier demo, but rules tested last and more rework).
+- **Decided by:** user, 2026-10-25.
+
+## D25: Branching
+
+- **Chosen:** Merge the Phase 1 docs branch to `main` first, then branch Phase 2 work from `main`. Done 2026-10-25 (fast-forward to `959d195`).
+- **Decided by:** user, 2026-10-25.
