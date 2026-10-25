@@ -327,3 +327,15 @@ def test_garbage_from_extraction_is_a_follow_up_never_a_crash(consented, field, 
 def test_garbage_city_is_a_follow_up_never_a_crash(consented):
     assert consented.submit("city", None, TODAY).status == "follow_up"
     assert consented.submit("city", 7, TODAY).status == "follow_up"
+
+
+from sazon.model import EventType, Field, Outcome, Status
+
+
+def test_outcomes_statuses_and_events_are_typed_but_stay_plain_strings_in_json(consented):
+    assert isinstance(consented.decide().outcome, Outcome)
+    assert consented.submit("name", "Juan Pérez", TODAY).status is Status.OK
+    consented.withdraw()
+    assert consented.events[-1][0] is EventType.WITHDRAWN
+    assert json.dumps(consented.to_state())
+    assert Field.LICENSE == "license" and Outcome.QUALIFIED == "QUALIFIED"

@@ -2,12 +2,14 @@ from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 
 from sazon import validators
+from sazon.model import CityMatchStatus, EventType, Field, Outcome, Status
 
-FIELD_ORDER = ("name", "experience", "availability", "schedule", "start_date", "city", "license")
+FIELD_ORDER = (Field.NAME, Field.EXPERIENCE, Field.AVAILABILITY, Field.SCHEDULE, Field.START_DATE,
+               Field.CITY, Field.LICENSE)
 MAX_FOLLOW_UPS = 3
 MAX_OFF_TOPIC = 2
 STALL_AFTER = timedelta(hours=24)
-UNCAPPED = ("license", "city")  # eligibility: keep asking until clear (D27)
+UNCAPPED = (Field.LICENSE, Field.CITY)  # eligibility: keep asking until clear (D27)
 
 
 def is_stalled(last_message_at: datetime, now: datetime) -> bool:
@@ -20,14 +22,14 @@ class ConsentRequired(Exception):
 
 @dataclass(frozen=True)
 class SubmitResult:
-    status: str  # "ok", "follow_up", "confirm" or "review"
+    status: Status
     reason: str = ""
     suggestion: str | None = None
 
 
 @dataclass(frozen=True)
 class Decision:
-    outcome: str  # IN_PROGRESS, QUALIFIED, DISQUALIFIED, ENDED_OFF_TOPIC or WITHDRAWN
+    outcome: Outcome
     reasons: list[str]
     flags: list[str]
 
@@ -87,38 +89,38 @@ class Screening:
 
     def off_topic(self) -> None:
         self._off_topic += 1
-        self.events.append(("off_topic", ""))
+        self.events.append((EventType.OFF_TOPIC, ""))
 
     def withdraw(self) -> None:
         self.withdrawn = True
-        self.events.append(("withdrawn", ""))
+        self.events.append((EventType.WITHDRAWN, ""))
 
     def human_requested(self) -> None:
-        self.events.append(("human_requested", ""))
+        self.events.append((EventType.HUMAN_REQUESTED, ""))
 
     def decide(self) -> Decision:
         flags = [f"{f.upper()}_NEEDS_REVIEW" for f in FIELD_ORDER if f in self.review_fields]
         flags += sorted(f for fl in self.validation_flags.values() for f in fl)
         if self.consent is False:
-            return Decision("DISQUALIFIED", ["NO_CONSENT"], [])
+            return Decision(Outcome.DISQUALIFIED, ["NO_CONSENT"], [])
         if self.withdrawn:
-            return Decision("WITHDRAWN", [], flags)
+            return Decision(Outcome.WITHDRAWN, [], flags)
         if self._off_topic >= MAX_OFF_TOPIC:
-            return Decision("ENDED_OFF_TOPIC", [], flags)
+            return Decision(Outcome.ENDED_OFF_TOPIC, [], flags)
         reasons = []
-        if self.values.get("license") is False:
+        if self.values.get(Field.LICENSE) is False:
             reasons.append("NO_LICENSE")
         if self.out_of_area:
             reasons.append("OUT_OF_AREA")
         if reasons:
-            return Decision("DISQUALIFIED", reasons, flags)
+            return Decision(Outcome.DISQUALIFIED, reasons, flags)
         if self.next_field() is not None:
-            return Decision("IN_PROGRESS", [], flags)
-        return Decision("QUALIFIED", [], flags)
+            return Decision(Outcome.IN_PROGRESS, [], flags)
+        return Decision(Outcome.QUALIFIED, [], flags)
 
-    def next_field(self) -> str | None:
+    def next_field(self) -> Field | None:
         if self.consent is None:
-            return "consent"
+            return Field.CONSENT
         if not self.consent or self.withdrawn:
             return None
         return next((f for f in FIELD_ORDER if f not in self.values), None)
@@ -126,32 +128,32 @@ class Screening:
     def submit(self, field: str, value: object, today: date) -> SubmitResult:
         if not self.consent:
             raise ConsentRequired
-        if field == "city":
+        if field == Field.CITY:
             return self._submit_city(value)
         return self._settle(field, self._validate(field, value, today), value)
 
     def confirm_city(self, yes: bool) -> SubmitResult:
         if self._pending_city is None:
-            return SubmitResult("follow_up", "no city is waiting for confirmation")
+            return SubmitResult(Status.FOLLOW_UP, "no city is waiting for confirmation")
         city, raw = self._pending_city
         self._pending_city = None
         if yes:
-            return self._settle("city", validators.Validation(True, city), raw)
-        return self._settle("city", validators.Validation(False, reason="city not confirmed"), raw)
+            return self._settle(Field.CITY, validators.Validation(True, city), raw)
+        return self._settle(Field.CITY, validators.Validation(False, reason="city not confirmed"), raw)
 
     def _submit_city(self, raw: object) -> SubmitResult:
         self._pending_city = None
         if not isinstance(raw, str):
-            return self._settle("city", validators.Validation(False, reason="need a city"), raw)
+            return self._settle(Field.CITY, validators.Validation(False, reason="need a city"), raw)
         match = validators.match_city(raw, self.areas)
-        if match.status == "confirm":
+        if match.status == CityMatchStatus.CONFIRM:
             self._pending_city = (match.city, raw)
-            return SubmitResult("confirm", suggestion=match.city)
-        if match.status == "out_of_area":
+            return SubmitResult(Status.CONFIRM, suggestion=match.city)
+        if match.status == CityMatchStatus.OUT_OF_AREA:
             self.out_of_area = True
-            self.values["city"] = raw
-            return SubmitResult("ok")
-        return self._settle("city", validators.Validation(True, match.city), raw)
+            self.values[Field.CITY] = raw
+            return SubmitResult(Status.OK)
+        return self._settle(Field.CITY, validators.Validation(True, match.city), raw)
 
     def _validate(self, field: str, value: object, today: date) -> validators.Validation:
         match field:
@@ -167,7 +169,7 @@ class Screening:
                 return validators.validate_schedule(value)
             case "start_date":
                 return validators.validate_start_date(value, today)
-            case "license":
+            case Field.LICENSE:
                 return validators.validate_license(value)
         raise ValueError(f"unknown field: {field}")
 
@@ -176,18 +178,18 @@ class Screening:
         if result.ok:
             if result.flags:
                 self.validation_flags[field] = list(result.flags)
-            if field == "city":
+            if field == Field.CITY:
                 self.out_of_area = False
             self._off_topic = 0
             self.values[field] = result.value
             self.review_fields.discard(field)
             self._follow_ups.pop(field, None)
-            return SubmitResult("ok")
+            return SubmitResult(Status.OK)
         self._off_topic = 0
         asked = self._follow_ups.get(field, 0)
         if asked >= MAX_FOLLOW_UPS and field not in UNCAPPED:
             self.values[field] = raw
             self.review_fields.add(field)
-            return SubmitResult("review", result.reason)
+            return SubmitResult(Status.REVIEW, result.reason)
         self._follow_ups[field] = asked + 1
-        return SubmitResult("follow_up", result.reason)
+        return SubmitResult(Status.FOLLOW_UP, result.reason)

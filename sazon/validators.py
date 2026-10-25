@@ -5,6 +5,8 @@ from dataclasses import dataclass
 from datetime import date, timedelta
 from typing import Any
 
+from sazon.model import CityMatchStatus
+
 _NAME_WORD = re.compile(r"^[^\W\d_]+(?:[-'’][^\W\d_]+)*$")
 
 
@@ -35,7 +37,7 @@ def validate_license(value: bool | None) -> Validation:
 
 @dataclass(frozen=True)
 class CityMatch:
-    status: str  # "match", "confirm" or "out_of_area"
+    status: CityMatchStatus
     city: str | None = None
 
 
@@ -52,11 +54,11 @@ def match_city(raw: str, areas: dict[str, list[str]]) -> CityMatch:
             names[_fold(label)] = city
     key = _fold(raw)
     if key in names:
-        return CityMatch("match", names[key])
+        return CityMatch(CityMatchStatus.MATCH, names[key])
     close = difflib.get_close_matches(key, names, n=1, cutoff=0.8)
     if close:
-        return CityMatch("confirm", names[close[0]])
-    return CityMatch("out_of_area")
+        return CityMatch(CityMatchStatus.CONFIRM, names[close[0]])
+    return CityMatch(CityMatchStatus.OUT_OF_AREA)
 
 
 AVAILABILITY = ("full_time", "part_time", "weekends")
