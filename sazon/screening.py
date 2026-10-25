@@ -51,6 +51,8 @@ class Screening:
         self.consent: bool | None = None
         self.values: dict[str, object] = {}
         self.blocked_on: Field | None = None
+        self._slot_offer: list[int] = []
+        self._slots_done = False
         self.out_of_area = False
         self.withdrawn = False
         self.stalled = False
@@ -110,6 +112,27 @@ class Screening:
     @property
     def needs_consent(self) -> bool:
         return self.consent is None
+
+    @property
+    def slot_offer(self) -> list[int]:
+        return list(self._slot_offer)
+
+    @property
+    def slots_resolved(self) -> bool:
+        return self._slots_done
+
+    @property
+    def awaiting_slot_choice(self) -> bool:
+        return bool(self._slot_offer) and not self._slots_done and self.decide().outcome == Outcome.QUALIFIED
+
+    def offer_slots(self, slot_ids: list[int]) -> None:
+        self._slot_offer = list(slot_ids)
+        self.events.append((EventType.SLOTS_OFFERED, ",".join(str(i) for i in slot_ids)))
+
+    def resolve_slots(self) -> None:
+        """The offer is over: booked, declined, or nothing to offer."""
+        self._slot_offer = []
+        self._slots_done = True
 
     def missing_fields(self) -> list[Field]:
         return [f for f in FIELD_ORDER if f not in self.values]
@@ -224,6 +247,8 @@ class Screening:
             "consent": self.consent,
             "values": self.extracted(),
             "blocked_on": str(self.blocked_on) if self.blocked_on else None,
+            "slot_offer": self._slot_offer,
+            "slots_done": self._slots_done,
             "out_of_area": self.out_of_area,
             "withdrawn": self.withdrawn,
             "stalled": self.stalled,
@@ -248,6 +273,8 @@ class Screening:
         if isinstance(s.values.get("start_date"), str):
             s.values["start_date"] = date.fromisoformat(s.values["start_date"])
         s.blocked_on = Field(state["blocked_on"]) if state.get("blocked_on") else None
+        s._slot_offer = list(state.get("slot_offer", []))
+        s._slots_done = state.get("slots_done", False)
         s.out_of_area = state["out_of_area"]
         s.withdrawn = state.get("withdrawn", False)
         s.stalled = state.get("stalled", False)

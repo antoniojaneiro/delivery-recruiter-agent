@@ -2,7 +2,7 @@
 outside work: calling the model, loading and saving, and writing the reply."""
 from datetime import date, datetime
 
-from sazon import session
+from sazon import session, slot_flow
 from sazon.consent import read_consent
 from sazon.extraction import Extraction, extract
 from sazon.llm import LLM, LLMError
@@ -36,7 +36,11 @@ def handle_message(llm: LLM, store, areas: dict[str, list[str]], candidate_id: s
     screening.resume()
     history = store.messages(candidate_id)
     last_question = history[-1].text if history and history[-1].role == "agent" else None
-    directive = _directive_for(llm, screening, message, now.date(), last_question)
+    if screening.awaiting_slot_choice:
+        directive = slot_flow.handle_pick(store, screening, candidate_id, message, now)
+    else:
+        directive = _directive_for(llm, screening, message, now.date(), last_question)
+        directive = slot_flow.after_close(store, screening, candidate_id, directive, now)
     reply = consent_message() if directive is None else phrase(llm, directive, screening.language)
     kept = message if screening.consent else NOT_STORED
     session.commit(store, candidate_id, screening, now,

@@ -14,6 +14,9 @@ class Kind(StrEnum):
     CONFIRM_CITY = "confirm_city"
     CONFIRM_REJECTION = "confirm_rejection"
     BLOCKED = "blocked"
+    OFFER_SLOTS = "offer_slots"
+    SLOT_BOOKED = "slot_booked"
+    ALREADY_BOOKED = "already_booked"
     REMINDER = "reminder"
     CLOSE = "close"
     TECHNICAL_ERROR = "technical_error"
@@ -27,6 +30,8 @@ class Directive:
     suggestion: str | None = None
     outcome: Outcome | None = None
     reasons: list[str] = dc_field(default_factory=list)
+    options: list[str] = dc_field(default_factory=list)
+    label: str | None = None
 
 
 _CONSENT = (
@@ -76,6 +81,30 @@ _CONFIRM_REJECTION = {
                  "Just to confirm: is it right that you live in {city}?"),
 }
 
+_WEEKDAYS = {
+    Language.ES: ("lun", "mar", "mié", "jue", "vie", "sáb", "dom"),
+    Language.EN: ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"),
+}
+_MONTHS = {
+    Language.ES: ("ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"),
+    Language.EN: ("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"),
+}
+_OFFER = {
+    "first": ("¡Genial, tu perfil encaja! Elige una hora para una llamada corta con el equipo:",
+              "Great, your profile fits! Pick a time for a short call with the team:"),
+    "taken": ("Ese horario ya no está libre. Estas son las opciones disponibles:",
+              "That time is no longer free. These are the options available:"),
+    "unclear": ("No me quedó claro. Elige una opción:", "I didn't quite get that. Pick an option:"),
+}
+_OFFER_END = (
+    "Responde con el número. Si ninguna te viene bien, responde 'ninguna' y un reclutador te escribirá en un máximo de 48 horas.",
+    "Reply with the number. If none suits you, reply 'none' and a recruiter will message you within 48 hours.",
+)
+_BOOKED = ("Listo, queda reservada tu llamada: {label}. Un reclutador te llamará a esa hora.",
+           "Done, your call is booked: {label}. A recruiter will call you then.")
+_ALREADY_BOOKED = ("Tu llamada ya está reservada: {label}. Si hay algún cambio, un reclutador te escribirá.",
+                   "Your call is already booked: {label}. If anything changes, a recruiter will message you.")
+
 _REMINDER = ("Hola, ¿sigues interesado en la solicitud? Cuando quieras, seguimos donde lo dejamos.",
              "Hi, are you still interested in the application? We can pick up where we left off.")
 _ERROR = ("Tuve un problema técnico. ¿Puedes repetir tu último mensaje?",
@@ -108,6 +137,13 @@ _LANGUAGE = {Language.ES: "Spanish", Language.EN: "English"}
 _URL = re.compile(r"https?://|www\.", re.I)
 
 
+def slot_label(starts_at, language: Language) -> str:
+    """"mar 3 nov, 10:00". Names are written here, not taken from the machine's locale."""
+    weekday = _WEEKDAYS[language][starts_at.weekday()]
+    month = _MONTHS[language][starts_at.month - 1]
+    return f"{weekday} {starts_at.day} {month}, {starts_at:%H:%M}"
+
+
 def consent_message() -> str:
     return _CONSENT
 
@@ -128,6 +164,13 @@ def _template(directive: Directive, language: str) -> str:
         case Kind.CONFIRM_REJECTION:
             city = " ".join((directive.suggestion or "").split())[:40]
             return _pick(_CONFIRM_REJECTION[directive.field], language).format(city=city)
+        case Kind.OFFER_SLOTS:
+            options = "\n".join(f"{i}) {label}" for i, label in enumerate(directive.options, start=1))
+            return f"{_pick(_OFFER[directive.reason], language)}\n{options}\n{_pick(_OFFER_END, language)}"
+        case Kind.SLOT_BOOKED:
+            return _pick(_BOOKED, language).format(label=directive.label)
+        case Kind.ALREADY_BOOKED:
+            return _pick(_ALREADY_BOOKED, language).format(label=directive.label)
         case Kind.BLOCKED:
             return _pick(_BLOCKED, language).format(what=_pick(_WHAT[directive.field], language))
         case Kind.REMINDER:
@@ -154,7 +197,8 @@ def _usable(text: str, directive: Directive) -> bool:
 def phrase(llm: LLM, directive: Directive, language: str) -> str:
     if directive.kind == Kind.CLOSE:
         return _close(directive, language)
-    if directive.kind in (Kind.TECHNICAL_ERROR, Kind.REMINDER, Kind.CONFIRM_REJECTION, Kind.BLOCKED):
+    if directive.kind in (Kind.TECHNICAL_ERROR, Kind.REMINDER, Kind.CONFIRM_REJECTION, Kind.BLOCKED,
+                          Kind.OFFER_SLOTS, Kind.SLOT_BOOKED, Kind.ALREADY_BOOKED):
         return _template(directive, language)
     brief = [f"Language: {_LANGUAGE[language]}", f"Purpose: {directive.kind.replace('_', ' ')}"]
     if directive.field:
