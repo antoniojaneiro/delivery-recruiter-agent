@@ -300,3 +300,30 @@ def test_stale_pending_city_cannot_overwrite_a_later_city(consented):
     consented.submit("city", "Madrid", TODAY)
     assert consented.confirm_city(True).status == "follow_up"
     assert consented.values["city"] == "Madrid"
+
+
+def test_far_start_date_reaches_the_decision_flags_and_clears_when_corrected(consented):
+    consented.submit("start_date", date(2027, 6, 1), TODAY)
+    assert "START_DATE_FAR" in consented.decide().flags
+    consented.submit("start_date", date(2026, 11, 1), TODAY)
+    assert "START_DATE_FAR" not in consented.decide().flags
+
+
+def test_far_start_date_flag_survives_a_save_and_reload(consented):
+    consented.submit("start_date", date(2027, 6, 1), TODAY)
+    restored = Screening.from_state(AREAS, json.loads(json.dumps(consented.to_state())))
+    assert "START_DATE_FAR" in restored.decide().flags
+
+
+@pytest.mark.parametrize("field,garbage", [
+    ("name", None), ("name", 42), ("experience", None), ("experience", ("x", [])),
+    ("experience", (True, [])), ("availability", None), ("availability", "full_time"),
+    ("schedule", None), ("start_date", "2026-11-01"), ("start_date", 5), ("license", "yes"),
+])
+def test_garbage_from_extraction_is_a_follow_up_never_a_crash(consented, field, garbage):
+    assert consented.submit(field, garbage, TODAY).status == "follow_up"
+
+
+def test_garbage_city_is_a_follow_up_never_a_crash(consented):
+    assert consented.submit("city", None, TODAY).status == "follow_up"
+    assert consented.submit("city", 7, TODAY).status == "follow_up"

@@ -42,6 +42,7 @@ class Screening:
         self.withdrawn = False
         self.events: list[tuple[str, str]] = []
         self._off_topic = 0
+        self.validation_flags: dict[str, list[str]] = {}
         self._follow_ups: dict[str, int] = {}
         self._pending_city: tuple[str, str] | None = None
 
@@ -60,6 +61,7 @@ class Screening:
             "review_fields": sorted(self.review_fields),
             "out_of_area": self.out_of_area,
             "withdrawn": self.withdrawn,
+            "validation_flags": self.validation_flags,
             "events": [list(e) for e in self.events],
             "off_topic": self._off_topic,
             "follow_ups": self._follow_ups,
@@ -76,6 +78,7 @@ class Screening:
         s.review_fields = set(state["review_fields"])
         s.out_of_area = state["out_of_area"]
         s.withdrawn = state.get("withdrawn", False)
+        s.validation_flags = {k: list(v) for k, v in state.get("validation_flags", {}).items()}
         s.events = [tuple(e) for e in state["events"]]
         s._off_topic = state["off_topic"]
         s._follow_ups = dict(state["follow_ups"])
@@ -95,6 +98,7 @@ class Screening:
 
     def decide(self) -> Decision:
         flags = [f"{f.upper()}_NEEDS_REVIEW" for f in FIELD_ORDER if f in self.review_fields]
+        flags += sorted(f for fl in self.validation_flags.values() for f in fl)
         if self.consent is False:
             return Decision("DISQUALIFIED", ["NO_CONSENT"], [])
         if self.withdrawn:
@@ -135,8 +139,10 @@ class Screening:
             return self._settle("city", validators.Validation(True, city), raw)
         return self._settle("city", validators.Validation(False, reason="city not confirmed"), raw)
 
-    def _submit_city(self, raw: str) -> SubmitResult:
+    def _submit_city(self, raw: object) -> SubmitResult:
         self._pending_city = None
+        if not isinstance(raw, str):
+            return self._settle("city", validators.Validation(False, reason="need a city"), raw)
         match = validators.match_city(raw, self.areas)
         if match.status == "confirm":
             self._pending_city = (match.city, raw)
@@ -152,6 +158,8 @@ class Screening:
             case "name":
                 return validators.validate_name(value)
             case "experience":
+                if not isinstance(value, (tuple, list)) or len(value) != 2:
+                    return validators.Validation(False, reason="need years and platform")
                 return validators.validate_experience(*value)
             case "availability":
                 return validators.validate_availability(value)
@@ -164,7 +172,10 @@ class Screening:
         raise ValueError(f"unknown field: {field}")
 
     def _settle(self, field: str, result: validators.Validation, raw: object) -> SubmitResult:
+        self.validation_flags.pop(field, None)
         if result.ok:
+            if result.flags:
+                self.validation_flags[field] = list(result.flags)
             if field == "city":
                 self.out_of_area = False
             self._off_topic = 0

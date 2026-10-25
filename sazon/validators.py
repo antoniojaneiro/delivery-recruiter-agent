@@ -17,6 +17,8 @@ class Validation:
 
 
 def validate_name(raw: str) -> Validation:
+    if not isinstance(raw, str):
+        return Validation(False, reason="need first and last name")
     words = raw.split()
     if len(words) < 2:
         return Validation(False, reason="need first and last name")
@@ -62,13 +64,13 @@ SCHEDULES = ("morning", "afternoon", "evening", "flexible")
 
 
 def validate_availability(values: list[str]) -> Validation:
-    if not values or any(v not in AVAILABILITY for v in values):
+    if not isinstance(values, (list, tuple)) or not values or any(v not in AVAILABILITY for v in values):
         return Validation(False, reason="pick full-time, part-time or weekends")
     return Validation(True, list(dict.fromkeys(values)))
 
 
 def validate_schedule(value: str) -> Validation:
-    if value not in SCHEDULES:
+    if not isinstance(value, str) or value not in SCHEDULES:
         return Validation(False, reason="pick morning, afternoon, evening or flexible")
     return Validation(True, value)
 
@@ -77,8 +79,10 @@ KNOWN_PLATFORMS = ("glovo", "uber eats", "just eat", "rappi", "didi food")
 
 
 def validate_experience(years: float | None, platforms: list[str]) -> Validation:
-    if years is None or years < 0:
+    if isinstance(years, bool) or not isinstance(years, (int, float)) or years < 0:
         return Validation(False, reason="need years of experience, 0 if none")
+    if not isinstance(platforms, (list, tuple)) or not all(isinstance(p, str) for p in platforms):
+        return Validation(False, reason="need the delivery platform")
     if years > 0 and not platforms:
         return Validation(False, reason="need the delivery platform")
     cleaned = [_fold(p) for p in platforms]
@@ -90,7 +94,7 @@ MAX_START_WEEKS = 12
 
 
 def validate_start_date(value: date | None, today: date) -> Validation:
-    if value is None:
+    if not isinstance(value, date):
         return Validation(False, reason="need a date or a rough timeframe")
     if value < today:
         return Validation(False, reason="date is in the past")
