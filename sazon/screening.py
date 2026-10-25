@@ -68,7 +68,7 @@ class Screening:
         if reasons:
             return Decision("DISQUALIFIED", reasons, flags)
         unclear = [code for f, code in ELIGIBILITY.items() if f in self.review_fields]
-        if unclear:
+        if unclear and self.next_field() is None:
             return Decision("NEEDS_REVIEW", unclear, flags)
         if self.next_field() is not None:
             return Decision("IN_PROGRESS", [], flags)
@@ -77,6 +77,8 @@ class Screening:
     def next_field(self) -> str | None:
         if self.consent is None:
             return "consent"
+        if not self.consent:
+            return None
         return next((f for f in FIELD_ORDER if f not in self.values), None)
 
     def submit(self, field: str, value: object, today: date) -> SubmitResult:
@@ -87,6 +89,8 @@ class Screening:
         return self._settle(field, self._validate(field, value, today), value)
 
     def confirm_city(self, yes: bool) -> SubmitResult:
+        if self._pending_city is None:
+            return SubmitResult("follow_up", "no city is waiting for confirmation")
         city, raw = self._pending_city
         self._pending_city = None
         if yes:
@@ -121,6 +125,8 @@ class Screening:
         raise ValueError(f"unknown field: {field}")
 
     def _settle(self, field: str, result: validators.Validation, raw: object) -> SubmitResult:
+        if field == "city":
+            self.out_of_area = False
         if result.ok:
             self._off_topic = 0
             self.values[field] = result.value

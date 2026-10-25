@@ -210,3 +210,25 @@ def test_not_stalled_before_24_hours():
 
 def test_stalled_at_24_hours():
     assert is_stalled(LAST, LAST + timedelta(hours=24))
+
+
+def test_correcting_an_out_of_area_city_clears_the_disqualifier(consented):
+    consented.submit("city", "Sevilla", TODAY)
+    consented.submit("city", "Madrid", TODAY)
+    assert not consented.out_of_area
+    assert "OUT_OF_AREA" not in consented.decide().reasons
+
+
+def test_nothing_is_asked_after_consent_is_declined(screening):
+    screening.record_consent(False)
+    assert screening.next_field() is None
+
+
+def test_stray_confirmation_with_nothing_pending_is_a_follow_up_not_a_crash(consented):
+    assert consented.confirm_city(True).status == "follow_up"
+
+
+def test_unclear_eligibility_stays_in_progress_until_all_fields_are_collected(consented):
+    for _ in range(4):
+        consented.submit("license", None, TODAY)
+    assert consented.decide().outcome == "IN_PROGRESS"
