@@ -1,3 +1,4 @@
+import hashlib
 import json
 import sqlite3
 from contextlib import contextmanager
@@ -9,6 +10,11 @@ from sazon import config, slot_time
 from sazon.model import RecruiterStatus
 
 AGENT = "agent"
+NO_CHECK = object()  # commit_turn without a version check (tests and tools that own the whole record)
+
+
+class ConflictError(Exception):
+    """The candidate's record changed, or was erased, after this copy was loaded."""
 BUSY_TIMEOUT_SECONDS = 10
 
 _SCHEMA = """
@@ -20,6 +26,7 @@ CREATE TABLE IF NOT EXISTS candidates (
     outcome TEXT,
     reasons TEXT NOT NULL DEFAULT '[]',
     flags TEXT NOT NULL DEFAULT '[]',
+    version INTEGER NOT NULL DEFAULT 0,
     updated_at TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS events (
@@ -87,13 +94,13 @@ CREATE INDEX IF NOT EXISTS idx_notes_candidate ON notes(candidate_id, id);
 # Columns added after the first release; databases created earlier are upgraded in place.
 _ADDED_COLUMNS = {
     "candidates": {"reasons": "TEXT NOT NULL DEFAULT '[]'", "flags": "TEXT NOT NULL DEFAULT '[]'",
-                   "outcome": "TEXT"},
+                   "outcome": "TEXT", "version": "INTEGER NOT NULL DEFAULT 0"},
     "events": {"actor": "TEXT NOT NULL DEFAULT 'agent'"},
 }
 
 _CANDIDATE_COLUMNS = ("c.candidate_id, c.state, c.extracted, c.summary, c.outcome, c.reasons, c.flags, "
                       "c.updated_at, COALESCE(r.status, 'new'), r.assignee, "
-                      "s.id, s.country, s.starts_at, s.recruiter")
+                      "s.id, s.country, s.starts_at, s.recruiter, c.version")
 _CANDIDATE_JOINS = ("FROM candidates c LEFT JOIN recruiter r ON r.candidate_id = c.candidate_id "
                     "LEFT JOIN slots s ON s.candidate_id = c.candidate_id AND s.cancelled_at IS NULL")
 
@@ -118,6 +125,7 @@ class Record:
     status: RecruiterStatus
     assignee: str | None
     booking: "Booking | None" = None
+    version: int = 0
 
 
 @dataclass(frozen=True)
@@ -195,13 +203,21 @@ class Store:
     def commit_turn(self, candidate_id: str, now: datetime, state: dict, extracted: dict,
                     outcome: str, events: list[tuple[str, str]],
                     messages: list[tuple[str, str]], reasons: list[str] = (),
-                    flags: list[str] = (), summary: str | None = None) -> None:
+                    flags: list[str] = (), summary: str | None = None,
+                    expected_version: object = NO_CHECK) -> int:
+        """Saves one turn atomically. With `expected_version` (the version this copy was loaded at, or None for a
+        candidate that did not exist) the save is refused with ConflictError if the record changed or vanished."""
         with self._connect() as db:
+            row = db.execute("SELECT version FROM candidates WHERE candidate_id = ?", (candidate_id,)).fetchone()
+            if expected_version is not NO_CHECK:
+                if (expected_version is None and row is not None) or (
+                        expected_version is not None and (row is None or row[0] != expected_version)):
+                    raise ConflictError(candidate_id)
             db.execute("INSERT OR IGNORE INTO candidates (candidate_id, updated_at) VALUES (?, ?)",
                        (candidate_id, now.isoformat()))
             db.execute(
                 "UPDATE candidates SET state = ?, extracted = ?, outcome = ?, reasons = ?, flags = ?, "
-                "summary = COALESCE(?, summary), updated_at = ? WHERE candidate_id = ?",
+                "summary = COALESCE(?, summary), version = version + 1, updated_at = ? WHERE candidate_id = ?",
                 (json.dumps(state, ensure_ascii=False), json.dumps(extracted, ensure_ascii=False),
                  outcome, json.dumps(list(reasons)), json.dumps(list(flags)), summary, now.isoformat(),
                  candidate_id))
@@ -209,6 +225,27 @@ class Store:
                            [(candidate_id, t, d, AGENT, now.isoformat()) for t, d in events])
             db.executemany("INSERT INTO messages (candidate_id, role, text, at) VALUES (?, ?, ?, ?)",
                            [(candidate_id, r, x, now.isoformat()) for r, x in messages])
+            return db.execute("SELECT version FROM candidates WHERE candidate_id = ?", (candidate_id,)).fetchone()[0]
+
+    def erase_candidate(self, candidate_id: str, actor: str, now: datetime, reason: str) -> bool:
+        """Removes everything about a candidate and keeps only an anonymous line saying who erased which
+        (hashed) id and why (D53). The bytes are overwritten and the write-ahead log is truncated, because a
+        plain DELETE would leave the data in free pages and in the log."""
+        with self._connect() as db:
+            db.execute("PRAGMA secure_delete = ON")
+            existed = db.execute("SELECT 1 FROM candidates WHERE candidate_id = ?", (candidate_id,)).fetchone()
+            for table in ("candidates", "events", "messages", "notes", "recruiter"):
+                db.execute(f"DELETE FROM {table} WHERE candidate_id = ?", (candidate_id,))
+            db.execute("UPDATE slots SET candidate_id = NULL, booked_at = NULL WHERE candidate_id = ?", (candidate_id,))
+            if existed:
+                digest = hashlib.sha256(candidate_id.encode("utf-8")).hexdigest()[:12]
+                self._log(db, actor, "candidate_erased", f"id_sha256={digest} reason={reason}", now)
+        raw = sqlite3.connect(self._path, timeout=BUSY_TIMEOUT_SECONDS)
+        try:
+            raw.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+        finally:
+            raw.close()
+        return existed is not None
 
     # -- written by recruiters (never touched by chat turns) -----------------
 
@@ -443,8 +480,8 @@ def _booking(row) -> Booking:
 
 def _record(row) -> Record:
     (candidate_id, state, extracted, summary, outcome, reasons, flags, updated_at, status, assignee,
-     slot_id, country, starts_at, slot_recruiter) = row
+     slot_id, country, starts_at, slot_recruiter, version) = row
     booking = Booking(slot_id, country, datetime.fromisoformat(starts_at), slot_recruiter) if slot_id else None
     return Record(candidate_id, json.loads(state), json.loads(extracted), summary, outcome,
                   datetime.fromisoformat(updated_at), json.loads(reasons), json.loads(flags),
-                  RecruiterStatus(status), assignee, booking)
+                  RecruiterStatus(status), assignee, booking, version)

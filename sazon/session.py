@@ -9,8 +9,11 @@ from sazon.summary import summarise
 def load(store: Store, candidate_id: str, areas: dict[str, list[str]]) -> Screening:
     record = store.get(candidate_id)
     if record is None or not record.state:
-        return Screening(areas)
-    return Screening.from_state(areas, record.state)
+        screening = Screening(areas)
+    else:
+        screening = Screening.from_state(areas, record.state)
+    screening.version = record.version if record else None
+    return screening
 
 
 def commit(store: Store, candidate_id: str, screening: Screening, now: datetime,
@@ -23,6 +26,7 @@ def commit(store: Store, candidate_id: str, screening: Screening, now: datetime,
             events.append(("decision", json.dumps({
                 "outcome": str(decision.outcome), "reasons": decision.reasons, "flags": decision.flags,
             })))
-        store.commit_turn(candidate_id, now, screening.to_state(), screening.extracted(),
+        screening.version = store.commit_turn(candidate_id, now, screening.to_state(), screening.extracted(),
                           str(decision.outcome), events, list(messages),
-                          reasons=decision.reasons, flags=decision.flags, summary=summarise(screening))
+                          reasons=decision.reasons, flags=decision.flags, summary=summarise(screening),
+                          expected_version=screening.version)

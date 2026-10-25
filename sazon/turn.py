@@ -7,8 +7,9 @@ from sazon import session, slot_flow
 from sazon.consent import is_stop_request, read_consent
 from sazon.extraction import Extraction, extract
 from sazon.llm import LLM, LLMError
-from sazon.phrasing import Directive, Kind, closed_message, consent_message, phrase
+from sazon.phrasing import Directive, Kind, closed_message, consent_message, phrase, technical_error_message
 from sazon.screening import ExtractionContext, Screening
+from sazon.store import ConflictError
 
 NOT_STORED = "[message not stored: no consent]"
 
@@ -18,7 +19,10 @@ def start(store, areas: dict[str, list[str]], candidate_id: str, now: datetime) 
         return closed_message()
     screening = session.load(store, candidate_id, areas)
     text = consent_message()
-    session.commit(store, candidate_id, screening, now, messages=[("agent", text)])
+    try:
+        session.commit(store, candidate_id, screening, now, messages=[("agent", text)])
+    except ConflictError:
+        return technical_error_message(screening.language)
     return text
 
 
@@ -31,7 +35,10 @@ def wait_24h(llm: LLM, store, areas: dict[str, list[str]], candidate_id: str, no
         return None
     directive = screening.on_silence()
     reply = phrase(llm, directive, screening.language) if directive else None
-    session.commit(store, candidate_id, screening, now, messages=[("agent", reply)] if reply else [])
+    try:
+        session.commit(store, candidate_id, screening, now, messages=[("agent", reply)] if reply else [])
+    except ConflictError:
+        return None  # the record changed under us: skip this candidate for now
     return reply
 
 
@@ -54,8 +61,13 @@ def handle_message(llm: LLM, store, areas: dict[str, list[str]], candidate_id: s
         if last_question in (reply, short):  # already said once: not the same close word for word
             reply = short
     kept = message if screening.consent else NOT_STORED
-    session.commit(store, candidate_id, screening, now,
-                   messages=[("candidate", kept), ("agent", reply)])
+    try:
+        session.commit(store, candidate_id, screening, now,
+                       messages=[("candidate", kept), ("agent", reply)])
+    except ConflictError:
+        # The record changed (or was erased) while this turn ran: save nothing, and the next message starts
+        # from the current record.
+        return technical_error_message(screening.language)
     return reply
 
 

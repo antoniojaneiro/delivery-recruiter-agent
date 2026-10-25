@@ -59,6 +59,7 @@ class Screening:
         self.stalled = False
         self.reminder_sent = False
         self.language = Language.ES
+        self.version: int | None = None  # the stored version this copy was loaded at (None: a new candidate)
         self.events: list[tuple[str, str]] = []
         self._events_synced = 0
         self._off_topic = 0

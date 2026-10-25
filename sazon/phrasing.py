@@ -168,6 +168,10 @@ def consent_text_hash() -> str:
     return hashlib.sha256(_CONSENT.encode("utf-8")).hexdigest()[:12]
 
 
+def technical_error_message(language: str) -> str:
+    return _pick(_ERROR, language)
+
+
 def closed_message() -> str:
     """Bilingual: before the candidate has written anything the language is not known."""
     return _CLOSED
