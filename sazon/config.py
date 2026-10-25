@@ -19,9 +19,10 @@ COUNTRY_OF = {
 }
 COUNTRY_TZ = {"ES": "Europe/Madrid", "MX": "America/Mexico_City"}
 
-DB_PATH = Path("data/sazon.db")
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+DB_PATH = PROJECT_ROOT / "data" / "sazon.db"
 
-LOG_PATH = Path("data/sazon.log")
+LOG_PATH = PROJECT_ROOT / "data" / "sazon.log"
 
 
 def db_path() -> Path:

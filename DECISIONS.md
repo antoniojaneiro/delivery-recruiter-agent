@@ -556,3 +556,9 @@ Four reviewers (security and compliance, conversation robustness, data and opera
 - **Options considered:** keep both (a storage limit, but data erased on a timer); remove all erasure (matches the brief literally, but no way to honour a deletion request).
 - **Cons of chosen:** data is kept without an end date until the client sets one.
 - **Decided by:** user, 2026-10-25.
+
+## D61: Architecture review round and its fixes
+
+- **Chosen:** Four reviewers plus a scenario replay checked the whole product; the user chose "review, then fix what it finds". Fixed, each with a test written first: forms starting from the chosen candidate, typed input errors, escaped names, stop wording honoured in every state, no false "changed" notice, pending questions cleared on withdrawal; the version checked under the write lock, databases from the first release opening (tables, then columns, then indexes), a message from an unknown or erased id starting with the disclosure, no booking under an erased id, the log checkpoint result recorded, a turn that loses a race run once more, the reminder job re-checking activity and isolating errors, a message queued for a candidate whose booked call a recruiter cancels; accounts (a damaged file is never overwritten, atomic writes, scrypt 2^16, five failures lock a name for ten minutes), paths anchored to the project, name (100) and city (80) length caps, `.gitignore` for secrets files.
+- **Cons / still open:** the login throttle lives in the dashboard process memory; `screening.py` and `store.py` are still large (split proposed, not done); the dashboard loads every candidate on each rerun; naive and aware datetimes are still mixed; the fixed texts promise a recruiter review and a 48-hour reply that nothing enforces (legal review).
+- **Decided by:** user (review requested 2026-10-25); fixes by the agent.

@@ -23,7 +23,11 @@ if not st.session_state.get("recruiter"):  # only a successful login below ever 
         password = st.text_input("Contraseña", type="password", key="login_password")
         submitted = st.form_submit_button("Entrar", key="login_submit")
     if submitted:
-        verified = accounts.verify(accounts.accounts_path(), name, password)
+        try:
+            verified = accounts.verify(accounts.accounts_path(), name, password)
+        except accounts.TooManyAttempts:
+            st.error("Demasiados intentos con ese nombre. Espera 10 minutos e inténtalo de nuevo.")
+            st.stop()
         if verified is None:
             st.error("Nombre o contraseña incorrectos.")
         else:

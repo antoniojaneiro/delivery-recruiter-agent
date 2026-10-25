@@ -12,6 +12,7 @@ FIELD_ORDER = (Field.NAME, Field.EXPERIENCE, Field.AVAILABILITY, Field.SCHEDULE,
                Field.CITY, Field.LICENSE)
 MAX_FOLLOW_UPS = 5
 MAX_OFF_TOPIC = 3  # in total, not in a row (D55)
+MAX_CITY_LENGTH = 80
 
 
 LIVE = (Outcome.IN_PROGRESS, Outcome.BLOCKED)  # the chat is still open
@@ -519,6 +520,7 @@ class Screening:
         self._pending_city = None
         if not isinstance(raw, str):
             return self._settle(Field.CITY, validators.Validation(False, reason="need a city"), raw)
+        raw = " ".join(raw.split())[:MAX_CITY_LENGTH]  # what is stored of a place outside the area stays short
         match = validators.match_city(raw, self.areas)
         if match.status == CityMatchStatus.CONFIRM:
             self._pending_city = (match.city, raw)

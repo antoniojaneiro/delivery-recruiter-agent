@@ -33,7 +33,7 @@ Screen delivery-driver applicants by chat so recruiters only speak to qualified 
 | City / zone | Text | Fuzzy match to the service areas, nearby towns and "Madrid, España" included (sample list, D13). Unsure → "¿Te refieres a Guadalajara?". Not listed → `OUT_OF_AREA`. |
 | Availability | Full-time, part-time, weekends | One or more. |
 | Preferred schedule | Morning, afternoon, evening, flexible | One. |
-| Experience | Years (0–60) and platform (Glovo, Uber Eats, other) | Recorded, never disqualifies (D19). |
+| Experience | Years (0–60) and platform (Glovo, Uber Eats, Just Eat, Rappi, DiDi Food, other) | Recorded, never disqualifies (D19). |
 | Start date | "ya", a date, "en 2 semanas", "dentro de 3 meses", "el lunes" | Converted to a date in code; past is invalid; over 12 weeks away is flagged (*proposed default*). |
 
 Only validated values are stored as the candidate's data; the conversation is kept as the audit record.

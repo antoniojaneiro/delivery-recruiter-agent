@@ -8,6 +8,7 @@ from typing import Any
 
 from sazon.model import CityMatchStatus
 
+MAX_NAME_LENGTH = 100
 _NAME_WORD = re.compile(r"^[^\W\d_]+(?:[-'’][^\W\d_]+)*\.?$")  # a trailing dot allows titles and initials
 
 
@@ -23,6 +24,8 @@ def validate_name(raw: str) -> Validation:
     if not isinstance(raw, str):
         return Validation(False, reason="need first and last name")
     words = raw.split()
+    if len(" ".join(words)) > MAX_NAME_LENGTH:
+        return Validation(False, reason="too long for a name")
     if len(words) < 2:
         return Validation(False, reason="need first and last name")
     if not all(_NAME_WORD.match(w) for w in words):

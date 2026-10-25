@@ -10,3 +10,6 @@ __pycache__/
 *.egg-info/
 data/
 *.log
+
+.streamlit/secrets.toml
+recruiters.json
