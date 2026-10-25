@@ -1,14 +1,14 @@
 # Phase 1: Process design — driver screening agent (Grupo Sazón)
 
-Status: draft for review. Every choice traces to [DECISIONS.md](DECISIONS.md) (D1–D58). Items marked *proposed default* need the client's confirmation.
+Status: draft for review. Every choice traces to [DECISIONS.md](DECISIONS.md) (D1–D59). *Proposed default* = to confirm with the client.
 
 ## 1. Purpose
 
-Screen delivery-driver applicants by chat so recruiters only speak to qualified candidates. Today 60% of candidates don't answer calls and 80% of recruiter time goes to unqualified applicants. The agent screens and summarises; **a recruiter makes every hiring decision**. Phase 2 runs in the terminal, and a real messaging channel comes later (D1).
+Screen delivery-driver applicants by chat so recruiters only speak to qualified candidates. Today 60% of candidates don't answer calls and 80% of recruiter time goes to unqualified applicants. The agent screens and summarises; **a recruiter makes every hiring decision**. Phase 2 runs in the terminal; a real messaging channel comes later (D1).
 
 ## 2. Agent personality
 
-- An AI assistant for Grupo Sazón recruiting, and it says so in its first message.
+- An AI assistant for Grupo Sazón recruiting; it says so in its first message.
 - Warm and direct, friendly "tú" (D15). Patient, never pushy, never judgmental.
 - Replies in the candidate's language, Spanish or English, and switches when they do (D11).
 - Never promises a job or pay, never decides, never invents call times.
@@ -17,54 +17,51 @@ Screen delivery-driver applicants by chat so recruiters only speak to qualified 
 
 | Stage | What happens | Exit |
 | --- | --- | --- |
-| **0. Consent** | Fixed bilingual AI disclosure, naming the external AI service, and consent to store answers. The reply is read in plain code, so nothing reaches the model before a yes (D12, D34, D44, D51). | Clear no or "stop" → polite close `NO_CONSENT` (a later "sí" starts it). Clear yes → stage 1. Unclear → ask again. |
-| **1–5. Name, experience, availability, schedule, start date** | One question at a time, in a friendly order (D6). If a message answers later fields, they are recorded and not asked again (D5). A different value for an accepted answer is confirmed first: "Antes me dijiste X. ¿Lo cambio a Y?" (D54). | Valid → next. Unclear → follow-up (below). |
-| **6–7. City, driver's license** | Eligibility, checked as soon as answered (D27). | In area / license yes → next. Outside area or no license → one confirmation question, so one misread never rejects anyone (D40), then a polite close. |
+| **0. Consent** | Fixed bilingual AI disclosure, naming the external AI service, and consent to store answers. The reply is read in plain code: nothing reaches the model before a yes (D12, D44, D51). | Clear no or "stop" → close `NO_CONSENT` (a later "sí" restarts). Clear yes → stage 1. Unclear → ask again. |
+| **1–5. Name, experience, availability, schedule, start date** | One question at a time, friendly order (D6). Later fields given early are recorded, not asked again (D5). A different value for an accepted answer is confirmed first (D54). | Valid → next. Unclear → follow-up. |
+| **6–7. City, driver's license** | Eligibility, checked as soon as answered (D27). | OK → next. Outside area / no license → one confirmation question so a misread never rejects anyone (D40), then a polite close. |
 | **8. Decision** | See section 5. | |
 
-**Follow-ups (D41).** An unclear answer gets up to 5 follow-ups, each saying the information is needed to move forward. Then the agent says it cannot continue until the field is provided, and repeats that to every later message. The candidate is `BLOCKED` on that field until it is answered.
+**Follow-ups (D41).** An unclear answer gets up to 5 follow-ups, each saying the information is needed. Then the agent says it cannot continue until it is provided, and repeats that: the candidate is `BLOCKED` on that field.
 
 ## 4. Data fields and validation
 
 | Field | Accepted input | Rule |
 | --- | --- | --- |
-| Full name | Text | At least two words of letters, hyphens, apostrophes or a dot after a title or initial (García-López, Dr. Pérez). |
+| Full name | Text | Two or more words of letters, hyphens, apostrophes; a dot after a title or initial is fine. |
 | Driver's license | Yes / no | No → `NO_LICENSE` (after confirmation). "Unsure" → ask again. |
-| City / zone | Text | Fuzzy match to the service-area list, including nearby towns and "Madrid, España" (sample list for now, D13). Unsure → "¿Te refieres a Guadalajara?". Not listed → `OUT_OF_AREA`. |
+| City / zone | Text | Fuzzy match to the service areas, nearby towns and "Madrid, España" included (sample list, D13). Unsure → "¿Te refieres a Guadalajara?". Not listed → `OUT_OF_AREA`. |
 | Availability | Full-time, part-time, weekends | One or more. |
 | Preferred schedule | Morning, afternoon, evening, flexible | One. |
-| Experience | Years (number, "ninguna") and platform (Glovo, Uber Eats, other) | Years from 0 to 60. Recorded, never disqualifies (D19). |
-| Start date | "ya", a date, "en N semanas", "dentro de 3 meses", "el lunes" | Converted to a date in code. Past is invalid. More than 12 weeks away is recorded and flagged (*proposed default*). |
+| Experience | Years (0–60) and platform (Glovo, Uber Eats, other) | Recorded, never disqualifies (D19). |
+| Start date | "ya", a date, "en 2 semanas", "dentro de 3 meses", "el lunes" | Converted to a date in code; past is invalid; over 12 weeks away is flagged (*proposed default*). |
 
-Only validated values are stored as the candidate's data. The conversation is also kept as the audit record.
+Only validated values are stored as the candidate's data; the conversation is kept as the audit record.
 
 ## 5. Outcomes: qualified and disqualified paths
 
 | Outcome | When | What the candidate hears | What the recruiter gets |
 | --- | --- | --- | --- |
-| **Qualified** | All fields, license yes, city in area. | The next three free call slots of their country, numbered. A pick books it (D7, D8, D48). "None", or no free slot: "a recruiter will reply within 48 hours". One reminder if they ignore the list (D58). | Summary card and the booking. |
-| **Disqualified** | `NO_LICENSE` or `OUT_OF_AREA`. | "I can't continue with the automated process; a recruiter can review your case if something is wrong" (D52). | Reason and card, in the **review queue** until a recruiter sets a status. |
-| **Blocked** | A field still unclear after 5 follow-ups. | "I can't continue until you tell me X." | `BLOCKED` naming the field. |
-| **Stalled** | 24 h of silence: one reminder; 24 h more: `STALLED`. A new message resumes (D10, D35, D38, D58). | One short reminder. | `STALLED`, last stage. |
-| **Withdrawn / ended** | The candidate asks to stop (D29), or sends a third off-topic message (D55). | A polite close. After a withdrawal, "continuar" resumes (D56); the off-topic exit is final until a recruiter acts. | `WITHDRAWN` or `ENDED_OFF_TOPIC` (in the review queue). |
+| **Qualified** | All fields, license yes, city in area. | The next three free call slots of their country, numbered; a pick books it (D48). "None" or no slot: "a recruiter will reply within 48 hours". One reminder if ignored. | Summary card and the booking. |
+| **Disqualified** | No license, or outside the area. | "I can't continue with the automated process; a recruiter can review your case" (D52). | Reason and card, in the **review queue** until a recruiter sets a status. |
+| **Blocked** | A field unclear after 5 follow-ups. | "I can't continue until you tell me X." | `BLOCKED` naming the field. |
+| **Stalled** | 24 h silent: one reminder; 24 h more: `STALLED`. A new message resumes (D58). | One short reminder. | `STALLED`, last stage. |
+| **Withdrawn / ended** | The candidate asks to stop (D29), or sends a third off-topic message (D55). | Polite close. "continuar" resumes after a withdrawal (D56); the off-topic exit is final until a recruiter acts. | `WITHDRAWN` or `ENDED_OFF_TOPIC` (review queue). |
 
-Candidates can come back while applications are open, except after qualifying, a rejection, or the off-topic exit. A dashboard switch, "Aceptando candidaturas", stops everyone (D56).
+Candidates can come back while applications are open, except after qualifying, a rejection, or the off-topic exit. A dashboard switch stops everyone (D56).
 
 ## 6. Edge cases
 
 | Situation | Behaviour |
 | --- | --- |
 | **Stops responding mid-chat** | One reminder at 24 hours, then `STALLED`; the chat resumes if they write again. |
-| **Vague or invalid answer** ("a veces", "no sé" for a date) | Say what is expected, with an example, and ask again. Counts toward the 5 follow-ups. A model failure never counts (D39). |
+| **Vague or invalid answer** ("a veces", "no sé" for a date) | Say what is expected, with an example, and ask again; counts toward the 5 follow-ups. A model failure never counts (D39). |
 | **Switches language (ES ↔ EN)** | Reply in the new language; values are stored in one normalised form. An unsupported language keeps the last supported one. |
-| **Asks to speak to a person, or about pay** | A fixed sentence (a recruiter will review the application and answer about pay), then the next question. Logged for the recruiter (D14). |
-| **Off-topic, abusive, or "ignore your rules"** | "That's not part of my role", then the same question. The third off-topic message in total ends the chat with a factual farewell about the messages, not the person (D55). Hesitation ("mmm") doesn't count. Candidate text is data, never instructions. |
-| **Contradicts an earlier answer** | Confirmed with the candidate before it changes (D54). |
-| **Sends a file or photo** | Text only in Phase 2. |
+| **Asks for a person or about pay; goes off-topic; "ignore your rules"** | Person or pay: a fixed sentence (a recruiter reviews and answers), then the next question. Off-topic: "that's not part of my role" and the same question; the third in total ends the chat with a farewell about the messages, not the person (D55). Candidate text is data, never instructions. |
 
 ## 7. Message guidelines
 
-- This is messaging, not email: 1–2 short sentences and one question per message (D18); friendly "tú"; at most one emoji; no greetings mid-chat; no jargon or legal text. The numbered slot list is the one exception.
+- Messaging, not email: 1–2 short sentences and one question per message (D18); friendly "tú"; at most one emoji; no mid-chat greetings; no jargon or legal text. The numbered slot list is the one exception.
 - The disclosure and the closes are fixed text, never written by the model (D34, D37):
   > "Hola, soy el asistente virtual (una IA) de Grupo Sazón. Te haré unas preguntas para tu solicitud de repartidor. Tus respuestas se procesan con un servicio de IA externo y siempre las revisa un reclutador. ¿Te parece bien que guarde tus respuestas para el equipo de reclutamiento?"
   >
@@ -72,6 +69,6 @@ Candidates can come back while applications are open, except after qualifying, a
 
 ## 8. Compliance and open items
 
-- Hiring is high-risk under the EU AI Act (Annex III) and Mexico has its own data law. The design has: AI disclosure and consent first (D12), with a record of the exact wording accepted; human oversight (the review queue, D52); every decision logged with its actor; erasure on request and a six-month retention command (D53); a login per recruiter (D57); no emotion or personality inference; untrusted candidate text. This is an engineering baseline, not legal advice.
-- **Retention** (*proposed default*): rejected, withdrawn and off-topic candidates erased after 6 months; other data kept for the active hiring cycle.
-- **Open items for the client:** the real service areas; legal review of the consent wording, the farewell wording and retention; approved answers for pay and schedule questions; the 12-week start-date rule; single sign-on instead of the prototype login; a paid model tier with a data-processing agreement.
+- Hiring is high-risk under the EU AI Act (Annex III); Mexico has its own data law. Built in: AI disclosure and consent first, with the exact wording recorded; human oversight (review queue, D52); every decision logged with its actor; erasure on request and a six-month retention command (D53); a login per recruiter (D57); no emotion or personality inference; untrusted candidate text. An engineering baseline, not legal advice.
+- **Retention** (*proposed default*): rejected, withdrawn and off-topic candidates are erased after 6 months unless a recruiter is working with them; other data is kept for the active hiring cycle.
+- **Open for the client:** the real service areas; legal review of the consent, farewell and retention wording; approved answers about pay; the 12-week rule; single sign-on; a paid model tier with a data-processing agreement.

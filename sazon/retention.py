@@ -8,10 +8,14 @@ import argparse
 from datetime import datetime, timedelta
 
 from sazon import config
+from sazon.model import RecruiterStatus
 from sazon.store import Record, Store
 
 RETENTION_DAYS = 183
 ERASABLE_OUTCOMES = ("DISQUALIFIED", "WITHDRAWN", "ENDED_OFF_TOPIC")
+# A recruiter who overruled the agent, or is working with the candidate, keeps the record: the agent's outcome
+# alone must not erase them (D42, D52).
+KEPT_STATUSES = (RecruiterStatus.HIRED, RecruiterStatus.INTERVIEW_SCHEDULED, RecruiterStatus.CONTACTED)
 
 
 def _naive(moment: datetime) -> datetime:
@@ -20,7 +24,8 @@ def _naive(moment: datetime) -> datetime:
 
 def due(store: Store, now: datetime, days: int = RETENTION_DAYS) -> list[Record]:
     cutoff = _naive(now) - timedelta(days=days)
-    return [r for r in store.list_candidates() if r.outcome in ERASABLE_OUTCOMES and _naive(r.updated_at) < cutoff]
+    return [r for r in store.list_candidates()
+            if r.outcome in ERASABLE_OUTCOMES and r.status not in KEPT_STATUSES and _naive(r.updated_at) < cutoff]
 
 
 def apply(store: Store, now: datetime, days: int = RETENTION_DAYS) -> list[str]:

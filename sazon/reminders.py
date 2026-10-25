@@ -45,6 +45,8 @@ def run_once(store: Store, areas: dict[str, list[str]], now: datetime) -> list[A
         if record.outcome not in WATCHED or last is None or now - _naive(last) < REMIND_AFTER:
             continue
         screening = session.load(store, record.candidate_id, areas)
+        if screening.needs_consent:
+            continue  # they have not agreed to anything yet, so they are not contacted again
         if screening.awaiting_slot_choice:
             kind, directive = slot_flow.on_idle(store, screening, now)
         elif screening.is_open:

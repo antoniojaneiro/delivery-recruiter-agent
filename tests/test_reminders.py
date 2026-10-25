@@ -107,9 +107,10 @@ def test_final_closes_get_no_reminders(store):
     assert reminders.run_once(store, config.AREAS, T0 + 100 * HOUR) == []
 
 
-def test_a_candidate_who_has_not_started_the_conversation_is_ignored(store):
-    turn.start(store, config.AREAS, "c1", T0)  # the disclosure was sent; no consent answer yet
-    assert kinds(reminders.run_once(store, config.AREAS, T0 + 24 * HOUR)) == [("c1", "reminder")]
+def test_someone_who_never_answered_the_consent_question_is_not_contacted_again(store):
+    turn.start(store, config.AREAS, "c1", T0)  # the disclosure was sent; they have agreed to nothing
+    assert reminders.run_once(store, config.AREAS, T0 + 100 * HOUR) == []
+    assert store.outbox_pending() == []
 
 
 # --- qualified candidates who ignore the slot offer (the D48 gap) -------------------------------------------------------

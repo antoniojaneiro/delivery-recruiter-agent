@@ -24,12 +24,13 @@ def store(path):
     return Store(path)
 
 
-def fill(store, cid="c1", name=MARK, outcome="QUALIFIED", when=NOW):
+def fill(store, cid="c1", name=MARK, outcome="QUALIFIED", when=NOW, recruiter=True, status=RecruiterStatus.CONTACTED):
     store.commit_turn(cid, when, {"consent": True, "values": {"name": name}}, {"name": name}, outcome,
                       [("consent_given", "")], [("candidate", f"me llamo {name}, tel {PHONE}"), ("agent", "ok")],
                       summary=f"{name} · Madrid · Cualificado")
-    store.set_status(cid, RecruiterStatus.CONTACTED, "Ana", NOW)
-    store.add_note(cid, f"llamó {name}", "Ana", NOW)
+    if recruiter:
+        store.set_status(cid, status, "Ana", NOW)
+        store.add_note(cid, f"llamó {name}", "Ana", NOW)
 
 
 def rows(path, table, cid="c1"):
@@ -92,13 +93,13 @@ RECENT = NOW - timedelta(days=30)
 
 
 def populate(store):
-    fill(store, "old-rejected", outcome="DISQUALIFIED", when=OLD)
-    fill(store, "old-withdrawn", outcome="WITHDRAWN", when=OLD)
-    fill(store, "old-offtopic", outcome="ENDED_OFF_TOPIC", when=OLD)
-    fill(store, "old-qualified", outcome="QUALIFIED", when=OLD)
-    fill(store, "old-progress", outcome="IN_PROGRESS", when=OLD)
-    fill(store, "old-blocked", outcome="BLOCKED", when=OLD)
-    fill(store, "recent-rejected", outcome="DISQUALIFIED", when=RECENT)
+    fill(store, "old-rejected", outcome="DISQUALIFIED", when=OLD, recruiter=False)
+    fill(store, "old-withdrawn", outcome="WITHDRAWN", when=OLD, recruiter=False)
+    fill(store, "old-offtopic", outcome="ENDED_OFF_TOPIC", when=OLD, recruiter=False)
+    fill(store, "old-qualified", outcome="QUALIFIED", when=OLD, recruiter=False)
+    fill(store, "old-progress", outcome="IN_PROGRESS", when=OLD, recruiter=False)
+    fill(store, "old-blocked", outcome="BLOCKED", when=OLD, recruiter=False)
+    fill(store, "recent-rejected", outcome="DISQUALIFIED", when=RECENT, recruiter=False)
 
 
 def test_only_old_rejected_withdrawn_and_off_topic_candidates_are_due(store):
@@ -136,3 +137,17 @@ def test_the_command_with_apply_erases(store, path, monkeypatch, capsys):
     monkeypatch.setenv("SAZON_DB", str(path))
     retention.main(["--apply", "--now", NOW.isoformat()])
     assert store.get("old-rejected") is None and "3" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize("status", [RecruiterStatus.HIRED, RecruiterStatus.INTERVIEW_SCHEDULED, RecruiterStatus.CONTACTED])
+def test_a_candidate_a_recruiter_overruled_or_is_working_with_is_never_erased_by_retention(store, status):
+    fill(store, "overruled", outcome="DISQUALIFIED", when=OLD, status=status)
+    assert retention.due(store, NOW) == []
+    assert retention.apply(store, NOW) == []
+    assert store.get("overruled") is not None
+
+
+@pytest.mark.parametrize("status", [RecruiterStatus.NEW, RecruiterStatus.REJECTED, RecruiterStatus.UNREACHABLE])
+def test_a_rejection_a_recruiter_confirmed_or_never_looked_at_is_erased_after_the_period(store, status):
+    fill(store, "old", outcome="DISQUALIFIED", when=OLD, status=status)
+    assert [r.candidate_id for r in retention.due(store, NOW)] == ["old"]
