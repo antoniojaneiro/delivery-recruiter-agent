@@ -43,6 +43,7 @@ class Screening:
         self.out_of_area = False
         self.withdrawn = False
         self.events: list[tuple[str, str]] = []
+        self.events_synced = 0
         self._off_topic = 0
         self.validation_flags: dict[str, list[str]] = {}
         self._follow_ups: dict[str, int] = {}
@@ -65,6 +66,7 @@ class Screening:
             "withdrawn": self.withdrawn,
             "validation_flags": self.validation_flags,
             "events": [list(e) for e in self.events],
+            "events_synced": self.events_synced,
             "off_topic": self._off_topic,
             "follow_ups": self._follow_ups,
             "pending_city": list(self._pending_city) if self._pending_city else None,
@@ -82,6 +84,7 @@ class Screening:
         s.withdrawn = state.get("withdrawn", False)
         s.validation_flags = {k: list(v) for k, v in state.get("validation_flags", {}).items()}
         s.events = [tuple(e) for e in state["events"]]
+        s.events_synced = state.get("events_synced", 0)
         s._off_topic = state["off_topic"]
         s._follow_ups = dict(state["follow_ups"])
         s._pending_city = tuple(state["pending_city"]) if state["pending_city"] else None
@@ -90,6 +93,12 @@ class Screening:
     def off_topic(self) -> None:
         self._off_topic += 1
         self.events.append((EventType.OFF_TOPIC, ""))
+
+    def pending_events(self) -> list[tuple[str, str]]:
+        return self.events[self.events_synced:]
+
+    def mark_events_synced(self) -> None:
+        self.events_synced = len(self.events)
 
     def withdraw(self) -> None:
         self.withdrawn = True
