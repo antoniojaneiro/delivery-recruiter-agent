@@ -91,6 +91,22 @@ class Store:
             db.execute("UPDATE candidates SET updated_at = ? WHERE candidate_id = ?",
                        (now.isoformat(), candidate_id))
 
+    def commit_turn(self, candidate_id: str, now: datetime, state: dict, extracted: dict,
+                    outcome: str, events: list[tuple[str, str]],
+                    messages: list[tuple[str, str]]) -> None:
+        with self._connect() as db:
+            db.execute("INSERT OR IGNORE INTO candidates (candidate_id, updated_at) VALUES (?, ?)",
+                       (candidate_id, now.isoformat()))
+            db.execute(
+                "UPDATE candidates SET state = ?, extracted = ?, outcome = ?, updated_at = ? "
+                "WHERE candidate_id = ?",
+                (json.dumps(state, ensure_ascii=False), json.dumps(extracted, ensure_ascii=False),
+                 outcome, now.isoformat(), candidate_id))
+            db.executemany("INSERT INTO events (candidate_id, type, detail, at) VALUES (?, ?, ?, ?)",
+                           [(candidate_id, t, d, now.isoformat()) for t, d in events])
+            db.executemany("INSERT INTO messages (candidate_id, role, text, at) VALUES (?, ?, ?, ?)",
+                           [(candidate_id, r, x, now.isoformat()) for r, x in messages])
+
     def get(self, candidate_id: str) -> Record | None:
         with self._connect() as db:
             row = db.execute(

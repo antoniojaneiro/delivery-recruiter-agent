@@ -95,3 +95,24 @@ def test_a_real_screening_can_be_filtered_by_its_decided_outcome(store):
     assert [r.candidate_id for r in store.list_candidates(outcome="QUALIFIED")] == ["q"]
     assert [r.candidate_id for r in store.list_candidates(outcome="DISQUALIFIED")] == ["d"]
     assert store.get("q").outcome == "QUALIFIED"
+
+
+import sqlite3
+
+
+def test_commit_turn_saves_everything_in_one_transaction(store):
+    store.commit_turn("c1", now=T1, state={"s": 1}, extracted={"name": "A B"}, outcome="IN_PROGRESS",
+                      events=[("consent_given", ""), ("decision", "IN_PROGRESS")],
+                      messages=[("candidate", "hola"), ("agent", "¿Tu nombre?")])
+    record = store.get("c1")
+    assert (record.state, record.extracted, record.outcome) == ({"s": 1}, {"name": "A B"}, "IN_PROGRESS")
+    assert [e.type for e in store.events("c1")] == ["consent_given", "decision"]
+    assert [m.text for m in store.messages("c1")] == ["hola", "¿Tu nombre?"]
+
+
+def test_a_failing_commit_turn_leaves_nothing_behind(store):
+    with pytest.raises(sqlite3.IntegrityError):
+        store.commit_turn("c1", now=T1, state={"s": 1}, extracted={}, outcome="IN_PROGRESS",
+                          events=[("consent_given", "")], messages=[(None, "hola")])
+    assert store.get("c1") is None
+    assert store.events("c1") == []
