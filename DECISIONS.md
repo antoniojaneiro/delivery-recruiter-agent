@@ -265,3 +265,12 @@ Written into [PHASE1_PROCESS_DESIGN.md](PHASE1_PROCESS_DESIGN.md) as engineering
 
 - **Chosen:** Merge the Phase 1 docs branch to `main` first, then branch Phase 2 work from `main`. Done 2026-10-25 (fast-forward to `959d195`).
 - **Decided by:** user, 2026-10-25.
+
+## D26: Slice 1 rule details
+
+- **Consent reply:** the agent always speaks first with the consent question, so nothing is collected before it. If the consent reply also contains data, it is processed only after a yes. After a no, it is discarded.
+- **Unclear answers:** each follow-up must say what exactly is unclear and what a good answer looks like, so the conversation can move forward. The 3-follow-up cap (D17) still applies.
+- **Cap hit on license or city:** outcome is `NEEDS_REVIEW` with no slot offered, so a recruiter decides. **Assumption, not yet confirmed**: the user asked for clearer follow-ups but did not say what happens after the cap.
+- **P1 confirmed (changed):** name is 2+ words of letters, spaces, hyphens and apostrophes (accents allowed).
+- **P2 confirmed:** start date more than 12 weeks away is recorded and flagged, never rejected.
+- **Decided by:** user, 2026-10-25.
