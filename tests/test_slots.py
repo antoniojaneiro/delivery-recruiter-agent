@@ -157,3 +157,19 @@ def test_a_candidates_record_carries_their_live_booking(store):
     assert [r.booking.slot_id for r in store.list_candidates()] == [slot_id]
     store.cancel_slot(slot_id, "Ana", NOW)
     assert store.get("c1").booking is None
+
+
+def test_two_slots_at_the_same_time_count_as_one_option_but_both_stay_bookable(store):
+    first, second = add(store), add(store, recruiter="Luis")
+    assert [s.id for s in store.free_slots("ES", NOW)] == [first]
+    store.book_slot(first, "c1", NOW)
+    assert [s.id for s in store.free_slots("ES", NOW)] == [second]
+
+
+def test_a_booking_race_for_the_same_candidate_returns_the_existing_booking_instead_of_failing(store, monkeypatch):
+    first, second = add(store), add(store, when=datetime(2026, 11, 4, 10, 0))
+    held = store.book_slot(first, "c1", NOW)
+    # Another process booked for c1 between our check and our update: our check sees nothing.
+    monkeypatch.setattr(Store, "_held_booking", lambda self, db, candidate_id: None)
+    again = store.book_slot(second, "c1", NOW)
+    assert again.slot_id == held.slot_id and store.booking_of("c1").slot_id == held.slot_id

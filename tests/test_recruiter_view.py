@@ -1,5 +1,5 @@
 """What the recruiter dashboard shows, as plain functions (no Streamlit)."""
-from datetime import datetime
+from datetime import datetime, timezone
 
 import pytest
 
@@ -86,3 +86,15 @@ def test_a_booked_call_shows_in_the_table_and_leaves_the_to_contact_number(store
     assert call_label(next(r for r in records if r.candidate_id == "c1").booking) == "mar 15 jun, 10:00 (España)"
     assert call_label(None) == ""
     assert next(r for r in table_rows(records) if r["Id"] == "c2")["Llamada"] == ""
+
+
+def test_the_slot_state_says_when_a_free_slot_is_too_close_to_be_offered():
+    from sazon.recruiter_view import slot_state
+    from sazon.store import Slot
+    soon = Slot(1, "ES", datetime(2026, 10, 26, 10, 30), None, None, False)
+    later = Slot(2, "ES", datetime(2026, 11, 3, 10, 0), None, None, False)
+    taken = Slot(3, "ES", datetime(2026, 11, 3, 11, 0), None, "c1", False)
+    now = datetime(2026, 10, 26, 8, 0, tzinfo=timezone.utc)  # a fixed instant, independent of this machine's zone
+    assert slot_state(later, None, now) == "Libre"
+    assert slot_state(soon, None, now) == "Ya no se ofrece (faltan menos de 2 horas)"
+    assert slot_state(taken, "Juan Pérez", now) == "Reservado: Juan Pérez (c1)"

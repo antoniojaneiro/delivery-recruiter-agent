@@ -180,10 +180,14 @@ def _template(directive: Directive, language: str) -> str:
     raise ValueError(directive.kind)
 
 
+_CLOSE_OTHER = ("Gracias por tu tiempo. Cuando quieras retomar tu solicitud, escríbenos.",
+                "Thanks for your time. Write to us whenever you want to pick up your application.")
+
+
 def _close(directive: Directive, language: str) -> str:
-    if directive.outcome == Outcome.DISQUALIFIED:
+    if directive.outcome == Outcome.DISQUALIFIED and directive.reasons:
         return _pick(_CLOSE_REASON[directive.reasons[0]], language)
-    return _pick(_CLOSE[directive.outcome], language)
+    return _pick(_CLOSE.get(directive.outcome, _CLOSE_OTHER), language)
 
 
 def _usable(text: str, directive: Directive, language: Language) -> bool:

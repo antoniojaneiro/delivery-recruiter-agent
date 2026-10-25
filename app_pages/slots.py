@@ -5,7 +5,7 @@ import streamlit as st
 from sazon import ui
 from sazon.model import Language
 from sazon.phrasing import slot_label
-from sazon.recruiter_view import COUNTRY_LABEL, name_of
+from sazon.recruiter_view import COUNTRY_LABEL, name_of, slot_state
 
 store = ui.store()
 recruiter = ui.recruiter_name()
@@ -63,7 +63,7 @@ if slots:
                 booked = store.get(booked_by)
                 who = f"{name_of(booked)} ({booked_by})" if booked else booked_by
                 st.warning(f"Ese horario estaba reservado por {who}. Avisa al candidato: el asistente no puede "
-                           "escribirle. Vuelve a aparecer como cualificado por contactar.")
+                           "escribirle. Se quedó sin llamada reservada.")
             else:
                 st.success("Horario cancelado.")
         slots = store.slots(now)
@@ -72,10 +72,8 @@ if not slots:
     st.info("No hay horarios próximos. Añade alguno para que el asistente pueda ofrecerlos.")
 else:
     def state(slot) -> str:
-        if not slot.candidate_id:
-            return "Libre"
-        booked = store.get(slot.candidate_id)
-        return f"Reservado: {name_of(booked)} ({slot.candidate_id})" if booked else f"Reservado ({slot.candidate_id})"
+        booked = store.get(slot.candidate_id) if slot.candidate_id else None
+        return slot_state(slot, name_of(booked) if booked else None, now)
 
     st.dataframe(
         [{"Id": s.id, "País": COUNTRY_LABEL[s.country], "Día y hora": slot_label(s.starts_at, Language.ES),

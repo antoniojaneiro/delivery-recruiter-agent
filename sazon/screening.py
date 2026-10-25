@@ -53,6 +53,7 @@ class Screening:
         self.blocked_on: Field | None = None
         self._slot_offer: list[int] = []
         self._slots_done = False
+        self._unclear_picks = 0
         self.out_of_area = False
         self.withdrawn = False
         self.stalled = False
@@ -128,6 +129,11 @@ class Screening:
     def offer_slots(self, slot_ids: list[int]) -> None:
         self._slot_offer = list(slot_ids)
         self.events.append((EventType.SLOTS_OFFERED, ",".join(str(i) for i in slot_ids)))
+
+    def note_unclear_pick(self) -> int:
+        """Counts a reply to the slot list that could not be read; returns how many so far."""
+        self._unclear_picks += 1
+        return self._unclear_picks
 
     def resolve_slots(self) -> None:
         """The offer is over: booked, declined, or nothing to offer."""
@@ -249,6 +255,7 @@ class Screening:
             "blocked_on": str(self.blocked_on) if self.blocked_on else None,
             "slot_offer": self._slot_offer,
             "slots_done": self._slots_done,
+            "unclear_picks": self._unclear_picks,
             "out_of_area": self.out_of_area,
             "withdrawn": self.withdrawn,
             "stalled": self.stalled,
@@ -275,6 +282,7 @@ class Screening:
         s.blocked_on = Field(state["blocked_on"]) if state.get("blocked_on") else None
         s._slot_offer = list(state.get("slot_offer", []))
         s._slots_done = state.get("slots_done", False)
+        s._unclear_picks = state.get("unclear_picks", 0)
         s.out_of_area = state["out_of_area"]
         s.withdrawn = state.get("withdrawn", False)
         s.stalled = state.get("stalled", False)

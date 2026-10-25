@@ -245,7 +245,11 @@ class Store:
         with self._connect() as db:
             rows = db.execute(f"{_SLOT_SELECT} WHERE country = ? AND candidate_id IS NULL AND cancelled_at IS NULL "
                               "ORDER BY starts_at, id", (country,)).fetchall()
-        free = [s for s in map(_slot, rows) if slot_time.has_enough_notice(s.country, s.starts_at, now)]
+        free, seen = [], set()
+        for slot in map(_slot, rows):
+            if slot.starts_at not in seen and slot_time.has_enough_notice(slot.country, slot.starts_at, now):
+                seen.add(slot.starts_at)  # two recruiters at the same time make one option, not two
+                free.append(slot)
         return free[:limit]
 
     def slots(self, now: datetime, include_past: bool = False, include_cancelled: bool = False) -> list[Slot]:
@@ -260,9 +264,18 @@ class Store:
 
     def book_slot(self, slot_id: int, candidate_id: str, now: datetime) -> Booking | None:
         """Books the slot for the candidate, once. Asking again returns the booking they already hold."""
+        try:
+            return self._book_slot(slot_id, candidate_id, now)
+        except sqlite3.IntegrityError:  # another process booked for this candidate first
+            return self.booking_of(candidate_id)
+
+    def _held_booking(self, db, candidate_id: str):
+        return db.execute(f"{_BOOKING_SELECT} WHERE candidate_id = ? AND cancelled_at IS NULL",
+                          (candidate_id,)).fetchone()
+
+    def _book_slot(self, slot_id: int, candidate_id: str, now: datetime) -> Booking | None:
         with self._connect() as db:
-            held = db.execute(f"{_BOOKING_SELECT} WHERE candidate_id = ? AND cancelled_at IS NULL",
-                              (candidate_id,)).fetchone()
+            held = self._held_booking(db, candidate_id)
             if held:
                 return _booking(held)
             row = db.execute(f"{_BOOKING_SELECT} WHERE id = ? AND candidate_id IS NULL AND cancelled_at IS NULL",

@@ -4,7 +4,8 @@ import re
 from sazon.model import Outcome, RecruiterStatus
 from sazon.phrasing import slot_label
 from sazon.model import Language
-from sazon.store import Booking, Record
+from sazon.store import Booking, Record, Slot
+from sazon import slot_time
 from sazon.summary import OUTCOME_LABEL
 from sazon.validators import fold
 
@@ -25,6 +26,15 @@ def call_label(booking: Booking | None) -> str:
     if booking is None:
         return ""
     return f"{slot_label(booking.starts_at, Language.ES)} ({COUNTRY_LABEL.get(booking.country, booking.country)})"
+
+
+def slot_state(slot: Slot, booked_name: str | None, now) -> str:
+    """Free, booked, or free but too close to be offered or booked (the agent needs 2 hours' notice)."""
+    if slot.candidate_id:
+        return f"Reservado: {booked_name or '(sin nombre)'} ({slot.candidate_id})"
+    if not slot_time.has_enough_notice(slot.country, slot.starts_at, now):
+        return "Ya no se ofrece (faltan menos de 2 horas)"
+    return "Libre"
 
 
 def name_of(record: Record) -> str:

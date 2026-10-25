@@ -12,8 +12,11 @@ class _NoSlot:
 
 NONE = _NoSlot()  # the candidate declined every option
 
-_DECLINE_WORDS = {"ninguna", "ninguno", "none", "neither"}
+_DECLINE_WORDS = {"ninguna", "ninguno", "none", "neither", "retiro", "retirar", "cancelar", "cancela", "cancel",
+                  "withdraw", "withdrawing"}
 _DECLINE_PHRASES = {"no", "no gracias", "no thanks", "no thank you", "stop", "para", "paso"}
+_DECLINE_STARTS = ("no gracias", "no thanks", "no quiero", "ya no quiero", "i do not want", "i don t want",
+                  "i dont want")
 _ORDINALS = {
     "primero": 1, "primera": 1, "first": 1, "uno": 1,
     "segundo": 2, "segunda": 2, "second": 2, "dos": 2, "two": 2,
@@ -24,7 +27,8 @@ _ORDINALS = {
 _FILLER = {
     "el", "la", "los", "las", "opcion", "option", "numero", "number", "por", "favor", "please", "vale", "ok",
     "okay", "si", "me", "viene", "bien", "esa", "ese", "that", "the", "one", "quiero", "elijo", "prefiero", "i",
-    "ll", "take", "choose", "pick", "go", "with", "gracias", "thanks", "de", "of", "un", "una",
+    "ll", "take", "choose", "pick", "go", "with", "gracias", "thanks", "de", "of", "un", "una", "want", "would",
+    "like",
 }
 
 
@@ -42,7 +46,7 @@ def read_slot_choice(text: str, options: int):
     tokens = norm.split()
     if not tokens:
         return None
-    if set(tokens) & _DECLINE_WORDS or norm in _DECLINE_PHRASES or norm.startswith(("no gracias", "no thanks")):
+    if set(tokens) & _DECLINE_WORDS or norm in _DECLINE_PHRASES or norm.startswith(_DECLINE_STARTS):
         return NONE
     numbers = set()
     for token in tokens:

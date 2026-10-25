@@ -447,3 +447,12 @@ Written into [PHASE1_PROCESS_DESIGN.md](PHASE1_PROCESS_DESIGN.md) as engineering
 - **Cons of chosen:** a candidate cannot reschedule through the agent; a recruiter has to. There is no calendar sync (D8).
 - **Known gap:** a qualified candidate who never answers the slot offer is never reminded and never stalls, because `QUALIFIED` is a final outcome. The 48-hour promise is inside the offer message, and they stay in the dashboard's "Cualificados por contactar" number until a recruiter acts. Also: the question text given to the model when phrasing a question now includes the exact fixed wording, so it keeps the options (for example full-time, part-time or weekends) instead of drifting.
 - **Decided by:** user, 2026-10-25.
+
+## D49: Fixes from the slice 3 architecture review
+
+- **Withdrawing during a slot offer** ("me retiro", "ya no quiero continuar", "I want to withdraw", "cancelar") now declines the offer instead of repeating the list. A reply that cannot be read is answered with the same list at most 3 times, then the 48-hour promise applies.
+- **Two slots at the same time** are offered as one option (they stay separately bookable once one is taken).
+- **The Horarios page** no longer shows a slot as free when it is less than 2 hours away and can no longer be offered; it says so.
+- **A booking race** for the same candidate (two processes) returns the existing booking instead of failing. Every outcome has a polite close, so none can crash the chat.
+- **Not fixed yet (structural, for discussion):** the store has grown into one large class; the screening still holds the slot offer while the slots table holds the booking; recruiter-name checks and error routing by message text are repeated in the dashboard pages; labels live in `phrasing.py`; `screening.py` is large; naive and aware datetimes are mixed between the chat and the dashboard.
+- **Decided by:** the assistant, as bug fixes within decisions the user already made (D48), 2026-10-25.

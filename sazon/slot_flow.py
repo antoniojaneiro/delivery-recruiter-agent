@@ -10,6 +10,7 @@ from sazon.slot_choice import NONE, read_slot_choice
 from sazon.store import Store
 
 OFFER_SIZE = 3
+MAX_UNCLEAR_PICKS = 3  # re-offers of the same list before the 48-hour promise applies
 
 
 def after_close(store: Store, screening: Screening, candidate_id: str, directive: Directive | None,
@@ -37,6 +38,8 @@ def handle_pick(store: Store, screening: Screening, candidate_id: str, message: 
     if choice is NONE:
         return _give_up(screening)
     if choice is None:
+        if screening.note_unclear_pick() > MAX_UNCLEAR_PICKS:
+            return _give_up(screening)
         return _offer(store, screening, now, "unclear") or _give_up(screening)
     booking = store.book_slot(offered[choice - 1], candidate_id, now)
     if booking is None:

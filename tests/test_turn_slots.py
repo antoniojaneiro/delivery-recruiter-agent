@@ -197,3 +197,25 @@ def test_a_retry_after_a_failed_save_finds_the_existing_booking_whatever_the_can
     assert "ya está reservada" in reply and "mar 3 nov, 10:00" in reply
     assert booked(store).slot_id == ids[0]
     assert "ya está reservada" in say(store, "gracias")[0]
+
+
+def test_withdrawing_while_slots_are_offered_ends_the_offer_instead_of_repeating_it(store):
+    add_slots(store)
+    qualify(store)
+    reply, _ = say(store, "me retiro, gracias")
+    assert "48 horas" in reply and "1)" not in reply and booked(store) is None
+
+
+def test_after_three_unclear_replies_the_offer_stops_and_the_48_hour_promise_applies(store):
+    add_slots(store)
+    qualify(store)
+    for _ in range(3):
+        assert "1)" in say(store, "¿qué tal?")[0]
+    reply, _ = say(store, "¿qué tal?")
+    assert "48 horas" in reply and "1)" not in reply and booked(store) is None
+
+
+def test_two_slots_at_the_same_time_are_offered_once(store):
+    add_slots(store, times=[ES_SLOTS[0], ES_SLOTS[0], ES_SLOTS[1]])
+    options = [l for l in qualify(store).splitlines() if l[:2] in ("1)", "2)", "3)")]
+    assert options == ["1) mar 3 nov, 10:00", "2) mié 4 nov, 09:30"]

@@ -37,3 +37,15 @@ def test_the_number_must_be_one_of_the_options_offered():
     assert read_slot_choice("1", 1) == 1
     assert read_slot_choice("3", 2) is None
     assert read_slot_choice("el tercero", 3) == 3
+
+
+@pytest.mark.parametrize("text", [
+    "me retiro", "ya no quiero continuar", "no quiero seguir", "no quiero", "cancelar", "cancela todo",
+    "I want to withdraw", "I don't want to continue", "I do not want any", "cancel",
+])
+def test_wording_for_withdrawing_is_read_as_declining_every_option(text):
+    assert read_slot_choice(text, 3) is NONE
+
+
+def test_wanting_a_particular_option_is_still_a_pick():
+    assert read_slot_choice("quiero la 2", 3) == 2 and read_slot_choice("I want the first", 3) == 1
