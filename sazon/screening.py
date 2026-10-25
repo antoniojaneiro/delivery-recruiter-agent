@@ -1,8 +1,12 @@
+from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import date
 
 from sazon import validators
+from sazon.consent import ConsentReading
+from sazon.extraction import Extraction
 from sazon.model import CityMatchStatus, EventType, Field, Language, Outcome, Reason, Status
+from sazon.phrasing import Directive, Kind
 
 FIELD_ORDER = (Field.NAME, Field.EXPERIENCE, Field.AVAILABILITY, Field.SCHEDULE, Field.START_DATE,
                Field.CITY, Field.LICENSE)
@@ -11,6 +15,7 @@ MAX_OFF_TOPIC = 2
 
 
 LIVE = (Outcome.IN_PROGRESS, Outcome.BLOCKED)  # the chat is still open
+_MISSING = object()
 
 
 class ConsentRequired(Exception):
@@ -22,6 +27,15 @@ class SubmitResult:
     status: Status
     reason: str = ""
     suggestion: str | None = None
+
+
+@dataclass(frozen=True)
+class ExtractionContext:
+    """What the model needs to know to read the next message."""
+    asking: Field | None
+    awaiting_confirmation: str | None
+    awaiting_rejection: Field | None
+    previous_answer: str | None
 
 
 @dataclass(frozen=True)
@@ -43,10 +57,10 @@ class Screening:
         self.reminder_sent = False
         self.language = Language.ES
         self.events: list[tuple[str, str]] = []
-        self.events_synced = 0
+        self._events_synced = 0
         self._off_topic = 0
         self.validation_flags: dict[str, list[str]] = {}
-        self.partial: dict[str, dict] = {}
+        self._partial: dict[str, dict] = {}
         self._previous: dict[str, str] = {}
         self._follow_ups: dict[str, int] = {}
         self._pending_city: tuple[str, str] | None = None
@@ -89,6 +103,114 @@ class Screening:
     def previous_answer(self, field: Field | None) -> str | None:
         return self._previous.get(field)
 
+    @property
+    def is_open(self) -> bool:
+        return self.decide().outcome in LIVE
+
+    @property
+    def needs_consent(self) -> bool:
+        return self.consent is None
+
+    def close_directive(self) -> Directive:
+        decision = self.decide()
+        return Directive(Kind.CLOSE, outcome=decision.outcome, reasons=decision.reasons)
+
+    def extraction_context(self) -> ExtractionContext:
+        asking = self.next_field()
+        return ExtractionContext(asking, self.awaiting_confirmation, self.awaiting_rejection,
+                                 self.previous_answer(asking))
+
+    def apply_consent_reply(self, reading: ConsentReading) -> Directive | None:
+        """Nothing the candidate wrote with the answer is used (D44). None re-asks the question."""
+        if reading.language:
+            self.language = reading.language
+        if reading.answer is None:
+            return None
+        self.record_consent(reading.answer)
+        if not reading.answer:
+            return self.close_directive()
+        return Directive(Kind.ASK, field=self.next_field())
+
+    def model_failed(self, kind: str) -> Directive:
+        self.record_model_failure(kind)
+        return Directive(Kind.TECHNICAL_ERROR)
+
+    def on_silence(self) -> Directive | None:
+        """24 hours without a reply: one reminder, then STALLED (D35, D38)."""
+        if not self.is_open:
+            return None
+        if self.reminder_sent:
+            self.mark_stalled()
+            return None
+        self.send_reminder()
+        return Directive(Kind.REMINDER)
+
+    def apply(self, ex: Extraction, message: str, today: date) -> Directive:
+        """Takes in what the candidate said and returns what to say next."""
+        asking = self.next_field()
+        if ex.language:
+            self.language = ex.language
+        if ex.wants_human:
+            self.human_requested()
+        if ex.withdraw:
+            self.withdraw()
+            return self.close_directive()
+        unclear = self._apply_facts(ex, message, asking, today)
+        if not self.is_open:
+            return self.close_directive()
+        if self.awaiting_rejection:
+            return Directive(Kind.CONFIRM_REJECTION, field=self.awaiting_rejection,
+                             suggestion=self.rejection_subject)
+        if self.awaiting_confirmation:
+            return Directive(Kind.CONFIRM_CITY, suggestion=self.awaiting_confirmation)
+        if self.blocked_on:
+            return Directive(Kind.BLOCKED, field=self.blocked_on)
+        if unclear:
+            return Directive(Kind.FOLLOW_UP, field=unclear[0], reason=unclear[1])
+        return Directive(Kind.ASK, field=self.next_field())
+
+    def _apply_facts(self, ex: Extraction, message: str, asking: Field | None,
+                     today: date) -> tuple[Field, str] | None:
+        unclear = None
+        answered = False
+
+        def note(field: Field, result: SubmitResult) -> None:
+            nonlocal unclear, answered
+            answered = True
+            if result.status == Status.FOLLOW_UP and unclear is None:
+                unclear = (field, result.reason)
+
+        if self.awaiting_confirmation and ex.confirms_city is not None:
+            note(Field.CITY, self.confirm_city(ex.confirms_city))
+        if self.awaiting_rejection and ex.confirms_rejection is not None:
+            note(self.awaiting_rejection, self.confirm_rejection(ex.confirms_rejection))
+        for field in FIELD_ORDER:
+            if field == Field.EXPERIENCE:
+                experience = self._experience(ex)
+                if experience is not _MISSING:
+                    result = self.submit(field, experience, today, raw=message)
+                    if result.status == Status.FOLLOW_UP:
+                        self._partial[field] = {"years": experience[0], "platforms": experience[1]}
+                    note(field, result)
+                continue
+            value = _value(ex, field, today)
+            if value is not _MISSING:
+                note(field, self.submit(field, value, today, raw=message))
+        if not answered:
+            if ex.off_topic:
+                self.off_topic()
+            elif asking:
+                note(asking, self.submit(asking, None, today, raw=message))
+        return unclear
+
+    def _experience(self, ex: Extraction) -> object:
+        if ex.experience_years is None and not ex.platforms:
+            return _MISSING
+        earlier = self._partial.get(Field.EXPERIENCE, {})
+        years = ex.experience_years if ex.experience_years is not None else earlier.get("years")
+        platforms = ex.platforms or earlier.get("platforms", [])
+        return (years, platforms)
+
     def extracted(self) -> dict:
         return {
             k: v.isoformat() if isinstance(v, date) else v for k, v in self.values.items()
@@ -105,11 +227,11 @@ class Screening:
             "reminder_sent": self.reminder_sent,
             "language": self.language,
             "validation_flags": self.validation_flags,
-            "partial": self.partial,
+            "partial": self._partial,
             "pending_reject": list(self._pending_reject) if self._pending_reject else None,
             "previous": self._previous,
             "events": [list(e) for e in self.events],
-            "events_synced": self.events_synced,
+            "events_synced": self._events_synced,
             "off_topic": self._off_topic,
             "follow_ups": self._follow_ups,
             "pending_city": list(self._pending_city) if self._pending_city else None,
@@ -129,12 +251,12 @@ class Screening:
         s.reminder_sent = state.get("reminder_sent", False)
         s.language = Language(state.get("language", Language.ES))
         s.validation_flags = {k: list(v) for k, v in state.get("validation_flags", {}).items()}
-        s.partial = dict(state.get("partial", {}))
+        s._partial = dict(state.get("partial", {}))
         pending = state.get("pending_reject")
         s._pending_reject = (Field(pending[0]), pending[1]) if pending else None
         s._previous = dict(state.get("previous", {}))
         s.events = [tuple(e) for e in state["events"]]
-        s.events_synced = state.get("events_synced", 0)
+        s._events_synced = state.get("events_synced", 0)
         s._off_topic = state["off_topic"]
         s._follow_ups = dict(state["follow_ups"])
         s._pending_city = tuple(state["pending_city"]) if state["pending_city"] else None
@@ -144,11 +266,17 @@ class Screening:
         self._off_topic += 1
         self.events.append((EventType.OFF_TOPIC, ""))
 
-    def pending_events(self) -> list[tuple[str, str]]:
-        return self.events[self.events_synced:]
-
-    def mark_events_synced(self) -> None:
-        self.events_synced = len(self.events)
+    @contextmanager
+    def syncing_events(self):
+        """Yields the events not yet saved and counts them as saved, unless the block fails."""
+        before = self._events_synced
+        new = self.events[before:]
+        self._events_synced = len(self.events)
+        try:
+            yield new
+        except BaseException:
+            self._events_synced = before
+            raise
 
     def record_model_failure(self, kind: str) -> None:
         self.events.append((EventType.MODEL_FAILURE, kind))
@@ -276,7 +404,7 @@ class Screening:
                 self.blocked_on = None
             self._follow_ups.pop(field, None)
             self._previous.pop(field, None)
-            self.partial.pop(field, None)
+            self._partial.pop(field, None)
             self.events.append((EventType.FIELD_ACCEPTED, str(field)))
             return SubmitResult(Status.OK)
         self._off_topic = 0
@@ -293,3 +421,20 @@ class Screening:
             self._previous[field] = raw
         self.events.append((EventType.FOLLOW_UP, f"{field}: {result.reason}"))
         return SubmitResult(Status.FOLLOW_UP, result.reason)
+
+
+def _value(ex: Extraction, field: Field, today: date) -> object:
+    match field:
+        case Field.NAME:
+            return ex.name if ex.name is not None else _MISSING
+        case Field.AVAILABILITY:
+            return ex.availability or _MISSING
+        case Field.SCHEDULE:
+            return ex.schedule if ex.schedule is not None else _MISSING
+        case Field.START_DATE:
+            return ex.start_date.resolve(today) if ex.start_date is not None else _MISSING
+        case Field.CITY:
+            return ex.city if ex.city is not None else _MISSING
+        case Field.LICENSE:
+            return ex.has_license if ex.has_license is not None else _MISSING
+    return _MISSING
