@@ -529,3 +529,23 @@ Four reviewers (security and compliance, conversation robustness, data and opera
 
 - **Chosen:** Build funnel analytics (a dashboard page) and a real 24-hour reminder job (queued in an outbox, because the terminal has nowhere to deliver; it also covers qualified candidates who ignore the slot offer). The voice agent and CV upload are left for later if there is time; CV upload is not recommended (new personal data category, file parsing, more AI Act duties).
 - **Decided by:** user, 2026-10-25.
+
+## D59: How D51-D58 were built, and what is still open
+
+**Built (all with tests; the real model checked on the conversation test and on replayed scenarios):**
+- Consent wording and softer rejection closes; closes that match the return rules; off-topic redirect with three strikes in total (`wants_human` and `asks_pay` never count as strikes).
+- Return rules: a withdrawn candidate resumes only on an explicit "continuar" (so "vale" or "gracias" does not reopen it); declined consent restarts on a plain "sí"; qualified, rejected and the off-topic exit stay closed. The applications switch is checked first on every entry point and stores and sends nothing to the model.
+- A changed answer is confirmed, comparing validated values (availability as a set, years as numbers, the canonical city, names ignoring case and accents). The yes or no is read in plain code and an unclear reply drops the question.
+- Saves are versioned: a stale chat turn, job or erase can no longer revert another writer's change or re-create an erased candidate (it is refused, and the chat turn answers with the technical-problem message and the next message starts from the current record).
+- Erasure overwrites the data (`secure_delete`) and truncates the write-ahead log; a test reads the raw database bytes. `python -m sazon.retention` lists, or with `--apply` erases, rejected, withdrawn and off-topic candidates older than 183 days.
+- Recruiter accounts (scrypt hashes, constant-time comparison, no accounts file means no access), a dashboard switch for applications, the review queue, an erase button, and a funnel page.
+- The reminder job and its outbox, which also covers qualified candidates who ignore the slot offer (closing the D48 gap).
+
+**Still open:**
+- The reminder job has to be started by someone (`python -m sazon.reminders --every 600`); nothing supervises it. Its messages sit in the outbox until a real channel (WhatsApp or similar) sends them: the terminal can only show them with `/inbox`.
+- The login is a prototype: no lockout after failed attempts, no password reset beyond the command, and recruiters cannot change their own password.
+- A candidate the agent rejected cannot fix a misunderstanding alone; a recruiter reviews them (D52) but the dashboard has no "reopen the chat" action.
+- The error log (`data/sazon.log`) is not covered by the retention command.
+- The structural findings of the slice 3 review (store size, mixed naive and aware datetimes, repeated checks in the dashboard pages) are still open.
+- The free tier of the model cannot serve the client's volume; a paid tier with a data-processing agreement is needed.
+- The voice agent and CV upload are not built (D58).

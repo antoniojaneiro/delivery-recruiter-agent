@@ -88,8 +88,8 @@ SCENARIOS = [
         "Pregunta «¿Te refieres a Guadalajara?» en lugar de rechazar o aceptar a ciegas."),
     Scenario("correction", "El candidato corrige una respuesta anterior", _talk(
         "sí", "Carmen Ortiz Vega", "3 años con Glovo", "tiempo completo", "mañana", "ya", "Vivo en Madrid",
-        "perdona, en realidad vivo en Barcelona", "sí tengo licencia", "1"),
-        "Mira si la ciudad queda corregida a Barcelona (y los horarios son los de España)."),
+        "perdona, en realidad vivo en Barcelona", "sí", "sí tengo licencia", "1"),
+        "Pregunta si cambia la ciudad; con el sí queda Barcelona (y los horarios son los de España)."),
     Scenario("far_start_date", "Fecha de inicio muy lejana", _talk(
         "sí", "Iván Mora Pérez", "1 año con Glovo", "fines de semana", "tarde", "podría empezar dentro de 5 meses",
         "Madrid", "sí tengo carnet"),
