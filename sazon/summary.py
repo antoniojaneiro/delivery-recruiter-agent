@@ -12,7 +12,7 @@ OUTCOME_LABEL = {
     Outcome.ENDED_OFF_TOPIC: "Terminó fuera de tema",
     Outcome.WITHDRAWN: "Se retiró",
 }
-_FIELD = {
+FIELD_LABEL = {
     Field.NAME: "nombre", Field.EXPERIENCE: "experiencia", Field.AVAILABILITY: "disponibilidad",
     Field.SCHEDULE: "horario preferido", Field.START_DATE: "fecha de inicio", Field.CITY: "ciudad",
     Field.LICENSE: "licencia",
@@ -43,7 +43,7 @@ def summarise(screening: Screening) -> str:
         lines.append("Motivo: " + "; ".join(reasons))
     if consented:
         lines += _data_lines(data)
-        missing = [_FIELD[f] for f in screening.missing_fields()]
+        missing = [FIELD_LABEL[f] for f in screening.missing_fields()]
         if missing and decision.outcome not in (Outcome.DISQUALIFIED, Outcome.WITHDRAWN):
             lines.append("Falta: " + ", ".join(missing))
     lines += [_FLAGS[flag] for flag in decision.flags if flag in _FLAGS]

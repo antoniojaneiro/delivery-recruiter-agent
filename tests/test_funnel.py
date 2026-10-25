@@ -1,0 +1,106 @@
+"""D58: funnel analytics. Counts what the chat already stores; nothing is guessed."""
+from datetime import datetime
+from pathlib import Path
+
+import pytest
+from streamlit.testing.v1 import AppTest
+
+from sazon.funnel import build_funnel
+from sazon.store import Store
+from tests.dash import login, seed_accounts
+
+NOW = datetime(2026, 10, 25, 10, 0)
+FIELDS = {"name": "Juan Pérez", "experience": {"years": 1, "platforms": ["glovo"]}, "availability": ["full_time"],
+          "schedule": "morning", "start_date": "2026-11-01", "city": "Madrid", "license": True}
+
+
+@pytest.fixture
+def store(tmp_path):
+    return Store(tmp_path / "s.db")
+
+
+def add(store, cid, outcome, fields=0, consent=True, reasons=(), booked=False):
+    extracted = dict(list(FIELDS.items())[:fields])
+    store.commit_turn(cid, NOW, {"consent": consent}, extracted, outcome, [], [], reasons=list(reasons))
+    if booked:
+        slot = store.add_slot("ES", datetime(2027, 6, 15, 10, 0), "Ana", "Ana", NOW.astimezone())
+        store.book_slot(slot, cid, NOW.astimezone())
+
+
+def populate(store):
+    add(store, "a", "IN_PROGRESS", consent=None)                       # just started, has not answered the consent yet
+    add(store, "b", "DISQUALIFIED", consent=False, reasons=["NO_CONSENT"])
+    add(store, "c", "IN_PROGRESS", fields=0)                           # consented, nothing answered yet
+    add(store, "d", "IN_PROGRESS", fields=3)
+    add(store, "e", "STALLED", fields=3)
+    add(store, "f", "BLOCKED", fields=1, reasons=["BLOCKED_ON_EXPERIENCE"])
+    add(store, "g", "DISQUALIFIED", fields=7, reasons=["NO_LICENSE"])
+    add(store, "h", "DISQUALIFIED", fields=6, reasons=["OUT_OF_AREA"])
+    add(store, "i", "QUALIFIED", fields=7)
+    add(store, "j", "QUALIFIED", fields=7, booked=True)
+    add(store, "k", "WITHDRAWN", fields=2)
+    add(store, "l", "ENDED_OFF_TOPIC", fields=1)
+
+
+def test_an_empty_database_gives_zeros_and_no_division_by_zero(store):
+    f = build_funnel(store.list_candidates())
+    assert f.total == 0 and f.consented == 0 and f.qualified == 0
+    assert all(count == 0 for _, count in f.stages) and f.rates["qualified"] == 0
+
+
+def test_the_stages_count_how_far_candidates_got(store):
+    populate(store)
+    f = build_funnel(store.list_candidates())
+    stages = dict(f.stages)
+    assert stages["Empezaron"] == 12
+    assert stages["Dieron su consentimiento"] == 10          # all but a and b
+    assert stages["Respondieron: nombre"] == 9               # c has consented but answered nothing
+    assert stages["Respondieron: experiencia"] == 7          # d, e, g, h, i, j, k have fields >= 2
+    assert stages["Respondieron: licencia"] == 3             # g, i, j answered all seven
+    assert stages["Cualificaron"] == 2 and stages["Reservaron una llamada"] == 1
+
+
+def test_the_stages_never_grow_as_the_conversation_goes_on(store):
+    populate(store)
+    counts = [count for _, count in build_funnel(store.list_candidates()).stages[:-2]]
+    assert counts == sorted(counts, reverse=True)
+
+
+def test_the_outcomes_and_the_reasons_are_counted(store):
+    populate(store)
+    f = build_funnel(store.list_candidates())
+    assert f.outcomes["QUALIFIED"] == 2 and f.outcomes["DISQUALIFIED"] == 3 and f.outcomes["WITHDRAWN"] == 1
+    assert f.reasons == {"NO_CONSENT": 1, "NO_LICENSE": 1, "OUT_OF_AREA": 1, "BLOCKED_ON_EXPERIENCE": 1}
+
+
+def test_candidates_still_open_are_counted_where_they_stopped(store):
+    populate(store)
+    f = build_funnel(store.list_candidates())
+    assert f.stopped_at == {"consentimiento": 1, "nombre": 1, "horario preferido": 2, "experiencia": 1}
+
+
+def test_the_rates_are_shares_of_the_right_group(store):
+    populate(store)
+    r = build_funnel(store.list_candidates()).rates
+    assert r["consent"] == pytest.approx(10 / 12)
+    assert r["qualified"] == pytest.approx(2 / 12)
+    assert r["booked_of_qualified"] == pytest.approx(1 / 2)
+    assert r["closed_by_agent"] == pytest.approx(3 / 12)      # g, h and l; declining consent or withdrawing is the candidate's choice
+
+
+# --- the page ----------------------------------------------------------------------------------------------------
+
+def test_the_funnel_page_shows_the_numbers_and_the_stage_table(tmp_path, monkeypatch):
+    monkeypatch.setenv("SAZON_DB", str(tmp_path / "s.db"))
+    monkeypatch.setenv("SAZON_ACCOUNTS", str(tmp_path / "r.json"))
+    seed_accounts(tmp_path / "r.json")
+    populate(Store(tmp_path / "s.db"))
+    app = str(Path(__file__).resolve().parent.parent / "dashboard.py")
+    at = AppTest.from_file(app, default_timeout=10).run()
+    login(at)
+    at.switch_page("app_pages/funnel.py").run()
+    assert not at.exception, at.exception
+    metrics = {m.label: m.value for m in at.metric}
+    assert metrics["Empezaron"] == "12" and metrics["Cualificaron"] == "2"
+    table = at.dataframe[0].value
+    assert list(table["Etapa"])[0] == "Empezaron" and list(table["Candidatos"])[0] == 12

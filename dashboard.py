@@ -49,5 +49,6 @@ with st.sidebar:
 pages = [
     st.Page("app_pages/candidates.py", title="Candidatos", icon=":material/groups:", default=True),
     st.Page("app_pages/slots.py", title="Horarios", icon=":material/calendar_month:"),
+    st.Page("app_pages/funnel.py", title="Embudo", icon=":material/monitoring:"),
 ]
 st.navigation(pages).run()
