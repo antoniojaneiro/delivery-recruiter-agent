@@ -381,3 +381,12 @@ Written into [PHASE1_PROCESS_DESIGN.md](PHASE1_PROCESS_DESIGN.md) as engineering
 - **Pros of chosen:** one simple rule for all fields, clean typed JSON, and recruiters see stuck candidates as a clear status.
 - **Cons of chosen:** a candidate who cannot or will not answer is stuck until the 24-hour stall. Nothing reaches a recruiter except the `BLOCKED` status, so recruiters must watch that filter. Revisit if pilot data shows many blocked candidates.
 - **Decided by:** user, 2026-10-25.
+
+## D42: Recruiter data is separate from the agent's data
+
+- **Chosen:** The agent owns `outcome`, `reasons`, `flags`, `extracted`, the summary and the transcript. Recruiters own a separate record: a hiring status (`new`, `contacted`, `interview_scheduled`, `hired`, `rejected`, `unreachable`, default `new`), an assignee, and append-only notes. Chat turns never touch the recruiter record and recruiter actions never touch the agent's data. A recruiter may set any status on any candidate, including one the agent disqualified, so a human can always overrule the agent. Every recruiter action is an audit event whose `actor` is `recruiter:<name>`; agent events have actor `agent`.
+- **Also done:** the decision's reasons and flags are stored with every turn, so the dashboard filters by `BLOCKED_ON_NAME` or `START_DATE_FAR` without rebuilding the screening. The store waits up to 10 seconds on a busy database so the dashboard and chat can write at the same time. Databases created earlier are upgraded in place.
+- **Options considered:** let recruiters edit the agent's fields directly (fixes misreads at the source, but needs protection against the next chat turn overwriting the fix and a per-field marker for human edits).
+- **Pros of chosen:** overwrite conflicts cannot happen, and the agent's decision and the human's decision stay visibly distinct (human oversight).
+- **Cons of chosen:** a recruiter cannot correct an extracted value in place; they add a note.
+- **Decided by:** user, 2026-10-25.

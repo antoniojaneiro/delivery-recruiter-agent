@@ -25,7 +25,8 @@ def commit(store: Store, candidate_id: str, screening: Screening, now: datetime,
     screening.mark_events_synced()
     try:
         store.commit_turn(candidate_id, now, screening.to_state(), screening.extracted(),
-                          str(decision.outcome), events, list(messages))
+                          str(decision.outcome), events, list(messages),
+                          reasons=decision.reasons, flags=decision.flags)
     except Exception:
         screening.events_synced = synced_before
         raise

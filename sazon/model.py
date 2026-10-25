@@ -48,3 +48,12 @@ class CityMatchStatus(StrEnum):
     MATCH = "match"
     CONFIRM = "confirm"
     OUT_OF_AREA = "out_of_area"
+
+
+class RecruiterStatus(StrEnum):
+    NEW = "new"
+    CONTACTED = "contacted"
+    INTERVIEW_SCHEDULED = "interview_scheduled"
+    HIRED = "hired"
+    REJECTED = "rejected"
+    UNREACHABLE = "unreachable"
