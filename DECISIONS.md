@@ -418,3 +418,18 @@ Written into [PHASE1_PROCESS_DESIGN.md](PHASE1_PROCESS_DESIGN.md) as engineering
 - **Pros of chosen:** every rule is testable without a model or a store, and nothing writes the screening's private state from outside.
 - **Cons of chosen:** a larger `Screening` class. Revisit if it grows further.
 - **Decided by:** user, 2026-10-25.
+
+## D46: The recruiter summary is a card built by code, in Spanish
+
+- **Chosen:** `sazon/summary.py` builds the summary from the validated data, the outcome and reasons, the flags and a few chat facts (language, number of clarifications, a human was requested, a reminder was sent). It is always in Spanish, never repeats the candidate's own words, and says nothing about the person beyond the facts they gave. A refused-consent card holds no personal data. It is rebuilt and saved atomically with every turn, so it is never stale, and it ends with "the final decision is the recruiter's".
+- **Options considered:** the model writes a paragraph (friendlier, but a model call per candidate, risk of invented details, and the AI Act wants impressions of the candidate kept out of hiring tools); both a card and a paragraph (two texts that can disagree).
+- **Pros of chosen:** always accurate, free and instant, consistent in one language.
+- **Cons of chosen:** reads like a card, not prose. An English-speaking recruiter would need the labels changed.
+- **Decided by:** user, 2026-10-25.
+
+## D47: Dashboard scope and slice 3 order
+
+- **Chosen:** The first dashboard (Streamlit, local, reading the same SQLite file as the chat) has a filterable candidate list (agent outcome, recruiter status, search by name), a candidate page (summary card, validated data, flags, full transcript, audit log) and the recruiter actions from D42 (status, assignee, notes). The recruiter types their name once in the sidebar; there is no login in the prototype. Funnel analytics come later. Slice 3 is built in this order: summary, dashboard, then call slots (D7, D8, D36).
+- **Options considered:** add funnel analytics to the first version (stronger demo, more before the core is verified); build slots before the dashboard (earlier booking flow, but the slot list would have to be edited in a file).
+- **Cons of chosen:** no access control. Anyone who can run the app sees every candidate, so it must not be exposed beyond a trusted machine until real authentication is added.
+- **Decided by:** user, 2026-10-25.

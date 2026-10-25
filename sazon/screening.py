@@ -111,6 +111,9 @@ class Screening:
     def needs_consent(self) -> bool:
         return self.consent is None
 
+    def missing_fields(self) -> list[Field]:
+        return [f for f in FIELD_ORDER if f not in self.values]
+
     def close_directive(self) -> Directive:
         decision = self.decide()
         return Directive(Kind.CLOSE, outcome=decision.outcome, reasons=decision.reasons)

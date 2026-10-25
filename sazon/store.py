@@ -130,24 +130,20 @@ class Store:
     def commit_turn(self, candidate_id: str, now: datetime, state: dict, extracted: dict,
                     outcome: str, events: list[tuple[str, str]],
                     messages: list[tuple[str, str]], reasons: list[str] = (),
-                    flags: list[str] = ()) -> None:
+                    flags: list[str] = (), summary: str | None = None) -> None:
         with self._connect() as db:
             db.execute("INSERT OR IGNORE INTO candidates (candidate_id, updated_at) VALUES (?, ?)",
                        (candidate_id, now.isoformat()))
             db.execute(
                 "UPDATE candidates SET state = ?, extracted = ?, outcome = ?, reasons = ?, flags = ?, "
-                "updated_at = ? WHERE candidate_id = ?",
+                "summary = COALESCE(?, summary), updated_at = ? WHERE candidate_id = ?",
                 (json.dumps(state, ensure_ascii=False), json.dumps(extracted, ensure_ascii=False),
-                 outcome, json.dumps(list(reasons)), json.dumps(list(flags)), now.isoformat(),
+                 outcome, json.dumps(list(reasons)), json.dumps(list(flags)), summary, now.isoformat(),
                  candidate_id))
             db.executemany("INSERT INTO events (candidate_id, type, detail, actor, at) VALUES (?, ?, ?, ?, ?)",
                            [(candidate_id, t, d, AGENT, now.isoformat()) for t, d in events])
             db.executemany("INSERT INTO messages (candidate_id, role, text, at) VALUES (?, ?, ?, ?)",
                            [(candidate_id, r, x, now.isoformat()) for r, x in messages])
-
-    def save_summary(self, candidate_id: str, summary: str) -> None:
-        with self._connect() as db:
-            db.execute("UPDATE candidates SET summary = ? WHERE candidate_id = ?", (summary, candidate_id))
 
     # -- written by recruiters (never touched by chat turns) -----------------
 

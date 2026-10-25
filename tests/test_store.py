@@ -66,8 +66,10 @@ def test_a_failing_turn_leaves_nothing_behind(store):
     assert store.events("c1") == []
 
 
-def test_the_summary_is_kept_apart_and_survives_later_turns(store):
-    turn(store, outcome="QUALIFIED")
-    store.save_summary("c1", "Qualified driver in Madrid.")
+def test_the_summary_is_saved_with_the_turn_and_kept_when_a_later_turn_has_none(store):
+    store.commit_turn("c1", T1, {}, {}, "QUALIFIED", [], [], summary="Cualificado en Madrid.")
+    assert store.get("c1").summary == "Cualificado en Madrid."
     turn(store, outcome="QUALIFIED", now=T2)
-    assert store.get("c1").summary == "Qualified driver in Madrid."
+    assert store.get("c1").summary == "Cualificado en Madrid."
+    store.commit_turn("c1", T2, {}, {}, "QUALIFIED", [], [], summary="Actualizado.")
+    assert store.get("c1").summary == "Actualizado."

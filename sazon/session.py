@@ -3,6 +3,7 @@ from datetime import datetime
 
 from sazon.screening import Screening
 from sazon.store import Store
+from sazon.summary import summarise
 
 
 def load(store: Store, candidate_id: str, areas: dict[str, list[str]]) -> Screening:
@@ -24,4 +25,4 @@ def commit(store: Store, candidate_id: str, screening: Screening, now: datetime,
             })))
         store.commit_turn(candidate_id, now, screening.to_state(), screening.extracted(),
                           str(decision.outcome), events, list(messages),
-                          reasons=decision.reasons, flags=decision.flags)
+                          reasons=decision.reasons, flags=decision.flags, summary=summarise(screening))
