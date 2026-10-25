@@ -1,3 +1,4 @@
+import json
 import sqlite3
 import sys
 import traceback
@@ -11,7 +12,7 @@ from sazon.model import Language
 from sazon.phrasing import Directive, Kind, phrase
 from sazon.store import Store
 
-HELP = "Commands: /new, /resume <id>, /wait24h, /quit"
+HELP = "Commands: /new, /resume <id>, /state, /wait24h, /help, /quit"
 
 
 def run(llm: LLM, store: Store, areas: dict[str, list[str]], read=input, write=print,
@@ -83,6 +84,11 @@ def _command(command, arg, candidate_id, llm, store, areas, clock, write) -> str
             return candidate_id
         write(f"[resumed {arg}]")
         return arg
+    if command == "/help":
+        write(HELP)
+        return candidate_id
+    if command == "/state":
+        return _show_state(store, candidate_id, write)
     if command == "/wait24h":
         if candidate_id is None:
             write("[no active candidate] Type /new to start one.")
@@ -91,6 +97,20 @@ def _command(command, arg, candidate_id, llm, store, areas, clock, write) -> str
         write(f"bot> {reply}" if reply else "[no reply: stalled or already finished]")
         return candidate_id
     write(f"[unknown command {command}] {HELP}")
+    return candidate_id
+
+
+def _show_state(store, candidate_id, write) -> str | None:
+    record = store.get(candidate_id) if candidate_id else None
+    if record is None:
+        write("[state] outcome: (nothing saved yet)")
+        return candidate_id
+    write(f"[state] outcome: {record.outcome}  reasons: {record.reasons}  flags: {record.flags}")
+    write("[state] data: " + json.dumps(record.extracted, ensure_ascii=False))
+    for line in (record.summary or "").splitlines():
+        write(f"[state]   {line}")
+    if record.booking:
+        write(f"[state] booked slot {record.booking.slot_id}: {record.booking.starts_at:%Y-%m-%d %H:%M} ({record.booking.country})")
     return candidate_id
 
 

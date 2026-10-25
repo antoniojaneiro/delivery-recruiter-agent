@@ -150,3 +150,22 @@ def test_an_unopenable_database_exits_with_a_clear_message(tmp_path, monkeypatch
     with pytest.raises(SystemExit) as exit_info:
         chat.main()
     assert "database" in str(exit_info.value).lower()
+
+
+def test_state_shows_what_the_agent_has_understood_so_far(store):
+    llm = ScriptedLLM([{"name": "Juan Pérez"}])
+    out = run(store, ["sí", "Juan Pérez", "/state", "/quit"], llm)
+    text = "\n".join(out)
+    assert "outcome: IN_PROGRESS" in text
+    assert '"name": "Juan Pérez"' in text
+    assert "Juan Pérez · En curso" in text
+
+
+def test_state_before_anything_is_said_does_not_crash(store):
+    out = run(store, ["/state", "/quit"])
+    assert any("outcome:" in line for line in out)
+
+
+def test_help_lists_the_commands(store):
+    out = run(store, ["/help", "/quit"])
+    assert any("/state" in line and "/wait24h" in line for line in out)

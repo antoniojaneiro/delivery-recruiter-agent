@@ -7,6 +7,7 @@ An AI-powered candidate screening agent for a fictional client that has a restau
 python -m pip install -e ".[dev]"
 copy .env.example .env      # Windows (use cp on macOS/Linux), then add your GEMINI_API_KEY; never commit .env
 python -m sazon.chat        # terminal chat (errors are logged to data/sazon.log); commands: /new, /resume <id>, /wait24h, /quit
+python -m sazon.demo --list  # fictional scenarios played on the real agent; transcripts go to data/demo_transcripts.md
 python -m sazon.chat --list-models   # if the default model name returns 404
 streamlit run dashboard.py  # recruiter dashboard (needs the dashboard extra; local, no login)
 python -m pytest -q         # unit tests, no network
