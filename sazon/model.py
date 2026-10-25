@@ -44,6 +44,7 @@ class EventType(StrEnum):
     MODEL_FAILURE = "model_failure"
     SLOTS_OFFERED = "slots_offered"
     PAY_QUESTION = "pay_question"
+    FIELD_CHANGED = "field_changed"
 
 
 class CityMatchStatus(StrEnum):

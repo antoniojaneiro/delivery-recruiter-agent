@@ -6,7 +6,7 @@ from sazon import validators
 from sazon.consent import ConsentReading, is_hesitation, is_resume_request, read_consent
 from sazon.extraction import Extraction
 from sazon.model import CityMatchStatus, EventType, Field, Language, Outcome, Reason, Status
-from sazon.phrasing import Directive, Kind, consent_text_hash
+from sazon.phrasing import Directive, Kind, consent_text_hash, describe_value
 
 FIELD_ORDER = (Field.NAME, Field.EXPERIENCE, Field.AVAILABILITY, Field.SCHEDULE, Field.START_DATE,
                Field.CITY, Field.LICENSE)
@@ -68,6 +68,7 @@ class Screening:
         self._follow_ups: dict[str, int] = {}
         self._pending_city: tuple[str, str] | None = None
         self._pending_reject: tuple[Field, object] | None = None
+        self._pending_change: tuple[Field, object, str, str] | None = None  # field, input, old text, new text
 
     @property
     def awaiting_confirmation(self) -> str | None:
@@ -77,6 +78,44 @@ class Screening:
         self.consent = given
         self.events.append((EventType.CONSENT_GIVEN if given else EventType.CONSENT_DECLINED,
                             f"text_sha256={consent_text_hash()}"))
+
+    @property
+    def awaiting_change(self) -> bool:
+        return self._pending_change is not None
+
+    def drop_change(self) -> None:
+        self._pending_change = None
+
+    def resolve_change(self, yes: bool, today: date) -> Directive:
+        """The candidate's yes or no to "Antes me dijiste X. ¿Lo cambio a Y?" (D54)."""
+        field, candidate, _, _ = self._pending_change
+        self._pending_change = None
+        notice = "kept"
+        if yes:
+            self.events.append((EventType.FIELD_CHANGED, str(field)))
+            self.submit(field, candidate, today)  # the usual flows (typo, outside the area, no license) still apply
+            notice = "changed"
+        directive = self._directive_now(None)
+        return replace(directive, notice=notice) if directive.kind != Kind.CLOSE else directive
+
+    def _consider_change(self, field: Field, candidate: object, today: date) -> None:
+        if self._pending_change is not None:
+            return  # one question at a time
+        old = self.values[field]
+        if field == Field.CITY:
+            if not isinstance(candidate, str):
+                return
+            match = validators.match_city(candidate, self.areas)
+            if match.status == CityMatchStatus.MATCH and match.city == old:
+                return
+            shown = match.city or " ".join(candidate.split())[:40]
+        else:
+            result = self._validate(field, candidate, today)
+            if not result.ok or _same(field, old, result.value):
+                return
+            shown = result.value
+        self._pending_change = (field, candidate, describe_value(field, old, self.language),
+                                describe_value(field, shown, self.language))
 
     @property
     def awaiting_rejection(self) -> Field | None:
@@ -236,6 +275,9 @@ class Screening:
             self.withdraw()
             return self.close_directive()
         unclear = self._apply_facts(ex, message, asking, today)
+        return self._directive_now(unclear)
+
+    def _directive_now(self, unclear: tuple[Field, str] | None) -> Directive:
         if not self.is_open:
             return self.close_directive()
         if self.awaiting_rejection:
@@ -243,6 +285,9 @@ class Screening:
                              suggestion=self.rejection_subject)
         if self.awaiting_confirmation:
             return Directive(Kind.CONFIRM_CITY, suggestion=self.awaiting_confirmation)
+        if self._pending_change:
+            field, _, old_text, new_text = self._pending_change
+            return Directive(Kind.CONFIRM_CHANGE, field=field, options=[old_text, new_text])
         if self.blocked_on:
             return Directive(Kind.BLOCKED, field=self.blocked_on)
         if unclear:
@@ -265,6 +310,12 @@ class Screening:
         if self.awaiting_rejection and ex.confirms_rejection is not None:
             note(self.awaiting_rejection, self.confirm_rejection(ex.confirms_rejection))
         for field in FIELD_ORDER:
+            if field in self.values:  # already accepted: a different value is a change to confirm (D54)
+                candidate = self._experience_change(ex) if field == Field.EXPERIENCE else _value(ex, field, today)
+                if candidate is not _MISSING and not (self.awaiting_confirmation or self.awaiting_rejection):
+                    answered = True
+                    self._consider_change(field, candidate, today)
+                continue
             if field == Field.EXPERIENCE:
                 experience = self._experience(ex)
                 if experience is not _MISSING:
@@ -282,6 +333,13 @@ class Screening:
             elif asking and not (ex.wants_human or ex.asks_pay):  # a question is not an unclear answer
                 note(asking, self.submit(asking, None, today, raw=message))
         return unclear
+
+    def _experience_change(self, ex: Extraction) -> object:
+        if ex.experience_years is None and not ex.platforms:
+            return _MISSING
+        old = self.values[Field.EXPERIENCE]
+        years = ex.experience_years if ex.experience_years is not None else old["years"]
+        return (years, ex.platforms or old["platforms"])
 
     def _experience(self, ex: Extraction) -> object:
         if ex.experience_years is None and not ex.platforms:
@@ -312,6 +370,7 @@ class Screening:
             "validation_flags": self.validation_flags,
             "partial": self._partial,
             "pending_reject": list(self._pending_reject) if self._pending_reject else None,
+            "pending_change": _dump_change(self._pending_change),
             "previous": self._previous,
             "events": [list(e) for e in self.events],
             "events_synced": self._events_synced,
@@ -339,6 +398,7 @@ class Screening:
         s.language = Language(state.get("language", Language.ES))
         s.validation_flags = {k: list(v) for k, v in state.get("validation_flags", {}).items()}
         s._partial = dict(state.get("partial", {}))
+        s._pending_change = _load_change(state.get("pending_change"))
         pending = state.get("pending_reject")
         s._pending_reject = (Field(pending[0]), pending[1]) if pending else None
         s._previous = dict(state.get("previous", {}))
@@ -524,3 +584,37 @@ def _value(ex: Extraction, field: Field, today: date) -> object:
         case Field.LICENSE:
             return ex.has_license if ex.has_license is not None else _MISSING
     return _MISSING
+
+
+def _same(field: Field, old: object, new: object) -> bool:
+    """Compares validated values, so the same answer in other words is never a change."""
+    if field == Field.NAME:
+        return validators.fold(old) == validators.fold(new)
+    if field == Field.AVAILABILITY:
+        return set(old) == set(new)
+    if field == Field.EXPERIENCE:
+        return old["years"] == new["years"] and set(old["platforms"]) == set(new["platforms"])
+    return old == new
+
+
+def _dump_change(pending) -> list | None:
+    if pending is None:
+        return None
+    field, candidate, old_text, new_text = pending
+    if isinstance(candidate, date):
+        candidate = candidate.isoformat()
+    elif isinstance(candidate, tuple):
+        candidate = list(candidate)
+    return [str(field), candidate, old_text, new_text]
+
+
+def _load_change(raw) -> tuple | None:
+    if not raw:
+        return None
+    field, candidate, old_text, new_text = raw
+    field = Field(field)
+    if field == Field.START_DATE and isinstance(candidate, str):
+        candidate = date.fromisoformat(candidate)
+    elif field == Field.EXPERIENCE:
+        candidate = tuple(candidate)
+    return field, candidate, old_text, new_text

@@ -71,6 +71,11 @@ def _directive_for(llm: LLM, screening: Screening, message: str, today: date,
         return screening.apply_consent_reply(read_consent(message))
     if is_stop_request(message):
         return screening.apply_stop_request()
+    if screening.awaiting_change:
+        reading = read_consent(message)  # a yes or a no, read in plain code
+        if reading.answer is not None:
+            return screening.resolve_change(reading.answer, today)
+        screening.drop_change()  # anything else: forget the question and read the message normally
     try:
         extraction = _extract_with_one_retry(llm, screening.extraction_context(), message, today, last_question)
     except LLMError as error:

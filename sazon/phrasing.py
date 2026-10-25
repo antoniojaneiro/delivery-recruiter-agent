@@ -15,6 +15,7 @@ class Kind(StrEnum):
     CONFIRM_CITY = "confirm_city"
     CONFIRM_REJECTION = "confirm_rejection"
     BLOCKED = "blocked"
+    CONFIRM_CHANGE = "confirm_change"
     OFFER_SLOTS = "offer_slots"
     SLOT_BOOKED = "slot_booked"
     ALREADY_BOOKED = "already_booked"
@@ -189,6 +190,8 @@ def _template(directive: Directive, language: str) -> str:
         case Kind.CONFIRM_CITY:
             q = (f"¿Te refieres a {directive.suggestion}?", f"Do you mean {directive.suggestion}?")
             return _pick(q, language)
+        case Kind.CONFIRM_CHANGE:
+            return _pick(_CONFIRM_CHANGE, language).format(old=directive.options[0], new=directive.options[1])
         case Kind.CONFIRM_REJECTION:
             city = " ".join((directive.suggestion or "").split())[:40]
             return _pick(_CONFIRM_REJECTION[directive.field], language).format(city=city)
@@ -212,6 +215,39 @@ _CLOSE_REPEAT = {
     Outcome.QUALIFIED: ("Ya tenemos todo lo que necesitamos: un reclutador te escribirá en un máximo de 48 horas.",
                         "We already have everything we need: a recruiter will message you within 48 hours."),
 }
+_CONFIRM_CHANGE = ("Antes me dijiste {old}. ¿Lo cambio a {new}?", "Earlier you told me {old}. Shall I change it to {new}?")
+_VALUE_AVAILABILITY = {
+    "full_time": ("tiempo completo", "full-time"), "part_time": ("medio tiempo", "part-time"),
+    "weekends": ("fines de semana", "weekends"),
+}
+_VALUE_SCHEDULE = {
+    "morning": ("mañana", "morning"), "afternoon": ("tarde", "afternoon"), "evening": ("noche", "evening"),
+    "flexible": ("flexible", "flexible"),
+}
+MAX_ECHO_CHARS = 40
+
+
+def describe_value(field: Field, value, language: Language) -> str:
+    """A saved or proposed answer in the candidate's language, short and on one line, for the change question."""
+    def clean(text) -> str:
+        return " ".join(str(text).split())[:MAX_ECHO_CHARS]
+
+    if field == Field.LICENSE:
+        return _pick(("sí", "yes"), language) if value else "no"
+    if field == Field.AVAILABILITY:
+        return ", ".join(_pick(_VALUE_AVAILABILITY.get(v, (clean(v), clean(v))), language) for v in value)
+    if field == Field.SCHEDULE:
+        return _pick(_VALUE_SCHEDULE.get(value, (clean(value), clean(value))), language)
+    if field == Field.EXPERIENCE:
+        years, platforms = (value["years"], value["platforms"]) if isinstance(value, dict) else value
+        if not years:
+            return _pick(("sin experiencia", "no experience"), language)
+        unit = _pick(("año", "year"), language) if years == 1 else _pick(("años", "years"), language)
+        shown = f"{years:g} {unit}"
+        return f"{shown} ({', '.join(clean(p) for p in platforms)})" if platforms else shown
+    return clean(value.isoformat() if hasattr(value, "isoformat") else value)
+
+
 _CLOSE_REPEAT_WITHDRAWN = ("Has dejado la solicitud. Si quieres retomarla, escribe «continuar».",
                            "You have left the application. If you want to pick it up, write «continue».")
 _CLOSED = (
@@ -224,6 +260,8 @@ _NOTICE = {
     "human": ("Soy un asistente virtual: un reclutador revisará tu solicitud y podrá hablar contigo después.",
               "I'm a virtual assistant: a recruiter will review your application and can talk to you afterwards."),
     "pay": ("Sobre el sueldo, te informará un reclutador.", "A recruiter will tell you about the pay."),
+    "changed": ("Hecho, lo he cambiado.", "Done, I've changed it."),
+    "kept": ("De acuerdo, lo dejo como estaba.", "OK, I'll leave it as it was."),
     "offtopic": ("Eso no forma parte de mi función; sigamos con tu solicitud.",
                  "That's not part of my role; let's continue with your application."),
 }
@@ -278,7 +316,7 @@ def phrase(llm: LLM, directive: Directive, language: str) -> str:
 def _phrase(llm: LLM, directive: Directive, language: str) -> str:
     if directive.kind == Kind.CLOSE:
         return _close(directive, language)
-    if directive.kind in (Kind.TECHNICAL_ERROR, Kind.REMINDER, Kind.CONFIRM_REJECTION, Kind.BLOCKED,
+    if directive.kind in (Kind.TECHNICAL_ERROR, Kind.REMINDER, Kind.CONFIRM_REJECTION, Kind.CONFIRM_CHANGE, Kind.BLOCKED,
                           Kind.OFFER_SLOTS, Kind.SLOT_BOOKED, Kind.ALREADY_BOOKED):
         return _template(directive, language)
     brief = [f"Language: {_LANGUAGE[language]}", f"Purpose: {directive.kind.replace('_', ' ')}"]
