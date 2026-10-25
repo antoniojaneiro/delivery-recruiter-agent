@@ -48,6 +48,7 @@ class Screening:
         self._previous: dict[str, str] = {}
         self._follow_ups: dict[str, int] = {}
         self._pending_city: tuple[str, str] | None = None
+        self._pending_reject: tuple[Field, object] | None = None
 
     @property
     def awaiting_confirmation(self) -> str | None:
@@ -56,6 +57,32 @@ class Screening:
     def record_consent(self, given: bool) -> None:
         self.consent = given
         self.events.append((EventType.CONSENT_GIVEN if given else EventType.CONSENT_DECLINED, ""))
+
+    @property
+    def awaiting_rejection(self) -> Field | None:
+        return self._pending_reject[0] if self._pending_reject else None
+
+    @property
+    def rejection_subject(self) -> str | None:
+        """The candidate's own city text when a city rejection awaits confirmation."""
+        if self._pending_reject and self._pending_reject[0] == Field.CITY:
+            return str(self._pending_reject[1])
+        return None
+
+    def confirm_rejection(self, yes: bool) -> SubmitResult:
+        if self._pending_reject is None:
+            return SubmitResult(Status.FOLLOW_UP, "nothing is waiting for confirmation")
+        field, raw = self._pending_reject
+        self._pending_reject = None
+        if not yes:
+            return SubmitResult(Status.OK)
+        if field == Field.CITY:
+            self.out_of_area = True
+            self.values[Field.CITY] = raw
+        else:
+            self.values[Field.LICENSE] = False
+        self.events.append((EventType.FIELD_ACCEPTED, str(field)))
+        return SubmitResult(Status.OK)
 
     def previous_answer(self, field: Field | None) -> str | None:
         return self._previous.get(field)
@@ -77,6 +104,7 @@ class Screening:
             "language": self.language,
             "validation_flags": self.validation_flags,
             "partial": self.partial,
+            "pending_reject": list(self._pending_reject) if self._pending_reject else None,
             "previous": self._previous,
             "events": [list(e) for e in self.events],
             "events_synced": self.events_synced,
@@ -100,6 +128,8 @@ class Screening:
         s.language = state.get("language", "es")
         s.validation_flags = {k: list(v) for k, v in state.get("validation_flags", {}).items()}
         s.partial = dict(state.get("partial", {}))
+        pending = state.get("pending_reject")
+        s._pending_reject = (Field(pending[0]), pending[1]) if pending else None
         s._previous = dict(state.get("previous", {}))
         s.events = [tuple(e) for e in state["events"]]
         s.events_synced = state.get("events_synced", 0)
@@ -177,6 +207,15 @@ class Screening:
     def submit(self, field: str, value: object, today: date, raw: object = None) -> SubmitResult:
         if not self.consent:
             raise ConsentRequired
+        if self._pending_reject and self._pending_reject[0] == field:
+            if (field == Field.LICENSE and value is False) or (
+                    field == Field.CITY and isinstance(value, str)
+                    and validators.match_city(value, self.areas).status == CityMatchStatus.OUT_OF_AREA):
+                return self.confirm_rejection(True)
+            self._pending_reject = None
+        if field == Field.LICENSE and value is False:
+            self._pending_reject = (field, value)
+            return SubmitResult(Status.CONFIRM_REJECT)
         if field == Field.CITY:
             return self._submit_city(value)
         return self._settle(field, self._validate(field, value, today), value if raw is None else raw)
@@ -199,9 +238,8 @@ class Screening:
             self._pending_city = (match.city, raw)
             return SubmitResult(Status.CONFIRM, suggestion=match.city)
         if match.status == CityMatchStatus.OUT_OF_AREA:
-            self.out_of_area = True
-            self.values[Field.CITY] = raw
-            return SubmitResult(Status.OK)
+            self._pending_reject = (Field.CITY, raw)
+            return SubmitResult(Status.CONFIRM_REJECT)
         return self._settle(Field.CITY, validators.Validation(True, match.city), raw)
 
     def _validate(self, field: str, value: object, today: date) -> validators.Validation:

@@ -92,11 +92,6 @@ def test_city_confirmation_declined_counts_as_a_follow_up(consented):
     assert "city" not in consented.values
 
 
-def test_city_outside_service_area_is_recorded_not_a_follow_up(consented):
-    result = consented.submit("city", "Sevilla", TODAY)
-    assert result.status == "ok"
-    assert consented.out_of_area
-
 
 
 def fill(s, **overrides):
@@ -114,6 +109,8 @@ def fill(s, **overrides):
         for _ in range(4):
             if s.submit(field, value, TODAY).status != "follow_up":
                 break
+        if s.awaiting_rejection:
+            s.confirm_rejection(True)
     return s
 
 
@@ -145,6 +142,7 @@ def test_out_of_area_is_disqualified_and_both_reasons_are_listed(consented):
 
 def test_disqualifier_known_early_decides_before_all_fields_are_filled(consented):
     consented.submit("license", False, TODAY)
+    consented.confirm_rejection(True)
     assert consented.decide().outcome == "DISQUALIFIED"
 
 
@@ -281,6 +279,7 @@ def test_withdrawal_survives_a_save_and_reload(consented):
 
 def test_declined_confirmation_does_not_clear_an_earlier_out_of_area_city(consented):
     consented.submit("city", "Sevilla", TODAY)
+    consented.confirm_rejection(True)
     consented.submit("city", "Guadalajra", TODAY)
     consented.confirm_city(False)
     assert consented.decide().outcome == "DISQUALIFIED"
@@ -343,6 +342,7 @@ def test_a_pending_city_confirmation_is_visible_to_the_caller(consented):
 
 def test_nothing_more_is_asked_once_a_disqualifier_is_known(consented):
     consented.submit("license", False, TODAY)
+    consented.confirm_rejection(True)
     assert consented.next_field() is None
 
 
@@ -382,6 +382,7 @@ def test_reminder_is_sent_once_then_the_candidate_is_stalled_then_resumes(consen
 
 def test_stalled_never_overrides_a_final_outcome(consented):
     consented.submit("license", False, TODAY)
+    consented.confirm_rejection(True)
     consented.mark_stalled()
     assert consented.decide().outcome == "DISQUALIFIED"
 
@@ -397,3 +398,60 @@ def test_a_qualified_candidate_is_never_marked_stalled(consented):
     fill(consented)
     consented.mark_stalled()
     assert consented.decide().outcome == "QUALIFIED"
+
+
+REJECTIONS = [("license", False, "NO_LICENSE", "license"), ("city", "Sevilla", "OUT_OF_AREA", "city")]
+
+
+@pytest.mark.parametrize("field,value,reason,asked", REJECTIONS)
+def test_a_rejecting_answer_is_not_final_until_the_candidate_confirms(consented, field, value, reason, asked):
+    result = consented.submit(field, value, TODAY)
+    assert result.status == "confirm_reject"
+    assert consented.awaiting_rejection == asked
+    assert field not in consented.values
+    assert consented.decide().outcome == "IN_PROGRESS"
+
+
+@pytest.mark.parametrize("field,value,reason,asked", REJECTIONS)
+def test_confirming_the_rejection_disqualifies(consented, field, value, reason, asked):
+    consented.submit(field, value, TODAY)
+    assert consented.confirm_rejection(True).status == "ok"
+    assert consented.decide().outcome == "DISQUALIFIED" and consented.decide().reasons == [reason]
+    assert consented.awaiting_rejection is None
+    assert consented.next_field() is None
+
+
+@pytest.mark.parametrize("field,value,reason,asked", REJECTIONS)
+def test_denying_the_rejection_keeps_screening_and_asks_the_question_again(consented, field, value, reason, asked):
+    consented.submit(field, value, TODAY)
+    consented.confirm_rejection(False)
+    assert consented.decide().outcome == "IN_PROGRESS"
+    assert field not in consented.values and consented.awaiting_rejection is None
+
+
+@pytest.mark.parametrize("field,value,reason,asked", REJECTIONS)
+def test_repeating_the_same_rejecting_answer_counts_as_confirming(consented, field, value, reason, asked):
+    consented.submit(field, value, TODAY)
+    consented.submit(field, value, TODAY)
+    assert consented.decide().outcome == "DISQUALIFIED"
+
+
+def test_a_contradicting_answer_clears_the_pending_rejection(consented):
+    consented.submit("license", False, TODAY)
+    consented.submit("license", True, TODAY)
+    assert consented.awaiting_rejection is None and consented.values["license"] is True
+    consented.submit("city", "Sevilla", TODAY)
+    consented.submit("city", "Madrid", TODAY)
+    assert consented.awaiting_rejection is None and consented.values["city"] == "Madrid"
+
+
+def test_a_stray_rejection_confirmation_is_a_follow_up_not_a_crash(consented):
+    assert consented.confirm_rejection(True).status == "follow_up"
+
+
+def test_a_pending_rejection_survives_a_save_and_reload(consented):
+    consented.submit("license", False, TODAY)
+    restored = Screening.from_state(AREAS, json.loads(json.dumps(consented.to_state())))
+    assert restored.awaiting_rejection == "license"
+    restored.confirm_rejection(True)
+    assert restored.decide().outcome == "DISQUALIFIED"

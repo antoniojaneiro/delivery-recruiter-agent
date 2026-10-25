@@ -65,3 +65,23 @@ def test_the_prompt_carries_the_context_a_bare_yes_needs():
     ask(llm, message="sí", asking=Field.LICENSE, awaiting="Guadalajara")
     user = llm.calls[0]["user"]
     assert "license" in user and "Guadalajara" in user and "2026-10-25" in user
+
+
+def test_the_prompt_asks_for_a_confirmation_and_says_a_license_is_not_a_car():
+    llm = FakeLLM("{}")
+    extract(llm, "sí", asking=Field.LICENSE, awaiting_confirmation=None, today=TODAY,
+            awaiting_rejection="license")
+    call = llm.calls[0]
+    assert "confirm" in call["user"].lower() and "license" in call["user"]
+    assert "confirms_rejection" in call["system"]
+    assert "not a car" in call["system"].lower()
+
+
+def test_confirms_rejection_is_part_of_the_schema():
+    result = ask(FakeLLM(json.dumps({"confirms_rejection": True})))
+    assert result.confirms_rejection is True
+
+
+def test_a_lone_string_where_a_list_is_expected_is_treated_as_a_one_item_list():
+    result = ask(FakeLLM(json.dumps({"availability": "weekends", "platforms": "Glovo"})))
+    assert result.availability == ["weekends"] and result.platforms == ["Glovo"]

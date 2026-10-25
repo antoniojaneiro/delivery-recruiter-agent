@@ -66,6 +66,7 @@ def test_a_decision_event_is_logged_only_when_the_outcome_changes(store):
     session.commit(store, "c1", screening, T1)
     session.commit(store, "c1", screening, T2)
     screening.submit("license", False, TODAY)
+    screening.confirm_rejection(True)
     session.commit(store, "c1", screening, T2)
     decisions = [json.loads(e.detail) for e in store.events("c1") if e.type == "decision"]
     assert [d["outcome"] for d in decisions] == ["IN_PROGRESS", "DISQUALIFIED"]

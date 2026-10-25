@@ -87,18 +87,6 @@ def test_the_reply_follows_the_candidates_language_when_they_switch(store):
     assert "disponibilidad" in reply
 
 
-def test_no_license_ends_the_chat_at_once_with_the_reason(store):
-    turn.start(store, AREAS, "c1", NOW)
-    say(store, "sí", {"consent": True})
-    reply, _ = say(store, "no tengo licencia", {"has_license": False})
-    assert outcome(store) == "DISQUALIFIED" and "licencia" in reply
-
-
-def test_an_out_of_area_city_ends_the_chat_at_once(store):
-    turn.start(store, AREAS, "c1", NOW)
-    say(store, "sí", {"consent": True})
-    reply, _ = say(store, "vivo en Sevilla", {"city": "Sevilla"})
-    assert outcome(store) == "DISQUALIFIED" and "zona" in reply
 
 
 def test_withdrawing_closes_the_chat_and_asks_nothing_more(store):
@@ -112,6 +100,7 @@ def test_messages_after_the_chat_has_ended_get_the_close_again_without_calling_t
     turn.start(store, AREAS, "c1", NOW)
     say(store, "sí", {"consent": True})
     say(store, "no tengo licencia", {"has_license": False})
+    say(store, "correcto", {"confirms_rejection": True})
     reply, llm = say(store, "espera, sí tengo")
     assert llm.calls == [] and "licencia" in reply
     assert outcome(store) == "DISQUALIFIED"
@@ -227,6 +216,7 @@ def test_the_reminder_then_stall_then_resume_flow(store):
 def test_waiting_does_nothing_once_the_chat_has_ended(store):
     consented(store)
     say(store, "no tengo licencia", {"has_license": False})
+    say(store, "correcto", {"confirms_rejection": True})
     assert turn.wait_24h(ScriptedLLM(), store, AREAS, "c1", NOW) is None
     assert outcome(store) == "DISQUALIFIED"
 
@@ -315,3 +305,34 @@ def test_output_that_stays_unparseable_apologises_charges_nothing_and_is_logged(
     assert "name" not in record.extracted and record.outcome == "IN_PROGRESS"
     assert "follow_up" not in [e.type for e in store.events("c1")]
     assert failures(store) == ["unparseable"] * 5
+
+
+def test_no_license_is_confirmed_before_the_chat_ends(store):
+    consented(store)
+    reply, _ = say(store, "no tengo coche", {"has_license": False})
+    assert "es correcto que no tienes licencia" in reply
+    assert outcome(store) == "IN_PROGRESS"
+    reply, _ = say(store, "sí, correcto", {"confirms_rejection": True})
+    assert outcome(store) == "DISQUALIFIED" and "licencia" in reply
+
+
+def test_denying_the_rejection_goes_back_to_the_license_question(store):
+    consented(store)
+    say(store, "no tengo coche", {"has_license": False})
+    reply, _ = say(store, "no, la licencia sí la tengo", {"confirms_rejection": False})
+    assert outcome(store) == "IN_PROGRESS" and "llamas" in reply
+
+
+def test_an_out_of_area_city_is_confirmed_before_the_chat_ends(store):
+    consented(store)
+    reply, _ = say(store, "vivo en Sevilla", {"city": "Sevilla"})
+    assert "Sevilla" in reply and outcome(store) == "IN_PROGRESS"
+    reply, _ = say(store, "sí", {"confirms_rejection": True})
+    assert outcome(store) == "DISQUALIFIED" and "zona" in reply
+
+
+def test_a_misread_license_never_rejects_in_one_step(store):
+    consented(store)
+    say(store, "no tengo coche", {"has_license": False})
+    assert store.get("c1").outcome == "IN_PROGRESS"
+    assert "license" not in store.get("c1").extracted

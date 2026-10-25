@@ -12,6 +12,7 @@ class Kind(StrEnum):
     ASK = "ask"
     FOLLOW_UP = "follow_up"
     CONFIRM_CITY = "confirm_city"
+    CONFIRM_REJECTION = "confirm_rejection"
     REMINDER = "reminder"
     CLOSE = "close"
     TECHNICAL_ERROR = "technical_error"
@@ -67,6 +68,13 @@ _CLOSE_REASON = {
                     "We don't operate in your area yet, so we can't continue. Thanks, and you can apply again later."),
 }
 
+_CONFIRM_REJECTION = {
+    Field.LICENSE: ("Solo para confirmar: ¿es correcto que no tienes licencia de conducir?",
+                    "Just to confirm: is it right that you don't have a driver's license?"),
+    Field.CITY: ("Solo para confirmar: ¿es correcto que vives en {city}?",
+                 "Just to confirm: is it right that you live in {city}?"),
+}
+
 _REMINDER = ("Hola, ¿sigues interesado en la solicitud? Cuando quieras, seguimos donde lo dejamos.",
              "Hi, are you still interested in the application? We can pick up where we left off.")
 _ERROR = ("Tuve un problema técnico. ¿Puedes repetir tu último mensaje?",
@@ -100,6 +108,9 @@ def _template(directive: Directive, language: str) -> str:
         case Kind.CONFIRM_CITY:
             q = (f"¿Te refieres a {directive.suggestion}?", f"Do you mean {directive.suggestion}?")
             return _pick(q, language)
+        case Kind.CONFIRM_REJECTION:
+            city = " ".join((directive.suggestion or "").split())[:40]
+            return _pick(_CONFIRM_REJECTION[directive.field], language).format(city=city)
         case Kind.REMINDER:
             return _pick(_REMINDER, language)
         case Kind.TECHNICAL_ERROR:
@@ -124,7 +135,7 @@ def _usable(text: str, directive: Directive) -> bool:
 def phrase(llm: LLM, directive: Directive, language: str) -> str:
     if directive.kind == Kind.CLOSE:
         return _close(directive, language)
-    if directive.kind in (Kind.TECHNICAL_ERROR, Kind.REMINDER):
+    if directive.kind in (Kind.TECHNICAL_ERROR, Kind.REMINDER, Kind.CONFIRM_REJECTION):
         return _template(directive, language)
     brief = [f"Language: {_LANGUAGE[language]}", f"Purpose: {directive.kind.replace('_', ' ')}"]
     if directive.field:

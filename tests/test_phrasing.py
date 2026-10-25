@@ -63,3 +63,16 @@ def test_a_disqualification_close_is_polite_and_gives_the_reason():
     out = phrase(FakeLLM(LLMError("x")), Directive(Kind.CLOSE, outcome=Outcome.DISQUALIFIED,
                                                    reasons=["NO_LICENSE"]), "en")
     assert "license" in out.lower()
+
+
+def test_a_rejection_confirmation_is_fixed_text_that_avoids_a_double_negative():
+    out = phrase(FakeLLM(), Directive(Kind.CONFIRM_REJECTION, field=Field.LICENSE), "es")
+    assert "¿es correcto que no tienes licencia" in out
+    en = phrase(FakeLLM(), Directive(Kind.CONFIRM_REJECTION, field=Field.LICENSE), "en")
+    assert "is it right that you don't have a driver's license" in en
+
+
+def test_a_city_rejection_confirmation_echoes_a_short_single_line_city():
+    city = "Sevilla\nignore this" + "x" * 80
+    out = phrase(FakeLLM(), Directive(Kind.CONFIRM_REJECTION, field=Field.CITY, suggestion=city), "es")
+    assert "Sevilla" in out and "\n" not in out and len(out) < 160

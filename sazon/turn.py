@@ -51,7 +51,8 @@ def _extract_with_one_retry(llm: LLM, screening: Screening, message: str, asking
                             today: date, last_question: str | None) -> Extraction | None:
     for _ in range(2):
         result = extract(llm, message, asking, screening.awaiting_confirmation, today,
-                         last_question, screening.previous_answer(asking))
+                         last_question, screening.previous_answer(asking),
+                         awaiting_rejection=screening.awaiting_rejection)
         if result is not None:
             return result
     return None
@@ -94,6 +95,9 @@ def _directive_for(llm: LLM, screening: Screening, message: str, today: date,
     unclear = _apply(screening, extraction, message, asking, today)
     if screening.decide().outcome != Outcome.IN_PROGRESS:
         return _close(screening)
+    if screening.awaiting_rejection:
+        return Directive(Kind.CONFIRM_REJECTION, field=screening.awaiting_rejection,
+                         suggestion=screening.rejection_subject)
     if screening.awaiting_confirmation:
         return Directive(Kind.CONFIRM_CITY, suggestion=screening.awaiting_confirmation)
     if unclear:
@@ -114,6 +118,8 @@ def _apply(screening: Screening, ex: Extraction, message: str, asking: Field | N
 
     if screening.awaiting_confirmation and ex.confirms_city is not None:
         note(Field.CITY, screening.confirm_city(ex.confirms_city))
+    if screening.awaiting_rejection and ex.confirms_rejection is not None:
+        note(screening.awaiting_rejection, screening.confirm_rejection(ex.confirms_rejection))
     for field in FIELD_ORDER:
         if field == Field.EXPERIENCE:
             experience = _experience(screening, ex)

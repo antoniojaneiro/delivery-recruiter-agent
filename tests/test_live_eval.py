@@ -61,5 +61,5 @@ def test_relative_dates_come_back_as_offsets_not_computed_dates(llm):
 
 
 def test_an_english_message_is_detected_as_english(llm):
-    result = ask(llm, "Hi, I'm John Smith and I work weekends", Field.NAME)
+    result = ask(llm, "Hi, I'm John Smith and I am available on weekends", Field.NAME)
     assert result.language == "en" and result.availability == ["weekends"]

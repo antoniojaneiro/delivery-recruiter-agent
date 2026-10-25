@@ -363,3 +363,12 @@ Written into [PHASE1_PROCESS_DESIGN.md](PHASE1_PROCESS_DESIGN.md) as engineering
 - **Options considered:** keep charging a follow-up and log it (loops always end, but our glitches can push answers to REVIEW); apologise at once with no retry (cheaper, more glitches reach the candidate).
 - **Cons of chosen:** one extra call on a rate-limited tier. A message that always breaks the model repeats the apology until the 24-hour stall.
 - **Decided by:** user, 2026-10-25.
+
+## D40: Confirm before rejecting (refines D27)
+
+- **Chosen:** A "no license" or out-of-area answer first gets one fixed confirmation question ("Just to confirm: is it right that you don't have a driver's license?"). Only a confirming reply, or repeating the same answer, ends the chat. A contradicting answer clears it. The extraction prompt also says a license is not a car or any vehicle.
+- **Why:** the real model (gemini-3.5-flash-lite, first live run) read "no tengo coche" ("I don't have a car") as "no license". With D27 alone, one misread would reject a candidate with no human involved. The sharpened prompt fixed that case in a live re-check, but one misread must never be enough.
+- **Options considered:** only sharpen the prompt (no extra message, nothing stops the next misread); require a license keyword in the candidate's words (brittle across Spanish and Mexican wording).
+- **Pros of chosen:** a single model error can never reject a candidate.
+- **Cons of chosen:** one extra message for candidates who really are ineligible, which slightly weakens D27's time saving.
+- **Decided by:** user, 2026-10-25.

@@ -1,6 +1,6 @@
 # Phase 1: Process Design — Driver Screening Agent (Grupo Sazón)
 
-Status: draft for review. Every decision traces to [DECISIONS.md](DECISIONS.md) (D1–D36). Items marked **Proposed default** are engineering choices to confirm with the client.
+Status: draft for review. Every decision traces to [DECISIONS.md](DECISIONS.md) (D1–D40). Items marked **Proposed default** are engineering choices to confirm with the client.
 
 ## 1. Purpose
 
@@ -25,8 +25,8 @@ Phase 2 starts in the terminal and moves to a real messaging channel later (D1).
 | **3. Availability** | Full-time, part-time, weekends (one or more). | Valid → 4. |
 | **4. Preferred schedule** | Morning, afternoon, evening, flexible. | Valid → 5. |
 | **5. Start date** | When they can start. | Valid → 6. |
-| **6. City / zone** | Checked against the service areas as soon as it is answered (D27). | In area → 7. Outside → disqualified, chat ends. |
-| **7. Driver's license** | Yes or No, checked as soon as it is answered (D27). | Yes → 8. No → disqualified, chat ends. |
+| **6. City / zone** | Checked against the service areas as soon as it is answered (D27). | In area → 7. Outside → one confirmation question (D40), then disqualified and the chat ends. |
+| **7. Driver's license** | Yes or No, checked as soon as it is answered (D27). | Yes → 8. No → one confirmation question (D40), then disqualified and the chat ends. |
 | **8. Decision** | See section 5. | Qualified, disqualified, or stalled. |
 
 Order is friendly (D6): name and experience first, eligibility questions last. A disqualifier that is already known ends the chat politely, even if fields are missing (D27). Hybrid collection (D5): if a message already answers later fields, the agent records them and skips the question.

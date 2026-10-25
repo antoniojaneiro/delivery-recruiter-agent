@@ -26,6 +26,7 @@ class Status(StrEnum):
     FOLLOW_UP = "follow_up"
     CONFIRM = "confirm"
     REVIEW = "review"
+    CONFIRM_REJECT = "confirm_reject"
 
 
 class EventType(StrEnum):
