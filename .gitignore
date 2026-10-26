@@ -1,0 +1,15 @@
+.env
+.env.*
+!.env.example
+*.db
+*.db-*
+*.sqlite*
+.venv/
+__pycache__/
+.pytest_cache/
+*.egg-info/
+data/
+*.log
+
+.streamlit/secrets.toml
+recruiters.json

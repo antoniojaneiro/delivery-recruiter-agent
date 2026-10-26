@@ -1,0 +1,22 @@
+[project]
+name = "sazon-screening"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = ["pydantic>=2", "openai>=1.50", "python-dotenv>=1", "tzdata"]
+
+[project.optional-dependencies]
+dashboard = ["streamlit>=1.57"]
+dev = ["pytest>=8", "streamlit>=1.57"]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["sazon"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+addopts = "-m 'not live'"
+markers = ["live: calls the real Gemini API; skipped unless GEMINI_API_KEY is set"]

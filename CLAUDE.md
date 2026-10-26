@@ -6,8 +6,8 @@ Guidance for Claude Code in this repo. The assignment itself is in [TASK.md](TAS
 
 A candidate screening agent for Grupo Sazón (fictional): a restaurant chain hiring delivery drivers across Spain and Mexico. The deliverables are:
 
-1. **Phase 1:** a 1-2 page process design. Draft in [PHASE1_PROCESS_DESIGN.md](PHASE1_PROCESS_DESIGN.md). Its unconfirmed defaults are listed in [DECISIONS.md](DECISIONS.md). Phase 2 has not started.
-2. **Phase 2:** a Python conversational agent that screens candidates, plus a recruiter tool to track candidates.
+1. **Phase 1:** a 1-2 page process design. Draft in [PHASE1_PROCESS_DESIGN.md](PHASE1_PROCESS_DESIGN.md). Its decisions are logged in [DECISIONS.md](DECISIONS.md).
+2. **Phase 2:** a Python conversational agent that screens candidates, plus a recruiter tool to track candidates. Built and reviewed (D51-D61); open items are in D59 and D61.
 3. **Bonus:** a browser voice agent that runs the same flow.
 
 ## Workflow (always follow, in this order)
@@ -25,7 +25,7 @@ A candidate screening agent for Grupo Sazón (fictional): a restaurant chain hir
 - Opus is not used for routine edits or lookups.
 - The launch flags `claude --advisor opus --subagents haiku` come from a post. They are unverified here. If `claude --help` in your terminal confirms them, you can also start with them. The roles above work without the flags.
 
-**Last architecture review:** never. Counted from the initial commit `eeba3cb`, the repo has 0 commits since then. Update this line each time a review happens.
+**Last architecture review:** 2026-10-25 at commit `ce9ac4e` (whole product, four reviewers plus a real-model scenario run, D61). Its bugs were fixed afterwards; the structural proposals (split `screening.py` and `store.py`, dashboard loading) are still open. 3 commits since, so a new review is not due. Update this line each time a review happens.
 
 ## Decisions
 
