@@ -6,6 +6,7 @@ from screener import validators
 from screener.consent import ConsentReading, is_hesitation, is_resume_request, read_consent
 from screener.extraction import ControlFlags
 from screener.model import CONSENT, NO_CONSENT, CityMatchStatus, EventType, Language, Outcome, Status
+from screener.language_hint import language_of
 from screener.phrasing import Directive, Kind, consent_text_hash
 from screener.screening_changes import propose_change
 from screener.screening_precedence import Waiting, directive_for
@@ -245,7 +246,7 @@ class Screening:
 
     def _next_directive(self, ex: ControlFlags, message: str, today: date) -> Directive:
         asking = self.next_field()
-        self._hear_language(ex.language)
+        self._hear_language(language_of(message, ex.language, self.language))
         if ex.wants_human:
             self.human_requested()
         if ex.withdraw:

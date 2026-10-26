@@ -63,3 +63,16 @@ def test_relative_dates_come_back_as_offsets_not_computed_dates(llm):
 def test_an_english_message_is_detected_as_english(llm):
     result = ask(llm, "Hi, I'm John Smith and I am available on weekends", Field.NAME)
     assert result.language == "en" and result.availability == ["weekends"]
+
+
+@pytest.mark.parametrize("message", ["I can work 2 days a week", "I'm only free two days a week", "solo puedo 2 días a la semana"])
+def test_a_few_days_a_week_is_part_time_never_weekends(llm, message):
+    assert ask(llm, message, Field.AVAILABILITY).availability == ["part_time"]
+
+
+@pytest.mark.parametrize("message", ["Madrid", "Maria Lopez", "Madrid, Spain"])
+def test_a_bare_name_or_place_does_not_claim_a_language(llm, message):
+    from screener.language_hint import language_of
+    from screener.model import Language
+    claimed = ask(llm, message, Field.CITY).language
+    assert language_of(message, claimed, Language.EN) == Language.EN  # whatever the model says, the chat stays

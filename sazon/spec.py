@@ -178,7 +178,9 @@ SAZON = ScreeningSpec(
                   card=lambda value, language: _CARD_LABEL["availability"][language] + ", ".join(
                       _CARD_AVAILABILITY[language][a] for a in value),
                   schema={"availability": (list[Literal["full_time", "part_time", "weekends"]], [])},
-                  prompt='- availability: any of "full_time", "part_time", "weekends"'),
+                  prompt='- availability: any of "full_time", "part_time", "weekends". Use "weekends" only if they name weekends, '
+                         'Saturday or Sunday. A number of days or hours a week that is less than a full job (for example '
+                         '"2 days a week") is "part_time". Leave it null if it is unclear'),
         FieldSpec(Field.SCHEDULE,
                   ask=bi("¿Qué horario prefieres: mañana, tarde, noche o flexible?",
                          "Which schedule do you prefer: morning, afternoon, evening or flexible?"),

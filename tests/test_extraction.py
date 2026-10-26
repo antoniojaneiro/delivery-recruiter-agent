@@ -116,3 +116,8 @@ def test_a_very_long_message_is_cut_before_it_reaches_the_model():
     llm = FakeLLM("{}")
     ask(llm, message="x" * 50_000)
     assert len(llm.calls[0]["user"]) < 4_000
+
+
+def test_the_prompt_tells_the_model_how_to_read_days_a_week_and_bare_names():
+    from sazon.spec import SYSTEM
+    assert '"2 days a week") is "part_time"' in SYSTEM and "null for a name, a place" in SYSTEM

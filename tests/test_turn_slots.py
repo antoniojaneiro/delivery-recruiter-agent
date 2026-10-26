@@ -29,16 +29,19 @@ def say(store, message, *extractions, cid="c1"):
     return turn.handle_message(llm, store, client_for(AREAS), cid, message, NOW), llm
 
 
-def qualify(store, cid="c1", city="Madrid", language="sí"):
+def qualify(store, cid="c1", city="Madrid", language="sí", english=False):
+    """The candidate answers in Spanish, or in English when `english` (the chat language follows their words)."""
     turn.start(store, client_for(AREAS), cid, NOW)
+    es = [("Soy Juan Pérez", "2 años con Glovo", "tiempo completo", "mañanas", "ya mismo", "sí tengo"),
+          ("I'm John Smith", "2 years with Glovo", "full time", "mornings", "right now", "yes I do")][english]
     say(store, language, cid=cid)
-    say(store, "Soy Juan Pérez", {"name": "Juan Pérez"}, cid=cid)
-    say(store, "2 años con Glovo", {"experience_years": 2, "platforms": ["Glovo"]}, cid=cid)
-    say(store, "tiempo completo", {"availability": ["full_time"]}, cid=cid)
-    say(store, "mañanas", {"schedule": "morning"}, cid=cid)
-    say(store, "ya mismo", {"start_date": {"now": True}}, cid=cid)
+    say(store, es[0], {"name": "Juan Pérez"}, cid=cid)
+    say(store, es[1], {"experience_years": 2, "platforms": ["Glovo"]}, cid=cid)
+    say(store, es[2], {"availability": ["full_time"]}, cid=cid)
+    say(store, es[3], {"schedule": "morning"}, cid=cid)
+    say(store, es[4], {"start_date": {"now": True}}, cid=cid)
     say(store, city, {"city": city}, cid=cid)
-    return say(store, "sí tengo", {"has_license": True}, cid=cid)[0]
+    return say(store, es[5], {"has_license": True}, cid=cid)[0]
 
 
 def add_slots(store, country="ES", times=ES_SLOTS):
@@ -89,7 +92,7 @@ def test_the_reply_to_the_offer_is_never_sent_to_the_model(store):
 
 def test_picking_by_word_works_in_english_too(store):
     add_slots(store)
-    qualify(store, language="yes")
+    qualify(store, language="yes", english=True)
     reply, _ = say(store, "the first one")
     assert "booked" in reply.lower() and "Tue 3 Nov, 10:00" in reply
 

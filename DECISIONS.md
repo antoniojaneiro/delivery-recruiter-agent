@@ -598,3 +598,10 @@ Four reviewers (security and compliance, conversation robustness, data and opera
 - **Options considered:** following each candidate's language in the table; storing a card per language; a plain-chat-only demo; making the chat the real candidate channel (needs hosting, abuse protection and legal review first); a theme file (not chosen).
 - **Cons / still open:** the `ui_language` switch changes the screens only (the agent follows the candidate's language); a third screen language needs a pack entry, a recruiter-texts entry and the engine word lists; the dashboard's Call times page needs a client with a calendar; the chat app has no login, so it must not be exposed on a network; the free model tier can rate-limit (the screen says so).
 - **Decided by:** user (scope), agent (details).
+
+## D67: The chat language follows the candidate's words, and "days a week" is part-time
+
+- **Found by trying the chat app (user):** "2 days a week" was read as weekends, and a bare "Madrid" switched the chat to Spanish and a later English answer did not switch it back, because the model's `language` guess was trusted for any message.
+- **Chosen:** the chat language is decided in code (`screener/language_hint.py`): the language whose everyday words appear in the message wins; a name, a place or a number changes nothing; a longer message with no known word follows the model's guess; a tie keeps the current language. The extraction prompt now says `language` is null for a name, a place, a number or one word, and that a number of days or hours a week below a full job is `part_time` and `weekends` needs weekends, Saturday or Sunday. Offline tests pin the word rule and the prompt; real-model tests (marked live) check "2 days a week" in three phrasings and the three bare names.
+- **Cons / still open:** the word lists cover Spanish and English only (a third language needs its own list); a message written wholly in names or numbers cannot show a language; the free-text availability is still mapped to three options, so "3 days" and "4 days" are both part-time.
+- **Decided by:** agent, from the user's report.
