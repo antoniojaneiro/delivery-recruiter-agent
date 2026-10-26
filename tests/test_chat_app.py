@@ -99,3 +99,17 @@ def test_a_missing_model_key_is_explained_not_a_crash(tmp_path, monkeypatch):
     monkeypatch.setattr("screener.gemini.from_env", no_key)
     at = start()
     assert not at.exception and at.error and "GEMINI_API_KEY" in at.error[0].value
+
+
+def test_a_failure_while_answering_is_shown_without_internals_and_written_to_the_log(demo, tmp_path, monkeypatch):
+    from screener import turn
+    monkeypatch.setattr("sazon.config.LOG_PATH", tmp_path / "chat.log")
+
+    def boom(*args, **kwargs):
+        raise RuntimeError("secret detail")
+
+    at = start()
+    monkeypatch.setattr(turn, "handle_message", boom)
+    at.chat_input[0].set_value("sí").run()
+    assert not at.exception and at.error and "secret detail" not in at.error[0].value
+    assert "secret detail" in (tmp_path / "chat.log").read_text(encoding="utf-8")

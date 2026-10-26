@@ -9,6 +9,7 @@ from datetime import datetime
 import streamlit as st
 
 from screener import gemini, turn
+from screener.chat import log_error
 from screener.inspector import inspect
 from screener.llm import LLMError
 from screener.store import Store
@@ -92,8 +93,9 @@ with chat_side:
         with st.spinner(t("chat.thinking")):
             try:
                 turn.handle_message(llm, store, SAZON_CLIENT, candidate_id, prompt, datetime.now())
-            except Exception:  # a database or network failure: say so, never show internals
+            except Exception as error:  # a database or network failure: say so, log it, never show internals
                 st.error(t("chat.failed"))
+                st.caption(log_error(error, datetime.now(), config.LOG_PATH))
                 st.stop()
         st.rerun()
 

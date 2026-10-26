@@ -19,7 +19,7 @@ HELP = "Commands: /new, /resume <id>, /state, /inbox, /wait24h, /help, /quit"
 def run(llm: LLM, store: Store, client: Client, read=input, write=print,
         clock=datetime.now, log_path: Path | None = None) -> None:
     def report(error: Exception) -> None:
-        write(_log_error(error, clock(), log_path))
+        write(log_error(error, clock(), log_path))
 
     candidate_id = None
     try:
@@ -53,7 +53,7 @@ def run(llm: LLM, store: Store, client: Client, read=input, write=print,
             write("bot> " + phrase(llm, client.spec, Directive(Kind.TECHNICAL_ERROR), Language.ES))
 
 
-def _log_error(error: Exception, now: datetime, log_path: Path | None) -> str:
+def log_error(error: Exception, now: datetime, log_path: Path | None) -> str:
     """Appends the error to the log (never the candidate's text) and returns the line to show the operator."""
     error_id = uuid.uuid4().hex[:6]
     if log_path is None:

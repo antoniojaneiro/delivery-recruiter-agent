@@ -204,3 +204,31 @@ def test_the_selected_candidate_shows_colored_status_badges(db):
     at = choose(run(), "c2")
     markdown = " ".join(str(m.value) for m in at.markdown)
     assert ":green-badge[Cualificado]" in markdown and ":violet-badge[Contactado]" in markdown
+
+
+def click_row(at, row):
+    at.session_state["candidate_table"] = {"selection": {"rows": [row], "columns": [], "cells": []}}
+    at.run()
+    assert not at.exception, at.exception
+    return at
+
+
+def test_after_erasing_the_clicked_candidate_the_row_that_takes_its_place_is_not_opened(db):
+    seed(db)
+    at = click_row(run(), 1)
+    clicked = at.selectbox(key="candidate").value
+    at.checkbox(key="confirm_erase").check().run()
+    at.button(key="erase_candidate").click().run()
+    assert not at.exception, at.exception
+    assert clicked not in rows(at)["Id"].tolist()          # the candidate is gone from the table
+    assert at.selectbox(key="candidate").value is None     # and nobody else was opened in their place
+
+
+def test_changing_the_filters_after_a_click_does_not_open_another_candidate(db):
+    seed(db)
+    at = click_row(run(), 0)
+    opened = at.selectbox(key="candidate").value
+    at.multiselect(key="f_outcome").set_value(["DISQUALIFIED", "BLOCKED"]).run()
+    assert at.selectbox(key="candidate").value in (None, opened)  # never somebody the recruiter did not click
+    at.multiselect(key="f_outcome").set_value(["QUALIFIED"]).run()
+    assert at.selectbox(key="candidate").value in (None, opened)

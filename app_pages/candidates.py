@@ -61,12 +61,11 @@ with list_side:
                      pages=pages))
 
     by_id = {r.candidate_id: r for r in shown}
-    rows = picked.selection.rows
-    clicked = on_page[rows[0]].candidate_id if rows and rows[0] < len(on_page) else None
-    if clicked != st.session_state.get("_table_pick"):  # a click on the table chooses the candidate
-        st.session_state["_table_pick"] = clicked
-        if clicked:
-            st.session_state["candidate"] = clicked
+    clicked_rows = tuple(picked.selection.rows)
+    if clicked_rows != st.session_state.get("_table_rows", ()):  # only a new click on the table chooses a candidate
+        st.session_state["_table_rows"] = clicked_rows
+        if clicked_rows and clicked_rows[0] < len(on_page):
+            st.session_state["candidate"] = on_page[clicked_rows[0]].candidate_id
     if st.session_state.get("candidate") not in by_id:
         if st.session_state.get("candidate"):
             st.warning(t("cand.gone"))

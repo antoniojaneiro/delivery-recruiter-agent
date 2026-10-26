@@ -57,6 +57,10 @@ def test_the_pages_hold_no_visible_text_only_keys_and_technical_names():
     assert found == []
 
 
+# keys the pages pass around in a variable (a message kept in the session, shown after a rerun)
+DYNAMIC_KEYS = {"erase.need_check", "erase.done", "chat.wait_nothing"}
+
+
 def test_every_key_the_pages_ask_for_exists_in_the_pack():
     from sazon.ui_pack import PACK
     asked = set()
@@ -65,4 +69,5 @@ def test_every_key_the_pages_ask_for_exists_in_the_pack():
             if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == "t" \
                     and node.args and isinstance(node.args[0], ast.Constant):
                 asked.add(node.args[0].value)
+    asked |= DYNAMIC_KEYS
     assert asked and asked <= set(PACK.texts), sorted(asked - set(PACK.texts))
