@@ -139,3 +139,26 @@ def test_the_notice_period_shown_to_recruiters_comes_from_the_one_rule():
     now = datetime(2026, 10, 26, 8, 0, tzinfo=timezone.utc)
     hours = int(SAZON_CALENDAR.min_notice.total_seconds() // 3600)
     assert f"menos de {hours} horas" in slot_state(soon, None, now, SAZON_CALENDAR)
+
+
+# --- badges (D66) ---------------------------------------------------------------------------------------------
+
+def test_every_outcome_and_status_has_a_badge_color_and_the_colors_tell_good_from_bad():
+    from sazon.recruiter_view import BADGE_COLORS, OUTCOME_COLOR, STATUS_COLOR
+    from screener.model import Outcome
+    assert set(OUTCOME_COLOR) == set(Outcome) and set(STATUS_COLOR) == set(RecruiterStatus)
+    assert set(OUTCOME_COLOR.values()) | set(STATUS_COLOR.values()) <= BADGE_COLORS
+    assert OUTCOME_COLOR[Outcome.QUALIFIED] == "green" and OUTCOME_COLOR[Outcome.DISQUALIFIED] == "red"
+    assert STATUS_COLOR[RecruiterStatus.HIRED] == "green" and STATUS_COLOR[RecruiterStatus.REJECTED] == "red"
+
+
+@pytest.mark.parametrize("language,qualified", [("es", "Cualificado"), ("en", "Qualified")])
+def test_the_badge_columns_list_every_label_with_its_color_in_the_same_order(store, language, qualified):
+    from sazon.recruiter_view import OUTCOME_COLOR, badge_columns, badge_rows, table_rows
+    columns = badge_columns(language)
+    options, colors = columns[next(iter(columns))]
+    assert len(options) == len(colors) and qualified in options
+    assert colors[options.index(qualified)] == OUTCOME_COLOR["QUALIFIED"]
+    rows = badge_rows(table_rows(store.list_candidates(), language), language)
+    first_column = next(iter(columns))
+    assert all(isinstance(row[first_column], list) and len(row[first_column]) == 1 for row in rows)

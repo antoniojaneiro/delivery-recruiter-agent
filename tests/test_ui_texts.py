@@ -1,5 +1,6 @@
 """D66: every word the dashboard shows lives in a text pack with one entry per language; the pages hold none."""
 import ast
+import re
 from pathlib import Path
 
 import pytest
@@ -41,6 +42,7 @@ def literals(path: Path):
 
 
 ALLOWED = {"%Y-%m-%d %H:%M"}  # a date format is not a word
+CHART_FIELD = re.compile(r"^[a-z_]+:[QNOT]$")  # altair shorthand such as "count:Q"
 
 
 def test_the_pages_hold_no_visible_text_only_keys_and_technical_names():
@@ -48,7 +50,7 @@ def test_the_pages_hold_no_visible_text_only_keys_and_technical_names():
     found = []
     for path in PAGES:
         for value, line in literals(path):
-            if value in ALLOWED or not any(c.isalpha() for c in value):  # punctuation is not a word
+            if value in ALLOWED or CHART_FIELD.match(value) or not any(c.isalpha() for c in value):  # punctuation is not a word
                 continue
             if value != value.lower() or " " in value or not value.isascii():
                 found.append(f"{path.name}:{line}: {value[:40]!r}")

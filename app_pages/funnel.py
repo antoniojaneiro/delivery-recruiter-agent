@@ -1,3 +1,4 @@
+import altair as alt
 import streamlit as st
 
 from sazon import ui
@@ -5,6 +6,8 @@ from sazon.ui import t
 from screener.funnel import build_funnel
 from sazon.client import SAZON_CLIENT
 from sazon.recruiter_view import outcome_label
+
+BAR_COLOR = "#4c78a8"  # one series, one hue: the stages are one measure, so no legend is needed
 
 store = ui.store()
 language = ui.language()
@@ -19,18 +22,26 @@ if not funnel.total:
     st.stop()
 
 texts = spec.recruiter_texts(language)
-cols = st.columns(4)
-cols[0].metric(texts.started, funnel.total)
-cols[1].metric(texts.consented, funnel.consented, f"{funnel.rates['consent']:.0%}", delta_color="off")
-cols[2].metric(texts.qualified, funnel.qualified, f"{funnel.rates['qualified']:.0%}", delta_color="off")
-cols[3].metric(texts.booked, funnel.booked, t("funnel.booked_rate", rate=f"{funnel.rates['booked_of_qualified']:.0%}"),
-               delta_color="off")
+with st.container(horizontal=True):
+    st.metric(texts.started, funnel.total, border=True)
+    st.metric(texts.consented, funnel.consented, f"{funnel.rates['consent']:.0%}", delta_color="off", border=True)
+    st.metric(texts.qualified, funnel.qualified, f"{funnel.rates['qualified']:.0%}", delta_color="off", border=True)
+    st.metric(texts.booked, funnel.booked, t("funnel.booked_rate", rate=f"{funnel.rates['booked_of_qualified']:.0%}"),
+              delta_color="off", border=True)
 st.caption(t("funnel.closed_by_agent", rate=f"{funnel.rates['closed_by_agent']:.0%}"))
 
-st.subheader(t("funnel.how_far"))
-st.dataframe([{t("funnel.stage"): name, t("funnel.candidates"): count} for name, count in funnel.stages],
-             hide_index=True, width="stretch")
-st.bar_chart({name: count for name, count in funnel.stages}, horizontal=True)
+stage_rows = [{"stage": name, "count": count} for name, count in funnel.stages]
+with st.container(border=True):
+    st.subheader(t("funnel.how_far"))
+    bars = alt.Chart(alt.Data(values=stage_rows)).mark_bar(cornerRadiusEnd=4, size=18, color=BAR_COLOR).encode(
+        y=alt.Y("stage:N", sort=None, title=None, axis=alt.Axis(labelLimit=260)),
+        x=alt.X("count:Q", title=None, axis=alt.Axis(tickMinStep=1)),
+        tooltip=[alt.Tooltip("stage:N", title=t("funnel.stage")), alt.Tooltip("count:Q", title=t("funnel.candidates"))])
+    numbers = bars.mark_text(align="left", dx=4).encode(text="count:Q")
+    st.altair_chart(bars + numbers, width="stretch", alt=t("funnel.how_far"))
+    with st.expander(t("funnel.table")):
+        st.dataframe([{t("funnel.stage"): name, t("funnel.candidates"): count} for name, count in funnel.stages],
+                     hide_index=True, width="stretch", alt=t("funnel.how_far"))
 
 left, right = st.columns(2)
 with left:

@@ -1,6 +1,6 @@
 """The words Grupo Sazón's recruiter dashboard shows, in the language the recruiter picked (D63, D66).
 Filtering, paging and counting are the engine's; the texts are in `ui_pack`."""
-from screener.model import Language, RecruiterStatus
+from screener.model import Language, Outcome, RecruiterStatus
 from screener.phrasing import slot_label
 from screener.screening import Screening
 from screener.store import Booking, Record, Slot
@@ -86,3 +86,31 @@ def card_of(record: Record, language: Language = ES) -> str:
         return record.summary or ""
     screening = Screening.from_state(SAZON_CLIENT.areas, record.state, SAZON_CLIENT.spec)
     return summarise(screening, language)
+
+
+# Badge colors follow the meaning: green good, red an agent rejection, orange something stuck, blue open, gray over.
+BADGE_COLORS = {"red", "orange", "yellow", "blue", "green", "violet", "gray", "primary"}
+OUTCOME_COLOR = {
+    Outcome.IN_PROGRESS: "blue", Outcome.QUALIFIED: "green", Outcome.DISQUALIFIED: "red",
+    Outcome.BLOCKED: "orange", Outcome.STALLED: "gray", Outcome.ENDED_OFF_TOPIC: "red", Outcome.WITHDRAWN: "gray",
+}
+STATUS_COLOR = {
+    RecruiterStatus.NEW: "blue", RecruiterStatus.CONTACTED: "violet", RecruiterStatus.INTERVIEW_SCHEDULED: "orange",
+    RecruiterStatus.HIRED: "green", RecruiterStatus.REJECTED: "red", RecruiterStatus.UNREACHABLE: "gray",
+}
+
+
+def badge_columns(language: Language = ES) -> dict[str, tuple[list[str], list[str]]]:
+    """For the table's two status columns: every label a cell can hold and its badge color, in the same order."""
+    return {
+        PACK.get("col.agent", language): (
+            [outcome_label(o, language) for o in Outcome], [OUTCOME_COLOR[o] for o in Outcome]),
+        PACK.get("col.recruiter", language): (
+            [status_label(s, language) for s in RecruiterStatus], [STATUS_COLOR[s] for s in RecruiterStatus]),
+    }
+
+
+def badge_rows(rows: list[dict], language: Language = ES) -> list[dict]:
+    """The same rows with the status cells as one-item lists, which is what a badge column shows."""
+    columns = badge_columns(language)
+    return [{key: [value] if key in columns and value else value for key, value in row.items()} for row in rows]

@@ -184,3 +184,23 @@ def test_the_dashboard_only_listens_on_this_machine():
     config = tomllib.loads((Path(__file__).resolve().parent.parent / ".streamlit" / "config.toml").read_text(encoding="utf-8"))
     assert config["server"]["address"] == "localhost"
     assert config["browser"]["gatherUsageStats"] is False
+
+
+def test_clicking_a_row_in_the_table_opens_that_candidate_and_the_list_below_still_works(db):
+    seed(db)
+    at = run()
+    second = rows(at).iloc[1]["Id"]
+    at.session_state["candidate_table"] = {"selection": {"rows": [1], "columns": [], "cells": []}}
+    at.run()
+    assert not at.exception, at.exception
+    assert at.selectbox(key="candidate").value == second
+    other = next(i for i in ("c1", "c2", "c3", "c4") if i != second)
+    at.selectbox(key="candidate").select(other).run()  # picking from the list is not undone by the old table click
+    assert at.selectbox(key="candidate").value == other
+
+
+def test_the_selected_candidate_shows_colored_status_badges(db):
+    seed(db)
+    at = choose(run(), "c2")
+    markdown = " ".join(str(m.value) for m in at.markdown)
+    assert ":green-badge[Cualificado]" in markdown and ":violet-badge[Contactado]" in markdown

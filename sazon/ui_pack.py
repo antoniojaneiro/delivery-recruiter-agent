@@ -72,6 +72,8 @@ PACK = UiPack((ES, EN), {
     "col.assigned": bi("Asignado a", "Assigned to"),
     "col.call": bi("Llamada", "Call"),
     "col.updated": bi("Actualizado", "Updated"),
+    "detail.pick_hint": bi("Elige un candidato en la tabla o en la lista de debajo.",
+                           "Pick a candidate in the table or in the list below it."),
     "detail.summary": bi("Resumen del agente", "Agent summary"),
     "detail.no_summary": bi("Sin resumen todavía.", "No summary yet."),
     "detail.json": bi("Datos validados (JSON)", "Validated data (JSON)"),
@@ -149,6 +151,7 @@ PACK = UiPack((ES, EN), {
         "The agent closed {rate} of candidates on its own (no license, outside the area or off topic). Those no "
         "recruiter has reviewed stay under “Rejections to review”."),
     "funnel.how_far": bi("Hasta dónde llegan", "How far they get"),
+    "funnel.table": bi("Ver como tabla", "View as a table"),
     "funnel.stage": bi("Etapa", "Stage"),
     "funnel.candidates": bi("Candidatos", "Candidates"),
     "funnel.ends": bi("Cómo terminan", "How they end"),
