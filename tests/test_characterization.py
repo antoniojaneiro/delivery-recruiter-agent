@@ -5,6 +5,7 @@ import json
 import os
 from datetime import date, datetime
 from pathlib import Path
+from tempfile import TemporaryDirectory
 
 from screener import extraction, funnel, phrasing, summary
 from sazon.spec import SAZON, SYSTEM, Extraction
@@ -12,6 +13,7 @@ from screener.model import Language, Outcome
 from sazon.fields import Field, Reason
 from screener.phrasing import Directive, Kind
 from screener.screening import Screening
+from screener.store import Store
 
 GOLDEN = Path(__file__).parent / "golden" / "sazon_texts.json"
 AREAS = {"Madrid": ["Getafe"], "Guadalajara": ["Zapopan"]}
@@ -116,7 +118,8 @@ def _cards() -> dict:
 
 
 def _funnel_stages() -> list:
-    return [name for name, _ in funnel.build_funnel([], SAZON).stages]
+    with TemporaryDirectory() as folder:
+        return [name for name, _ in funnel.build_funnel(Store(Path(folder) / "s.db"), SAZON).stages]
 
 
 def _state() -> dict:

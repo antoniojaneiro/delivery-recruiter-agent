@@ -6,7 +6,7 @@ import pytest
 from sazon.client import SAZON_CALENDAR
 from sazon.spec import SAZON
 from screener.model import RecruiterStatus
-from screener.recruiter_view import filter_records, kpis, matches
+from screener.recruiter_view import filter_records, matches
 from sazon.recruiter_view import OUTCOME_LABEL, STATUS_LABEL, table_rows
 from screener.store import Store
 
@@ -72,7 +72,7 @@ def test_filters_combine_outcome_status_and_search(store):
 
 
 def test_the_key_numbers_count_what_a_recruiter_must_act_on(store):
-    numbers = kpis(store.list_candidates())
+    numbers = store.kpi_counts()
     assert numbers == {"total": 5, "to_contact": 1, "to_review": 1, "blocked": 1, "stalled": 1}
 
 
@@ -80,12 +80,12 @@ def test_a_booked_call_shows_in_the_table_and_leaves_the_to_contact_number(store
     from sazon.recruiter_view import call_label
     store.commit_turn("c1", T1, {}, {"name": "Juan Pérez"}, "QUALIFIED", [], [])
     slot_id = store.add_slot("ES", datetime(2027, 6, 15, 10, 0), "Ana", "Ana", T1.astimezone())
-    before = kpis(store.list_candidates())["to_contact"]
+    before = store.kpi_counts()["to_contact"]
     store.book_slot(slot_id, "c1", T1.astimezone())
     records = store.list_candidates()
     row = next(r for r in table_rows(records) if r["Id"] == "c1")
     assert row["Llamada"] == "mar 15 jun, 10:00 (España)"
-    assert kpis(records)["to_contact"] == before - 1
+    assert store.kpi_counts()["to_contact"] == before - 1
     assert call_label(next(r for r in records if r.candidate_id == "c1").booking) == "mar 15 jun, 10:00 (España)"
     assert call_label(None) == ""
     assert next(r for r in table_rows(records) if r["Id"] == "c2")["Llamada"] == ""
@@ -114,7 +114,7 @@ def test_the_review_queue_holds_agent_rejections_nobody_has_looked_at(store):
     store.set_status("x3", RecruiterStatus.REJECTED, "Ana", T1)
     after = {r.candidate_id: r for r in store.list_candidates()}
     assert not needs_review(after["x1"]) and needs_review(after["x2"]) and not needs_review(after["x3"])
-    assert kpis(store.list_candidates())["to_review"] == 2
+    assert store.kpi_counts()["to_review"] == 2
 
 
 def test_the_review_only_filter_keeps_just_the_queue(store):

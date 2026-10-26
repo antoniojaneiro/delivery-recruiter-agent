@@ -22,7 +22,6 @@ MIN_PASSWORD_LENGTH = 8
 SCRYPT = {"n": 2 ** 16, "r": 8, "p": 1, "dklen": 32}
 MAX_FAILURES = 5
 LOCK_SECONDS = 600
-_failures: dict[str, list[float]] = {}
 
 
 class DamagedAccounts(Exception):
@@ -33,8 +32,6 @@ class TooManyAttempts(Exception):
     """Too many wrong passwords for this name; try again later."""
 
 
-def reset_throttle() -> None:
-    _failures.clear()
 _DUMMY_SALT = bytes(16)
 
 
@@ -45,6 +42,18 @@ def _key(name: str) -> str:
 def _hash(password: str, salt: bytes, params: dict) -> bytes:
     return hashlib.scrypt(password.encode("utf-8"), salt=salt, n=params["n"], r=params["r"], p=params["p"],
                           dklen=params["dklen"], maxmem=2 ** 28)
+
+
+def failures_path(path: Path) -> Path:
+    return Path(str(path) + ".failures")
+
+
+def _read_failures(path: Path) -> dict:
+    try:
+        data = json.loads(failures_path(path).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    return data if isinstance(data, dict) else {}
 
 
 def _read(path: Path) -> dict:
@@ -118,12 +127,13 @@ def remove_account(path: Path, name: str) -> bool:
 def verify(path: Path, name: str, password: str, now: float | None = None) -> str | None:
     """The name as registered when the password is right, else None. It does the same work either way, so the
     time taken does not reveal which names have an account. After MAX_FAILURES wrong passwords the name is locked
-    for LOCK_SECONDS (in this process's memory) and TooManyAttempts is raised."""
-    now = time.monotonic() if now is None else now
+    for LOCK_SECONDS and TooManyAttempts is raised. The failures are kept in a file beside the accounts file, so a
+    restart or a second process does not clear a lockout."""
+    now = time.time() if now is None else now
     key = _key(name)
-    recent = [t for t in _failures.get(key, []) if now - t < LOCK_SECONDS]
+    failures = _read_failures(path)
+    recent = [t for t in failures.get(key, []) if isinstance(t, (int, float)) and now - t < LOCK_SECONDS]
     if len(recent) >= MAX_FAILURES:
-        _failures[key] = recent
         raise TooManyAttempts(key)
     entry = _read(path).get(key)
     if entry is None:
@@ -134,9 +144,14 @@ def verify(path: Path, name: str, password: str, now: float | None = None) -> st
         given = _hash(password or "", bytes.fromhex(entry["salt"]), entry["params"])
         verified = entry["name"] if hmac.compare_digest(expected, given) else None
     if verified is None:
-        _failures[key] = recent + [now]
+        failures[key] = recent + [now]
     else:
-        _failures.pop(key, None)
+        failures.pop(key, None)
+    failures = {k: v for k, v in failures.items() if v}
+    try:
+        _write(failures_path(path), failures)
+    except OSError:
+        pass  # the check still counts for this call; a read-only folder must not stop a sign-in
     return verified
 
 

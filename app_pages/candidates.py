@@ -4,7 +4,7 @@ import streamlit as st
 
 from sazon import ui
 from screener.model import Outcome, RecruiterStatus
-from screener.recruiter_view import PAGE_SIZE, escape_markdown, filter_records, kpis, page_of
+from screener.recruiter_view import PAGE_SIZE, escape_markdown, filter_records, page_of
 from sazon.client import SAZON_CLIENT
 from sazon.recruiter_view import (OUTCOME_LABEL, STATUS_LABEL, call_label, explain_error, name_of,
                                         table_rows)
@@ -22,7 +22,7 @@ if not records:
     st.info("No hay candidatos todavía. Aparecerán aquí cuando alguien hable con el asistente.")
     st.stop()
 
-numbers = kpis(records)
+numbers = store.kpi_counts()
 cols = st.columns(5)
 cols[0].metric("Candidatos", numbers["total"])
 cols[1].metric("Cualificados por contactar", numbers["to_contact"])

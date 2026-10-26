@@ -22,6 +22,7 @@ from screener.llm import NO_MODEL
 from screener.model import Outcome
 from screener.phrasing import phrase
 from screener.store import ConflictError, Store
+from screener.store_types import local_naive
 
 WATCHED = (Outcome.IN_PROGRESS, Outcome.BLOCKED, Outcome.QUALIFIED)
 
@@ -32,19 +33,15 @@ class Action:
     kind: str  # "reminder", "stalled", "gave_up_offer" or "error"
 
 
-def _naive(moment: datetime) -> datetime:
-    return moment.replace(tzinfo=None)
-
-
 def run_once(store: Store, client: Client, now: datetime) -> list[Action]:
     if not store.accepting_applications():
         return []
-    now = _naive(now)
+    now = local_naive(now)
     activity = store.last_activity()
     actions = []
     for record in store.list_candidates():
         last = activity.get(record.candidate_id)
-        if record.outcome not in WATCHED or last is None or now - _naive(last) < client.remind_after:
+        if record.outcome not in WATCHED or last is None or now - local_naive(last) < client.remind_after:
             continue
         try:
             action = _remind(store, client, record.candidate_id, now)
@@ -57,7 +54,7 @@ def run_once(store: Store, client: Client, now: datetime) -> list[Action]:
 
 def _remind(store: Store, client: Client, candidate_id: str, now: datetime) -> Action | None:
     last = store.last_activity_of(candidate_id)  # fresh: they may have written since the pass started
-    if last is None or now - _naive(last) < client.remind_after:
+    if last is None or now - local_naive(last) < client.remind_after:
         return None
     screening = session.load(store, candidate_id, client)
     if screening.needs_consent:

@@ -80,3 +80,27 @@ def test_the_store_creates_its_own_folder_so_a_clean_machine_can_start_with_the_
     path = tmp_path / "data" / "nested" / "sazon.db"
     turn(Store(path, calendar=SAZON_CALENDAR))
     assert path.exists() and Store(path, calendar=SAZON_CALENDAR).get("c1") is not None
+
+
+def test_every_timestamp_is_stored_as_naive_local_time_whatever_the_caller_passes(tmp_path):
+    from datetime import timezone
+    store = Store(tmp_path / "t.db")
+    aware = datetime(2026, 10, 25, 10, 0, tzinfo=timezone.utc)
+    local = aware.astimezone().replace(tzinfo=None)
+    store.commit_turn("c1", aware, {}, {}, "IN_PROGRESS", [("e", "x")], [("agent", "hi")], outbox=["note"])
+    store.add_note("c1", "n", "Ana", aware)
+    assert store.get("c1").updated_at == local
+    assert store.messages("c1")[0].at == local and store.events("c1")[0].at == local
+    assert store.notes("c1")[0].at == local
+    assert store.outbox_pending()[0].created_at == local
+
+
+def test_an_old_row_stamped_with_a_time_zone_is_read_as_naive_local_time(tmp_path):
+    import sqlite3
+    from datetime import timezone
+    store = Store(tmp_path / "t.db")
+    store.commit_turn("c1", datetime(2026, 10, 25, 10, 0), {}, {}, "IN_PROGRESS", [], [])
+    with sqlite3.connect(tmp_path / "t.db") as db:
+        db.execute("UPDATE candidates SET updated_at = '2026-10-25T10:00:00+00:00'")
+    expected = datetime(2026, 10, 25, 10, 0, tzinfo=timezone.utc).astimezone().replace(tzinfo=None)
+    assert store.get("c1").updated_at == expected

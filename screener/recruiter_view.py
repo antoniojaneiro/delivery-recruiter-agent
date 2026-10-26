@@ -51,14 +51,3 @@ def filter_records(records: list[Record], outcomes: list[str], statuses: list[st
             and (not outcomes or r.outcome in outcomes)
             and (not statuses or r.status in statuses)
             and matches(r, search, spec)]
-
-
-def kpis(records: list[Record]) -> dict[str, int]:
-    return {
-        "total": len(records),
-        "to_review": sum(1 for r in records if needs_review(r)),
-        "to_contact": sum(1 for r in records if r.outcome == Outcome.QUALIFIED and r.status == RecruiterStatus.NEW
-                         and r.booking is None),
-        "blocked": sum(1 for r in records if r.outcome == Outcome.BLOCKED),
-        "stalled": sum(1 for r in records if r.outcome == Outcome.STALLED),
-    }

@@ -6,11 +6,11 @@ from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
 
-from screener.model import RecruiterStatus
+from screener.model import NO_CONSENT, RecruiterStatus
 from screener.store_schema import prepare
 from screener.store_slots import SlotsMixin
 from screener.store_types import (AGENT, NO_CHECK, AdminEntry, Booking, ConflictError, Event, InputError, Message,  # noqa: F401
-                               Note, OutboxEntry, Record, RecruiterRecord, Slot)  # noqa: F401
+                               Note, OutboxEntry, Record, RecruiterRecord, Slot, parse_stamp, stamp)  # noqa: F401
 
 BUSY_TIMEOUT_SECONDS = 10
 
@@ -65,19 +65,19 @@ class Store(SlotsMixin):
                         expected_version is not None and (row is None or row[0] != expected_version)):
                     raise ConflictError(candidate_id)
             db.execute("INSERT OR IGNORE INTO candidates (candidate_id, updated_at) VALUES (?, ?)",
-                       (candidate_id, now.isoformat()))
+                       (candidate_id, stamp(now)))
             db.execute(
                 "UPDATE candidates SET state = ?, extracted = ?, outcome = ?, reasons = ?, flags = ?, "
                 "summary = COALESCE(?, summary), version = version + 1, updated_at = ? WHERE candidate_id = ?",
                 (json.dumps(state, ensure_ascii=False), json.dumps(extracted, ensure_ascii=False),
-                 outcome, json.dumps(list(reasons)), json.dumps(list(flags)), summary, now.isoformat(),
+                 outcome, json.dumps(list(reasons)), json.dumps(list(flags)), summary, stamp(now),
                  candidate_id))
             db.executemany("INSERT INTO events (candidate_id, type, detail, actor, at) VALUES (?, ?, ?, ?, ?)",
-                           [(candidate_id, t, d, AGENT, now.isoformat()) for t, d in events])
+                           [(candidate_id, t, d, AGENT, stamp(now)) for t, d in events])
             db.executemany("INSERT INTO messages (candidate_id, role, text, at) VALUES (?, ?, ?, ?)",
-                           [(candidate_id, r, x, now.isoformat()) for r, x in messages])
+                           [(candidate_id, r, x, stamp(now)) for r, x in messages])
             db.executemany("INSERT INTO outbox (candidate_id, text, created_at) VALUES (?, ?, ?)",
-                           [(candidate_id, text, now.isoformat()) for text in outbox])
+                           [(candidate_id, text, stamp(now)) for text in outbox])
             return db.execute("SELECT version FROM candidates WHERE candidate_id = ?", (candidate_id,)).fetchone()[0]
 
     def erase_candidate(self, candidate_id: str, actor: str, now: datetime, reason: str) -> bool:
@@ -122,7 +122,7 @@ class Store(SlotsMixin):
                                "INSERT INTO recruiter (candidate_id, status, updated_at) VALUES (?, ?, ?) "
                                "ON CONFLICT(candidate_id) DO UPDATE SET status = excluded.status, "
                                "updated_at = excluded.updated_at",
-                               (candidate_id, status.value, now.isoformat()))
+                               (candidate_id, status.value, stamp(now)))
 
     def assign(self, candidate_id: str, assignee: str, recruiter: str, now: datetime) -> None:
         assignee = assignee.strip()
@@ -132,7 +132,7 @@ class Store(SlotsMixin):
                                "INSERT INTO recruiter (candidate_id, assignee, updated_at) VALUES (?, ?, ?) "
                                "ON CONFLICT(candidate_id) DO UPDATE SET assignee = excluded.assignee, "
                                "updated_at = excluded.updated_at",
-                               (candidate_id, assignee, now.isoformat()))
+                               (candidate_id, assignee, stamp(now)))
 
     def add_note(self, candidate_id: str, text: str, author: str, now: datetime) -> None:
         text = text.strip()
@@ -140,7 +140,7 @@ class Store(SlotsMixin):
             raise InputError("note_empty", "a note cannot be empty")
         self._recruiter_action(candidate_id, author, now, "recruiter_note", "",
                                "INSERT INTO notes (candidate_id, author, text, at) VALUES (?, ?, ?, ?)",
-                               (candidate_id, author.strip(), text, now.isoformat()))
+                               (candidate_id, author.strip(), text, stamp(now)))
 
     def _recruiter_action(self, candidate_id: str, recruiter: str, now: datetime, event_type: str,
                           detail: str, sql: str, params: tuple) -> None:
@@ -152,7 +152,7 @@ class Store(SlotsMixin):
                 raise LookupError(f"no candidate {candidate_id}")
             db.execute(sql, params)
             db.execute("INSERT INTO events (candidate_id, type, detail, actor, at) VALUES (?, ?, ?, ?, ?)",
-                       (candidate_id, event_type, detail, f"recruiter:{recruiter}", now.isoformat()))
+                       (candidate_id, event_type, detail, f"recruiter:{recruiter}", stamp(now)))
 
     # -- messages waiting to be delivered by a real channel (D58) ---------------
 
@@ -160,17 +160,17 @@ class Store(SlotsMixin):
         with self._connect() as db:
             rows = db.execute("SELECT id, candidate_id, text, created_at FROM outbox WHERE delivered_at IS NULL "
                               "AND (? IS NULL OR candidate_id = ?) ORDER BY id", (candidate_id, candidate_id)).fetchall()
-        return [OutboxEntry(i, c, t, datetime.fromisoformat(at)) for i, c, t, at in rows]
+        return [OutboxEntry(i, c, t, parse_stamp(at)) for i, c, t, at in rows]
 
     def mark_delivered(self, entry_id: int, now: datetime) -> None:
         with self._connect() as db:
-            db.execute("UPDATE outbox SET delivered_at = ? WHERE id = ?", (now.isoformat(), entry_id))
+            db.execute("UPDATE outbox SET delivered_at = ? WHERE id = ?", (stamp(now), entry_id))
 
     def last_activity(self) -> dict[str, datetime]:
         """When each candidate last wrote or was written to in the chat (the chat writes naive local times)."""
         with self._connect() as db:
             rows = db.execute("SELECT candidate_id, MAX(at) FROM messages GROUP BY candidate_id").fetchall()
-        return {cid: datetime.fromisoformat(at) for cid, at in rows}
+        return {cid: parse_stamp(at) for cid, at in rows}
 
     def revision(self) -> int:
         """Moves whenever a candidate, a recruiter's status or assignee, or a slot changes. Reading never moves it."""
@@ -181,7 +181,7 @@ class Store(SlotsMixin):
     def last_activity_of(self, candidate_id: str) -> datetime | None:
         with self._connect() as db:
             row = db.execute("SELECT MAX(at) FROM messages WHERE candidate_id = ?", (candidate_id,)).fetchone()
-        return datetime.fromisoformat(row[0]) if row and row[0] else None
+        return parse_stamp(row[0]) if row and row[0] else None
 
     # -- settings and the admin log (D56) --------------------------------------
 
@@ -197,18 +197,18 @@ class Store(SlotsMixin):
         with self._connect() as db:
             db.execute("INSERT INTO settings (key, value, changed_by, changed_at) VALUES ('accepting', ?, ?, ?) "
                        "ON CONFLICT(key) DO UPDATE SET value = excluded.value, changed_by = excluded.changed_by, "
-                       "changed_at = excluded.changed_at", ("1" if accepting else "0", recruiter, now.isoformat()))
+                       "changed_at = excluded.changed_at", ("1" if accepting else "0", recruiter, stamp(now)))
             self._log(db, f"recruiter:{recruiter}", "applications_opened" if accepting else "applications_closed", "", now)
 
     def admin_log(self) -> list[AdminEntry]:
         with self._connect() as db:
             rows = db.execute("SELECT at, actor, action, detail FROM admin_log ORDER BY id").fetchall()
-        return [AdminEntry(datetime.fromisoformat(at), actor, action, detail) for at, actor, action, detail in rows]
+        return [AdminEntry(parse_stamp(at), actor, action, detail) for at, actor, action, detail in rows]
 
     @staticmethod
     def _log(db, actor: str, action: str, detail: str, now: datetime) -> int:
         return db.execute("INSERT INTO admin_log (at, actor, action, detail) VALUES (?, ?, ?, ?)",
-                          (now.isoformat(), actor, action, detail)).lastrowid
+                          (stamp(now), actor, action, detail)).lastrowid
 
     # -- reads ---------------------------------------------------------------
 
@@ -229,31 +229,72 @@ class Store(SlotsMixin):
                 "ORDER BY c.updated_at DESC", (outcome, outcome, status_value, status_value)).fetchall()
         return [_record(r) for r in rows]
 
+    # -- counted by the database, so the dashboard's numbers never load every candidate ----------------------------
+
+    def kpi_counts(self) -> dict[str, int]:
+        """What a recruiter must act on: the same rules as `recruiter_view.needs_review`, counted in SQL."""
+        with self._connect() as db:
+            row = db.execute(
+                "SELECT COUNT(*), "
+                "COALESCE(SUM(c.outcome IN ('DISQUALIFIED', 'ENDED_OFF_TOPIC') "
+                "AND NOT EXISTS (SELECT 1 FROM json_each(c.reasons) WHERE value = ?) "
+                "AND COALESCE(r.status, 'new') = 'new'), 0), "
+                "COALESCE(SUM(c.outcome = 'QUALIFIED' AND COALESCE(r.status, 'new') = 'new' AND s.id IS NULL), 0), "
+                "COALESCE(SUM(c.outcome = 'BLOCKED'), 0), COALESCE(SUM(c.outcome = 'STALLED'), 0) "
+                f"{_CANDIDATE_JOINS}", (NO_CONSENT,)).fetchone()
+        return dict(zip(("total", "to_review", "to_contact", "blocked", "stalled"), row))
+
+    def funnel_counts(self, keys: tuple[str, ...]) -> dict:
+        """How far candidates got, counted in SQL. `keys` are the screening's fields, in order."""
+        paths = [f'$."{key}"' for key in keys]
+        no_consent_reason = "NOT EXISTS (SELECT 1 FROM json_each(c.reasons) WHERE value = ?)"
+        with self._connect() as db:
+            head = db.execute(
+                "SELECT COUNT(*), COALESCE(SUM(json_extract(c.state, '$.consent') = 1), 0), "
+                "COALESCE(SUM(c.outcome = 'QUALIFIED'), 0), COALESCE(SUM(s.id IS NOT NULL), 0), "
+                f"COALESCE(SUM(c.outcome = 'ENDED_OFF_TOPIC' OR (c.outcome = 'DISQUALIFIED' AND {no_consent_reason})), 0)"
+                + "".join(", COALESCE(SUM(json_extract(c.extracted, ?) IS NOT NULL), 0)" for _ in keys)
+                + f" {_CANDIDATE_JOINS}", (NO_CONSENT, *paths)).fetchone()
+            outcomes = dict(db.execute("SELECT outcome, COUNT(*) FROM candidates WHERE outcome IS NOT NULL "
+                                       "GROUP BY outcome").fetchall())
+            reasons = dict(db.execute("SELECT j.value, COUNT(*) FROM candidates c, json_each(c.reasons) j "
+                                      "GROUP BY j.value").fetchall())
+            stop = ("CASE WHEN json_extract(c.state, '$.consent') IS NOT 1 THEN '' "
+                    + "".join("WHEN json_extract(c.extracted, ?) IS NULL THEN ? " for _ in keys) + "END")
+            args = [x for pair in zip(paths, keys) for x in pair]
+            stopped = {k: n for k, n in db.execute(
+                f"SELECT {stop}, COUNT(*) FROM candidates c "
+                "WHERE c.outcome IN ('IN_PROGRESS', 'STALLED', 'BLOCKED') GROUP BY 1", args) if k is not None}
+        total, consented, qualified, booked, closed_by_agent, *answered = head
+        return {"total": total, "consented": consented, "qualified": qualified, "booked": booked,
+                "closed_by_agent": closed_by_agent, "outcomes": outcomes, "reasons": reasons,
+                "answered": dict(zip(keys, answered)), "stopped": stopped}
+
     def recruiter(self, candidate_id: str) -> RecruiterRecord:
         with self._connect() as db:
             row = db.execute("SELECT status, assignee, updated_at FROM recruiter WHERE candidate_id = ?",
                              (candidate_id,)).fetchone()
         if row is None:
             return RecruiterRecord(RecruiterStatus.NEW, None, None)
-        return RecruiterRecord(RecruiterStatus(row[0]), row[1], datetime.fromisoformat(row[2]))
+        return RecruiterRecord(RecruiterStatus(row[0]), row[1], parse_stamp(row[2]))
 
     def notes(self, candidate_id: str) -> list[Note]:
         with self._connect() as db:
             rows = db.execute("SELECT author, text, at FROM notes WHERE candidate_id = ? ORDER BY id",
                               (candidate_id,)).fetchall()
-        return [Note(a, t, datetime.fromisoformat(at)) for a, t, at in rows]
+        return [Note(a, t, parse_stamp(at)) for a, t, at in rows]
 
     def events(self, candidate_id: str) -> list[Event]:
         with self._connect() as db:
             rows = db.execute("SELECT type, detail, at, actor FROM events WHERE candidate_id = ? ORDER BY id",
                               (candidate_id,)).fetchall()
-        return [Event(t, d, datetime.fromisoformat(a), actor) for t, d, a, actor in rows]
+        return [Event(t, d, parse_stamp(a), actor) for t, d, a, actor in rows]
 
     def messages(self, candidate_id: str) -> list[Message]:
         with self._connect() as db:
             rows = db.execute("SELECT role, text, at FROM messages WHERE candidate_id = ? ORDER BY id",
                               (candidate_id,)).fetchall()
-        return [Message(r, t, datetime.fromisoformat(a)) for r, t, a in rows]
+        return [Message(r, t, parse_stamp(a)) for r, t, a in rows]
 
 
 def _record(row) -> Record:
@@ -261,5 +302,5 @@ def _record(row) -> Record:
      slot_id, country, starts_at, slot_recruiter, version) = row
     booking = Booking(slot_id, country, datetime.fromisoformat(starts_at), slot_recruiter) if slot_id else None
     return Record(candidate_id, json.loads(state), json.loads(extracted), summary, outcome,
-                  datetime.fromisoformat(updated_at), json.loads(reasons), json.loads(flags),
+                  parse_stamp(updated_at), json.loads(reasons), json.loads(flags),
                   RecruiterStatus(status), assignee, booking, version)

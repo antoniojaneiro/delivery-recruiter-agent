@@ -13,3 +13,4 @@ data/
 
 .streamlit/secrets.toml
 recruiters.json
+*.failures

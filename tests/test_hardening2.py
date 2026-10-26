@@ -52,7 +52,6 @@ def test_new_passwords_use_the_stronger_cost_and_old_hashes_still_verify(path):
 
 def test_five_wrong_passwords_lock_the_name_for_ten_minutes_even_for_the_right_one(path):
     accounts.add_account(path, "Ana", "password123")
-    accounts.reset_throttle()
     for _ in range(accounts.MAX_FAILURES):
         assert accounts.verify(path, "Ana", "wrong", now=100.0) is None
     with pytest.raises(accounts.TooManyAttempts):
@@ -62,7 +61,6 @@ def test_five_wrong_passwords_lock_the_name_for_ten_minutes_even_for_the_right_o
 
 def test_a_success_clears_earlier_failures(path):
     accounts.add_account(path, "Ana", "password123")
-    accounts.reset_throttle()
     for _ in range(accounts.MAX_FAILURES - 1):
         accounts.verify(path, "Ana", "wrong", now=1.0)
     assert accounts.verify(path, "Ana", "password123", now=2.0) == "Ana"
@@ -94,3 +92,20 @@ def test_a_very_long_outside_city_is_stored_cut_short():
 def test_secrets_files_are_ignored_by_git():
     lines = (ROOT / ".gitignore").read_text(encoding="utf-8").split()
     assert ".streamlit/secrets.toml" in lines and "recruiters.json" in lines
+
+
+def test_the_lockout_is_kept_in_a_file_so_a_restart_does_not_clear_it(path):
+    accounts.add_account(path, "Ana", "password123")
+    for _ in range(accounts.MAX_FAILURES):
+        accounts.verify(path, "Ana", "wrong", now=100.0)
+    assert accounts.failures_path(path).exists()
+    # a new process knows nothing in memory: only the file remembers
+    with pytest.raises(accounts.TooManyAttempts):
+        accounts.verify(path, "Ana", "password123", now=150.0)
+
+
+def test_a_damaged_failures_file_does_not_lock_everyone_out(path):
+    accounts.add_account(path, "Ana", "password123")
+    accounts.failures_path(path).write_text("not json", encoding="utf-8")
+    assert accounts.verify(path, "Ana", "password123", now=1.0) == "Ana"
+    assert accounts.verify(path, "Ana", "wrong", now=2.0) is None
