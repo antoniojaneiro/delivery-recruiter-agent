@@ -5,7 +5,7 @@ from datetime import date, datetime
 
 import pytest
 
-from sazon.sazon_client import SAZON_CLIENT
+from sazon.sazon_client import SAZON_CALENDAR, SAZON_CLIENT
 from sazon import config, turn
 from sazon.extraction import StartDate
 from sazon.sazon_spec import SAZON, Extraction
@@ -80,13 +80,13 @@ def test_stray_dots_are_still_refused(name):
     ("San Pedro Garza García", "Monterrey"),
 ])
 def test_places_with_a_country_or_state_and_nearby_towns_map_to_the_service_area(text, city):
-    result = match_city(text, config.AREAS)
+    result = match_city(text, config.AREAS, SAZON.place_qualifiers)
     assert result.status == "match" and result.city == city
 
 
 @pytest.mark.parametrize("text", ["Sevilla, España", "Bilbao", "Cancún, Quintana Roo", "Madrid, Texas"])
 def test_places_that_really_are_outside_are_still_outside(text):
-    assert match_city(text, config.AREAS).status == "out_of_area"
+    assert match_city(text, config.AREAS, SAZON.place_qualifiers).status == "out_of_area"
 
 
 # --- model-phrased text must not promise anything -------------------------------------------------
@@ -130,7 +130,7 @@ def test_an_llm_error_exposes_a_short_kind_without_the_message_content():
 
 
 def test_a_model_failure_event_says_what_kind_of_failure_it_was(tmp_path):
-    store = Store(tmp_path / "s.db")
+    store = Store(tmp_path / "s.db", calendar=SAZON_CALENDAR)
     turn.start(store, SAZON_CLIENT, "c1", NOW)
     turn.handle_message(ScriptedLLM(), store, SAZON_CLIENT, "c1", "sí", NOW)
     llm = ScriptedLLM([LLMError("NotFoundError: models/x is not found for API version v1")])
@@ -161,7 +161,7 @@ def test_a_new_candidate_never_reuses_an_existing_id(tmp_path, monkeypatch):
 
     draws = iter(["aaaaaaaaaaaa", "aaaaaaaaaaaa", "aaaaaaaaaaaa", "bbbbbbbbbbbb"])
     monkeypatch.setattr(chat, "_draw_id", lambda: next(draws))
-    store = Store(tmp_path / "s.db")
+    store = Store(tmp_path / "s.db", calendar=SAZON_CALENDAR)
     run_chat(store, ["/new", "/quit"])
     assert sorted(r.candidate_id for r in store.list_candidates()) == ["aaaaaaaaaaaa", "bbbbbbbbbbbb"]
 
@@ -189,7 +189,7 @@ def test_the_database_uses_wal_and_has_indexes_for_the_dashboard_queries(tmp_pat
     import sqlite3
 
     path = tmp_path / "s.db"
-    Store(path)
+    Store(path, calendar=SAZON_CALENDAR)
     db = sqlite3.connect(path)
     assert db.execute("PRAGMA journal_mode").fetchone()[0] == "wal"
     names = {row[0] for row in db.execute("SELECT name FROM sqlite_master WHERE type = 'index'")}

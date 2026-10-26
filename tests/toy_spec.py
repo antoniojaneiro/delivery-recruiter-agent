@@ -102,3 +102,37 @@ TOY = ScreeningSpec(
 )
 
 TOY_CLIENT = Client(spec=TOY, areas={})
+
+
+# A second toy client that books calls: UK warehouses, service areas, its own clock.
+from dataclasses import replace  # noqa: E402
+from datetime import timedelta  # noqa: E402
+
+from sazon.model import Reason  # noqa: E402
+from sazon.pack import SlotTexts  # noqa: E402
+from sazon.slot_calendar import SlotCalendar  # noqa: E402
+
+SLOTS = SlotTexts(
+    offer={"first": say("You are through! Pick a time for a call:"), "taken": say("That time went. Pick another:"),
+           "unclear": say("Pick one of these:"), "reminder": say("Times still free:")},
+    offer_end=say("Reply with the number, or 'none'."),
+    booked=say("Booked: {label}."), already_booked=say("Already booked: {label}."),
+    cancelled=say("Your call was cancelled."),
+)
+_TOWN = FieldSpec("town", ask=say("Which town do you live in?"), what=say("your town"), label="town",
+                  read=read_attribute("town"), schema={"town": (str | None, None)},
+                  prompt="- town: the town as written, never corrected",
+                  confirm_rejection=say("Just to confirm: you live in {city}?"))
+TOY_UK_SPEC = replace(
+    TOY,
+    pack=replace(PACK, slots=SLOTS),
+    fields=(TOY.fields[0], _TOWN, TOY.fields[2]),
+    area_field="town",
+    place_qualifiers=("england", "united kingdom"),
+    card_order=("can_lift",),
+    rules=(*TOY.rules, Rule(Reason.OUT_OF_AREA, applies=lambda screening: screening.out_of_area,
+                            close=say("We do not hire in your town yet."), summary="outside the hiring towns")),
+)
+UK_CALENDAR = SlotCalendar(timezones={"GB": "Europe/London"}, country_of={"Leeds": "GB", "London": "GB"},
+                           min_notice=timedelta(hours=4), offer_size=2)
+TOY_UK = Client(spec=TOY_UK_SPEC, areas={"Leeds": ["Headingley"], "London": []})

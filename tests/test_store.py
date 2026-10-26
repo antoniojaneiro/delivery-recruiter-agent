@@ -3,6 +3,7 @@ from datetime import datetime
 
 import pytest
 
+from sazon.sazon_client import SAZON_CALENDAR
 from sazon.store import Store
 
 T1 = datetime(2026, 10, 25, 10, 0)
@@ -11,7 +12,7 @@ T2 = datetime(2026, 10, 25, 10, 5)
 
 @pytest.fixture
 def store(tmp_path):
-    return Store(tmp_path / "sazon.db")
+    return Store(tmp_path / "sazon.db", calendar=SAZON_CALENDAR)
 
 
 def turn(store, cid="c1", now=T1, state=None, extracted=None, outcome="IN_PROGRESS", events=(), messages=()):
@@ -40,8 +41,8 @@ def test_a_later_turn_replaces_the_state_but_keeps_earlier_history(store):
 
 
 def test_data_survives_reopening_the_database(tmp_path):
-    turn(Store(tmp_path / "s.db"), extracted={"name": "Ana Ruiz"})
-    assert Store(tmp_path / "s.db").get("c1").extracted == {"name": "Ana Ruiz"}
+    turn(Store(tmp_path / "s.db", calendar=SAZON_CALENDAR), extracted={"name": "Ana Ruiz"})
+    assert Store(tmp_path / "s.db", calendar=SAZON_CALENDAR).get("c1").extracted == {"name": "Ana Ruiz"}
 
 
 def test_events_and_messages_of_other_candidates_are_not_mixed(store):
@@ -77,5 +78,5 @@ def test_the_summary_is_saved_with_the_turn_and_kept_when_a_later_turn_has_none(
 
 def test_the_store_creates_its_own_folder_so_a_clean_machine_can_start_with_the_dashboard(tmp_path):
     path = tmp_path / "data" / "nested" / "sazon.db"
-    turn(Store(path))
-    assert path.exists() and Store(path).get("c1") is not None
+    turn(Store(path, calendar=SAZON_CALENDAR))
+    assert path.exists() and Store(path, calendar=SAZON_CALENDAR).get("c1") is not None

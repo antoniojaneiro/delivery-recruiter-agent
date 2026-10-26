@@ -412,7 +412,7 @@ class Screening(ChangeConfirmation, SlotOffer):
         rejecting = spec.rejects is not None and spec.rejects(value)
         if self._pending_reject and self._pending_reject[0] == field:
             if rejecting or (field == self.spec.area_field and isinstance(value, str)
-                             and validators.match_city(value, self.areas).status == CityMatchStatus.OUT_OF_AREA):
+                             and validators.match_city(value, self.areas, self.spec.place_qualifiers).status == CityMatchStatus.OUT_OF_AREA):
                 return self.confirm_rejection(True)
             self._pending_reject = None
         if rejecting:
@@ -436,7 +436,7 @@ class Screening(ChangeConfirmation, SlotOffer):
         if not isinstance(raw, str):
             return self._settle(self.spec.area_field, validators.Validation(False, reason="need a city"), raw)
         raw = " ".join(raw.split())[:MAX_CITY_LENGTH]  # what is stored of a place outside the area stays short
-        match = validators.match_city(raw, self.areas)
+        match = validators.match_city(raw, self.areas, self.spec.place_qualifiers)
         if match.status == CityMatchStatus.CONFIRM:
             self._pending_city = (match.city, raw)
             return SubmitResult(Status.CONFIRM, suggestion=match.city)

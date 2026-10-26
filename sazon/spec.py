@@ -86,6 +86,7 @@ class ScreeningSpec:
     rules: tuple[Rule, ...] = ()
     role: str = "job"  # "delivery-driver" in "a delivery-driver screening chat"
     area_field: str | None = None  # the field matched against the client's service areas
+    place_qualifiers: tuple[str, ...] = ()  # words that may follow a place ("Madrid, España") and are dropped
     title_field: str | None = None  # the answer that heads the summary card
     card_order: tuple[str, ...] = ()  # the fields that get a line on the card, in order
 

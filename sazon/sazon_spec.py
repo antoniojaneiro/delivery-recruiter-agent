@@ -193,6 +193,9 @@ SAZON = ScreeningSpec(
              summary="fuera de la zona de servicio"),
     ),
     area_field=Field.CITY,
+    # A country or state written after the place ("Madrid, España") is dropped; any other suffix is kept.
+    place_qualifiers=("espana", "spain", "mexico", "jalisco", "nuevo leon", "comunidad de madrid", "cataluna",
+                      "catalunya", "comunitat valenciana", "estado de mexico", "edomex"),
 )
 
 Extraction = SAZON.extraction_model

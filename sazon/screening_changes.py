@@ -36,7 +36,7 @@ class ChangeConfirmation:
         if field == self.spec.area_field:
             if not isinstance(candidate, str):
                 return
-            match = validators.match_city(candidate, self.areas)
+            match = validators.match_city(candidate, self.areas, self.spec.place_qualifiers)
             if match.city == old:
                 return  # the same city, however it is spelled (an outside-the-area city has no match)
             shown = match.city or " ".join(candidate.split())[:40]

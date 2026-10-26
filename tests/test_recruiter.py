@@ -5,6 +5,7 @@ from datetime import date, datetime
 import pytest
 
 from tests.clients import client_for
+from sazon.sazon_client import SAZON_CALENDAR
 from sazon import session
 from sazon.model import RecruiterStatus
 from sazon.screening import Screening
@@ -18,7 +19,7 @@ T3 = datetime(2026, 10, 25, 12, 0)
 
 @pytest.fixture
 def store(tmp_path):
-    return Store(tmp_path / "sazon.db")
+    return Store(tmp_path / "sazon.db", calendar=SAZON_CALENDAR)
 
 
 def turn(store, cid="c1", now=T1, outcome="QUALIFIED", extracted=None, reasons=(), flags=()):
@@ -136,7 +137,7 @@ def test_a_database_created_before_these_columns_is_upgraded_in_place(tmp_path):
     """)
     db.commit()
     db.close()
-    store = Store(path)
+    store = Store(path, calendar=SAZON_CALENDAR)
     assert store.get("old1").outcome == "QUALIFIED" and store.get("old1").reasons == []
     assert store.events("old1")[0].actor == "agent"
     store.set_status("old1", RecruiterStatus.CONTACTED, "Ana", T2)

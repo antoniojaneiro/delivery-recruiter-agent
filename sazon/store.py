@@ -22,8 +22,9 @@ _CANDIDATE_JOINS = ("FROM candidates c LEFT JOIN recruiter r ON r.candidate_id =
 
 
 class Store(SlotsMixin):
-    def __init__(self, path: Path | str):
+    def __init__(self, path: Path | str, calendar=None):
         self._path = str(path)
+        self.calendar = calendar
         Path(path).parent.mkdir(parents=True, exist_ok=True)
         for attempt in range(40):  # several processes may open a new or old file at the same moment
             try:

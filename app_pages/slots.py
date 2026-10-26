@@ -72,7 +72,7 @@ if not slots:
 else:
     def state(slot) -> str:
         booked = store.get(slot.candidate_id) if slot.candidate_id else None
-        return slot_state(slot, name_of(booked) if booked else None, now)
+        return slot_state(slot, name_of(booked) if booked else None, now, store.calendar)
 
     st.dataframe(
         [{"Id": s.id, "País": COUNTRY_LABEL[s.country], "Día y hora": slot_label(s.starts_at, Language.ES),

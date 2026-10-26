@@ -3,6 +3,7 @@ from datetime import datetime, timezone
 
 import pytest
 
+from sazon.sazon_client import SAZON_CALENDAR
 from sazon.model import RecruiterStatus
 from sazon.recruiter_view import (OUTCOME_LABEL, STATUS_LABEL, filter_records, kpis, matches, table_rows)
 from sazon.store import Store
@@ -13,7 +14,7 @@ T2 = datetime(2026, 10, 26, 9, 30)
 
 @pytest.fixture
 def store(tmp_path):
-    s = Store(tmp_path / "s.db")
+    s = Store(tmp_path / "s.db", calendar=SAZON_CALENDAR)
 
     def add(cid, name, city, outcome, now=T1, reasons=()):
         extracted = {k: v for k, v in (("name", name), ("city", city)) if v}
@@ -95,9 +96,9 @@ def test_the_slot_state_says_when_a_free_slot_is_too_close_to_be_offered():
     later = Slot(2, "ES", datetime(2026, 11, 3, 10, 0), None, None, False)
     taken = Slot(3, "ES", datetime(2026, 11, 3, 11, 0), None, "c1", False)
     now = datetime(2026, 10, 26, 8, 0, tzinfo=timezone.utc)  # a fixed instant, independent of this machine's zone
-    assert slot_state(later, None, now) == "Libre"
-    assert slot_state(soon, None, now) == "Ya no se ofrece (faltan menos de 2 horas)"
-    assert slot_state(taken, "Juan Pérez", now) == "Reservado: Juan Pérez (c1)"
+    assert slot_state(later, None, now, SAZON_CALENDAR) == "Libre"
+    assert slot_state(soon, None, now, SAZON_CALENDAR) == "Ya no se ofrece (faltan menos de 2 horas)"
+    assert slot_state(taken, "Juan Pérez", now, SAZON_CALENDAR) == "Reservado: Juan Pérez (c1)"
 
 
 def test_the_review_queue_holds_agent_rejections_nobody_has_looked_at(store):
@@ -129,10 +130,10 @@ def test_markdown_in_a_name_is_shown_as_text():
 
 
 def test_the_notice_period_shown_to_recruiters_comes_from_the_one_rule():
-    from sazon import slot_time
+    from sazon.sazon_client import SAZON_CALENDAR
     from sazon.recruiter_view import slot_state
     from sazon.store import Slot
     soon = Slot(1, "ES", datetime(2026, 10, 26, 10, 30), None, None, False)
     now = datetime(2026, 10, 26, 8, 0, tzinfo=timezone.utc)
-    hours = int(slot_time.MIN_NOTICE.total_seconds() // 3600)
-    assert f"menos de {hours} horas" in slot_state(soon, None, now)
+    hours = int(SAZON_CALENDAR.min_notice.total_seconds() // 3600)
+    assert f"menos de {hours} horas" in slot_state(soon, None, now, SAZON_CALENDAR)

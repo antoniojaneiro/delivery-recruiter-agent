@@ -8,7 +8,7 @@ from pathlib import Path
 
 from sazon import config, turn
 from sazon.client import Client
-from sazon.sazon_client import SAZON_CLIENT
+from sazon.sazon_client import SAZON_CALENDAR, SAZON_CLIENT
 from sazon.llm import LLM
 from sazon.model import Language
 from sazon.phrasing import Directive, Kind, phrase
@@ -145,7 +145,7 @@ def main() -> None:
         sys.exit(str(error))
     path = config.db_path()
     try:
-        store = Store(path)
+        store = Store(path, calendar=SAZON_CALENDAR)
     except (OSError, sqlite3.Error) as error:
         sys.exit(f"Cannot open the database at {path}: {error}")
     if "--list-models" in sys.argv:

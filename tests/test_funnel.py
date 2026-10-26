@@ -5,6 +5,7 @@ from pathlib import Path
 import pytest
 from streamlit.testing.v1 import AppTest
 
+from sazon.sazon_client import SAZON_CALENDAR
 from sazon.sazon_spec import SAZON
 from sazon.funnel import build_funnel
 from sazon.store import Store
@@ -17,7 +18,7 @@ FIELDS = {"name": "Juan Pérez", "experience": {"years": 1, "platforms": ["glovo
 
 @pytest.fixture
 def store(tmp_path):
-    return Store(tmp_path / "s.db")
+    return Store(tmp_path / "s.db", calendar=SAZON_CALENDAR)
 
 
 def add(store, cid, outcome, fields=0, consent=True, reasons=(), booked=False):
@@ -95,7 +96,7 @@ def test_the_funnel_page_shows_the_numbers_and_the_stage_table(tmp_path, monkeyp
     monkeypatch.setenv("SAZON_DB", str(tmp_path / "s.db"))
     monkeypatch.setenv("SAZON_ACCOUNTS", str(tmp_path / "r.json"))
     seed_accounts(tmp_path / "r.json")
-    populate(Store(tmp_path / "s.db"))
+    populate(Store(tmp_path / "s.db", calendar=SAZON_CALENDAR))
     app = str(Path(__file__).resolve().parent.parent / "dashboard.py")
     at = AppTest.from_file(app, default_timeout=10).run()
     login(at)

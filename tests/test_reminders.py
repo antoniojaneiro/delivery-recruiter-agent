@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 import pytest
 
 from sazon.sazon_spec import SAZON
-from sazon.sazon_client import SAZON_CLIENT
+from sazon.sazon_client import SAZON_CALENDAR, SAZON_CLIENT
 from sazon import reminders, session, turn
 from sazon.phrasing import Directive, Kind, phrase
 from sazon.store import ConflictError, Store
@@ -18,7 +18,7 @@ REMINDER_TEXT = phrase(None, SAZON, Directive(Kind.REMINDER), "es")
 
 @pytest.fixture
 def store(tmp_path):
-    return Store(tmp_path / "s.db")
+    return Store(tmp_path / "s.db", calendar=SAZON_CALENDAR)
 
 
 def in_progress(store, cid="c1"):

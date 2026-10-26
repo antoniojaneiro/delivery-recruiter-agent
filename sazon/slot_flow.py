@@ -2,16 +2,15 @@
 single source of truth for a booking: the screening only remembers which slots are on offer."""
 from datetime import datetime
 
-from sazon import config, session
+from sazon import session
 from sazon.client import Client
 from sazon.consent import is_stop_request
-from sazon.model import Field, Outcome
+from sazon.model import Outcome
 from sazon.phrasing import Directive, Kind, slot_cancelled_message, slot_label
 from sazon.screening import Screening
 from sazon.slot_choice import NONE, read_slot_choice
 from sazon.store import ConflictError, Store
 
-OFFER_SIZE = 3
 MAX_UNCLEAR_PICKS = 3  # re-offers of the same list before the 48-hour promise applies
 
 
@@ -77,8 +76,9 @@ def on_idle(store: Store, screening: Screening, now: datetime) -> tuple[str, Dir
 
 
 def _offer(store: Store, screening: Screening, now: datetime, reason: str) -> Directive | None:
-    country = config.COUNTRY_OF.get(screening.values.get(Field.CITY))
-    free = store.free_slots(country, now, OFFER_SIZE) if country else []
+    calendar, area = store.calendar, screening.spec.area_field
+    country = calendar.country_of.get(screening.values.get(area)) if calendar and area else None
+    free = store.free_slots(country, now, calendar.offer_size) if country else []
     if not free:
         return None
     previous = screening.slot_offer

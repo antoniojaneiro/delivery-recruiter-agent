@@ -13,16 +13,15 @@ applications are closed, and skips a candidate whose record changed while it wor
 import argparse
 import time
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime
 
 from sazon import config, session, slot_flow
 from sazon.client import Client
-from sazon.sazon_client import SAZON_CLIENT
+from sazon.sazon_client import SAZON_CALENDAR, SAZON_CLIENT
 from sazon.model import Outcome
 from sazon.phrasing import phrase
 from sazon.store import ConflictError, Store
 
-REMIND_AFTER = timedelta(hours=24)
 WATCHED = (Outcome.IN_PROGRESS, Outcome.BLOCKED, Outcome.QUALIFIED)
 
 
@@ -44,7 +43,7 @@ def run_once(store: Store, client: Client, now: datetime) -> list[Action]:
     actions = []
     for record in store.list_candidates():
         last = activity.get(record.candidate_id)
-        if record.outcome not in WATCHED or last is None or now - _naive(last) < REMIND_AFTER:
+        if record.outcome not in WATCHED or last is None or now - _naive(last) < client.remind_after:
             continue
         try:
             action = _remind(store, client, record.candidate_id, now)
@@ -57,7 +56,7 @@ def run_once(store: Store, client: Client, now: datetime) -> list[Action]:
 
 def _remind(store: Store, client: Client, candidate_id: str, now: datetime) -> Action | None:
     last = store.last_activity_of(candidate_id)  # fresh: they may have written since the pass started
-    if last is None or now - _naive(last) < REMIND_AFTER:
+    if last is None or now - _naive(last) < client.remind_after:
         return None
     screening = session.load(store, candidate_id, client)
     if screening.needs_consent:
@@ -83,7 +82,7 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("--every", type=int, help="keep running, one pass every N seconds")
     parser.add_argument("--now", help="the moment to act at (ISO format; for tests)")
     args = parser.parse_args(argv)
-    store = Store(config.db_path())
+    store = Store(config.db_path(), calendar=SAZON_CALENDAR)
     while True:
         now = datetime.fromisoformat(args.now) if args.now else datetime.now()
         for action in run_once(store, SAZON_CLIENT, now):

@@ -2,12 +2,13 @@
 import streamlit as st
 
 from sazon import config
+from sazon.sazon_client import SAZON_CALENDAR
 from sazon.store import Store
 
 
 @st.cache_resource
 def _open_store(path: str) -> Store:
-    return Store(path)
+    return Store(path, calendar=SAZON_CALENDAR)
 
 
 def store() -> Store:

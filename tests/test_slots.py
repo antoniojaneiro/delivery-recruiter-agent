@@ -3,6 +3,7 @@ from datetime import datetime, timezone
 
 import pytest
 
+from sazon.sazon_client import SAZON_CALENDAR
 from sazon import config
 from sazon.store import Store
 
@@ -13,7 +14,7 @@ LATER = datetime(2026, 11, 20, 8, 0, tzinfo=timezone.utc)
 
 @pytest.fixture
 def store(tmp_path):
-    return Store(tmp_path / "sazon.db")
+    return Store(tmp_path / "sazon.db", calendar=SAZON_CALENDAR)
 
 
 def add(store, country="ES", when=datetime(2026, 11, 3, 10, 0), recruiter="Ana"):
@@ -27,8 +28,8 @@ def starts(slots):
 def test_every_service_area_belongs_to_a_country_with_a_known_time_zone():
     from zoneinfo import ZoneInfo
     for city in config.AREAS:
-        assert config.COUNTRY_OF[city] in config.COUNTRY_TZ
-    for zone in config.COUNTRY_TZ.values():
+        assert SAZON_CALENDAR.country_of[city] in SAZON_CALENDAR.timezones
+    for zone in SAZON_CALENDAR.timezones.values():
         ZoneInfo(zone)
 
 

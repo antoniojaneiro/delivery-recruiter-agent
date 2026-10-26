@@ -4,7 +4,7 @@ from datetime import datetime
 import pytest
 
 from sazon.sazon_spec import SAZON
-from sazon.sazon_client import SAZON_CLIENT
+from sazon.sazon_client import SAZON_CALENDAR, SAZON_CLIENT
 from sazon import turn
 from sazon.consent import is_resume_request
 from sazon.phrasing import closed_message, consent_message
@@ -17,7 +17,7 @@ AWARE = NOW.astimezone()
 
 @pytest.fixture
 def store(tmp_path):
-    return Store(tmp_path / "s.db")
+    return Store(tmp_path / "s.db", calendar=SAZON_CALENDAR)
 
 
 def say(store, message, *extractions, cid="c1", phrases=()):

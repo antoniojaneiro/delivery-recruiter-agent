@@ -51,16 +51,12 @@ def fold(text: str) -> str:
     return " ".join(stripped.casefold().split())
 
 
-# A country or state written after the place ("Madrid, España") is dropped; any other suffix is kept.
-_PLACE_QUALIFIERS = ("espana", "spain", "mexico", "jalisco", "nuevo leon", "comunidad de madrid", "cataluna",
-                     "catalunya", "comunitat valenciana", "estado de mexico", "edomex")
-
-
 def _plain(text: str) -> str:
     return " ".join(re.sub(r"[^a-z0-9]+", " ", fold(text)).split())
 
 
-def match_city(raw: str, areas: dict[str, list[str]]) -> CityMatch:
+def match_city(raw: str, areas: dict[str, list[str]], qualifiers: tuple[str, ...] = ()) -> CityMatch:
+    """A country or state written after the place (\"Madrid, España\") is dropped if the client lists it as a qualifier."""
     names = {}
     for city, aliases in areas.items():
         for label in [city, *aliases]:
@@ -68,7 +64,7 @@ def match_city(raw: str, areas: dict[str, list[str]]) -> CityMatch:
     key = _plain(raw)
     if key in names:
         return CityMatch(CityMatchStatus.MATCH, names[key])
-    for qualifier in sorted(_PLACE_QUALIFIERS, key=len, reverse=True):
+    for qualifier in sorted(qualifiers, key=len, reverse=True):
         if key.endswith(" " + qualifier):
             key = key[: -len(qualifier) - 1]
             if key in names:

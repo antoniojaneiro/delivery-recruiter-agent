@@ -4,7 +4,7 @@ from datetime import datetime
 
 import pytest
 
-from sazon.sazon_client import SAZON_CLIENT
+from sazon.sazon_client import SAZON_CALENDAR, SAZON_CLIENT
 from sazon import session, turn
 from sazon.store import ConflictError, Store
 from tests.fakes import ScriptedLLM
@@ -14,7 +14,7 @@ NOW = datetime(2026, 10, 25, 10, 0)
 
 @pytest.fixture
 def store(tmp_path):
-    return Store(tmp_path / "s.db")
+    return Store(tmp_path / "s.db", calendar=SAZON_CALENDAR)
 
 
 def started(store, cid="c1"):
@@ -114,7 +114,7 @@ def test_a_database_from_before_versions_is_upgraded_in_place(tmp_path):
         INSERT INTO candidates (candidate_id, updated_at) VALUES ('old1', '2026-10-01T10:00:00');""")
     db.commit()
     db.close()
-    store = Store(path)
+    store = Store(path, calendar=SAZON_CALENDAR)
     s = session.load(store, "old1", SAZON_CLIENT)
     session.commit(store, "old1", s, NOW)
     assert store.get("old1").version == 1

@@ -5,6 +5,7 @@ from pathlib import Path
 import pytest
 from streamlit.testing.v1 import AppTest
 
+from sazon.sazon_client import SAZON_CALENDAR
 from sazon import recruiter_view
 from sazon.model import RecruiterStatus
 from sazon.store import Store
@@ -21,7 +22,7 @@ def db(tmp_path, monkeypatch):
     monkeypatch.setenv("SAZON_DB", str(path))
     monkeypatch.setenv("SAZON_ACCOUNTS", str(tmp_path / "recruiters.json"))
     seed_accounts(tmp_path / "recruiters.json")
-    return Store(path)
+    return Store(path, calendar=SAZON_CALENDAR)
 
 
 def add(store, cid, minutes=0, outcome="QUALIFIED"):
@@ -62,7 +63,7 @@ def test_a_database_without_the_counter_gets_it_when_opened(tmp_path):
     old.executescript("CREATE TABLE candidates (candidate_id TEXT PRIMARY KEY, state TEXT NOT NULL DEFAULT '{}', "
                       "extracted TEXT NOT NULL DEFAULT '{}', summary TEXT, updated_at TEXT NOT NULL);")
     old.commit(); old.close()
-    store = Store(path)
+    store = Store(path, calendar=SAZON_CALENDAR)
     before = store.revision()
     add(store, "c1")
     assert store.revision() != before

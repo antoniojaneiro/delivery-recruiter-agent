@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 import pytest
 
 from sazon.sazon_spec import SAZON
-from sazon.sazon_client import SAZON_CLIENT
+from sazon.sazon_client import SAZON_CALENDAR, SAZON_CLIENT
 from sazon import reminders, session, slot_flow, turn
 from sazon.phrasing import consent_message
 from sazon.store import ConflictError, Store
@@ -24,7 +24,7 @@ def path(tmp_path):
 
 @pytest.fixture
 def store(path):
-    return Store(path)
+    return Store(path, calendar=SAZON_CALENDAR)
 
 
 def started(store, cid="c1"):
@@ -78,7 +78,7 @@ def test_a_database_from_the_first_release_opens_and_keeps_its_data(tmp_path):
     """)
     db.commit()
     db.close()
-    store = Store(path)
+    store = Store(path, calendar=SAZON_CALENDAR)
     record = store.get("old1")
     assert record.extracted == {"name": "Ana Ruiz"} and record.outcome is None and record.version == 0
     assert [m.text for m in store.messages("old1")] == ["hola"]
@@ -101,7 +101,7 @@ def test_opening_the_same_old_database_twice_at_once_does_not_crash(tmp_path):
 
     def open_it():
         try:
-            Store(path)
+            Store(path, calendar=SAZON_CALENDAR)
         except Exception as error:  # noqa: BLE001
             errors.append(error)
 

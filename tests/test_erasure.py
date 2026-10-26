@@ -5,6 +5,7 @@ from pathlib import Path
 
 import pytest
 
+from sazon.sazon_client import SAZON_CALENDAR
 from sazon.model import RecruiterStatus
 from sazon.store import Store
 
@@ -20,7 +21,7 @@ def path(tmp_path):
 
 @pytest.fixture
 def store(path):
-    return Store(path)
+    return Store(path, calendar=SAZON_CALENDAR)
 
 
 def fill(store, cid="c1", name=MARK, outcome="QUALIFIED", when=NOW, recruiter=True, status=RecruiterStatus.CONTACTED):

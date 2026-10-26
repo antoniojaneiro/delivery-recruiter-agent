@@ -4,6 +4,7 @@ from datetime import datetime
 
 import pytest
 
+from sazon.sazon_client import SAZON_CALENDAR
 from sazon.sazon_spec import SAZON
 from sazon import demo
 from sazon.phrasing import consent_message
@@ -15,7 +16,7 @@ NOW = datetime(2026, 10, 25, 10, 0)
 
 @pytest.fixture
 def store(tmp_path):
-    return Store(tmp_path / "demo.db")
+    return Store(tmp_path / "demo.db", calendar=SAZON_CALENDAR)
 
 
 def test_scenarios_have_unique_names_titles_and_messages():

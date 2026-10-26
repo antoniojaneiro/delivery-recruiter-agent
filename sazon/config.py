@@ -12,13 +12,6 @@ AREAS = {
     "Monterrey": ["San Pedro Garza García", "San Nicolás de los Garza", "Apodaca"],
 }
 
-# Where each service area is, and the time zone of each country (D48).
-COUNTRY_OF = {
-    "Madrid": "ES", "Barcelona": "ES", "Valencia": "ES",
-    "Ciudad de México": "MX", "Guadalajara": "MX", "Monterrey": "MX",
-}
-COUNTRY_TZ = {"ES": "Europe/Madrid", "MX": "America/Mexico_City"}
-
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 DB_PATH = PROJECT_ROOT / "data" / "sazon.db"
 

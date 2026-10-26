@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 import pytest
 from dotenv import load_dotenv
 
-from sazon.sazon_client import SAZON_CLIENT
+from sazon.sazon_client import SAZON_CALENDAR, SAZON_CLIENT
 from sazon import turn
 from sazon.store import Store
 
@@ -34,7 +34,7 @@ def llm():
 
 
 def test_a_candidate_goes_from_consent_to_a_booked_call(tmp_path, llm):
-    store = Store(tmp_path / "live.db")
+    store = Store(tmp_path / "live.db", calendar=SAZON_CALENDAR)
     now = datetime.now()
     day = (now + timedelta(days=14)).replace(hour=9, minute=0, second=0, microsecond=0)
     slot_ids = [store.add_slot("MX", day + timedelta(days=i), "Luis", "Luis", now.astimezone()) for i in range(3)]

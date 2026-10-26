@@ -4,6 +4,7 @@ from datetime import datetime
 import pytest
 
 from tests.clients import client_for
+from sazon.sazon_client import SAZON_CALENDAR
 from sazon import config, turn
 from sazon.phrasing import consent_message
 from sazon.store import Store
@@ -19,7 +20,7 @@ MX_SLOT = datetime(2026, 11, 3, 9, 0)
 
 @pytest.fixture
 def store(tmp_path):
-    return Store(tmp_path / "sazon.db")
+    return Store(tmp_path / "sazon.db", calendar=SAZON_CALENDAR)
 
 
 def say(store, message, *extractions, cid="c1"):
@@ -167,7 +168,7 @@ def test_the_offer_and_the_booking_are_in_the_audit_log(store):
 def test_the_offer_survives_a_restart_because_it_lives_in_the_saved_state(store):
     add_slots(store)
     qualify(store)
-    reloaded = Store(store._path)
+    reloaded = Store(store._path, calendar=SAZON_CALENDAR)
     reply = turn.handle_message(ScriptedLLM(), reloaded, client_for(AREAS), "c1", "2", NOW)
     assert "queda reservada" in reply
 
