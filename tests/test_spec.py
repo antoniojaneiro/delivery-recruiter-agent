@@ -49,3 +49,28 @@ def test_a_field_the_spec_does_not_have_is_refused():
     except ValueError:
         return
     raise AssertionError("a Sazón field was accepted by the toy spec")
+
+
+def test_the_reply_shape_and_the_model_prompt_come_from_the_spec():
+    from sazon.extraction import build_system_prompt
+    model = TOY.extraction_model
+    assert {"shift", "can_lift", "off_topic", "language"} <= set(model.model_fields)
+    assert not {"city", "has_license", "experience_years"} & set(model.model_fields)
+    prompt = build_system_prompt(TOY)
+    assert "warehouse-picker screening chat" in prompt
+    assert '- shift: "day" or "night"' in prompt
+    assert "has_license" not in prompt and "delivery" not in prompt
+
+
+def test_a_message_is_read_into_the_fields_of_the_spec():
+    s = toy()
+    reply = TOY.extraction_model(name="Jo Smith", shift="night")
+    s.apply(reply, "I'm Jo Smith, nights", TODAY)
+    assert s.values == {"name": "Jo Smith", "shift": "night"}
+    assert s.next_field() == "can_lift"
+
+
+def test_an_unclear_answer_is_followed_up_for_the_field_it_belongs_to():
+    s = toy()
+    directive = s.apply(TOY.extraction_model(name="Jo"), "Jo", TODAY)
+    assert directive.field == "name" and directive.kind.value == "follow_up"

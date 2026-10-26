@@ -7,6 +7,7 @@ from datetime import date, datetime
 from pathlib import Path
 
 from sazon import extraction, funnel, phrasing, summary
+from sazon.sazon_spec import SAZON, SYSTEM, Extraction
 from sazon.model import Field, Language, Outcome, Reason
 from sazon.phrasing import Directive, Kind
 from sazon.screening import Screening
@@ -71,10 +72,10 @@ def _fixed_texts() -> dict:
 
 def _prompts() -> dict:
     llm = _Recorder()
-    extraction.extract(llm, "hola", Field.CITY, "Madrid", TODAY, last_question="¿Dónde?", previous_answer="x",
+    extraction.extract(llm, SAZON, "hola", Field.CITY, "Madrid", TODAY, last_question="¿Dónde?", previous_answer="x",
                        awaiting_rejection=Field.LICENSE)
-    return {"extraction_system": extraction.SYSTEM, "extraction_user": llm.user,
-            "extraction_schema": extraction.Extraction.model_json_schema(),
+    return {"extraction_system": SYSTEM, "extraction_user": llm.user,
+            "extraction_schema": Extraction.model_json_schema(),
             "phrasing_system": phrasing._SYSTEM}
 
 

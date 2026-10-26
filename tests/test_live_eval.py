@@ -7,6 +7,7 @@ import pytest
 from dotenv import load_dotenv
 
 from sazon.extraction import extract
+from sazon.sazon_spec import SAZON
 from sazon.model import Field
 
 load_dotenv()
@@ -25,7 +26,7 @@ def llm():
 
 
 def ask(llm, message, asking, awaiting=None):
-    result = extract(llm, message, asking=asking, awaiting_confirmation=awaiting, today=TODAY)
+    result = extract(llm, SAZON, message, asking=asking, awaiting_confirmation=awaiting, today=TODAY)
     assert result is not None, "the model returned unusable JSON"
     return result
 

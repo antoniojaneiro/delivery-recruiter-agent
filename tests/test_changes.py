@@ -5,7 +5,8 @@ from datetime import date, datetime
 import pytest
 
 from sazon import config, turn
-from sazon.extraction import Extraction, StartDate
+from sazon.extraction import StartDate
+from sazon.sazon_spec import Extraction
 from sazon.model import Field
 from sazon.phrasing import Kind, phrase
 from sazon.screening import Screening

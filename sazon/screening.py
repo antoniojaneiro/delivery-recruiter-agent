@@ -4,14 +4,14 @@ from datetime import date
 
 from sazon import validators
 from sazon.consent import ConsentReading, is_hesitation, is_resume_request, read_consent
-from sazon.extraction import Extraction
+from sazon.extraction import ControlFlags
 from sazon.model import CityMatchStatus, EventType, Field, Language, Outcome, Reason, Status
 from sazon.phrasing import Directive, Kind, consent_text_hash
 from sazon.screening_changes import ChangeConfirmation
 from sazon.screening_slots import SlotOffer
 from sazon.sazon_spec import SAZON
-from sazon.spec import ScreeningSpec
-from sazon.screening_values import MISSING as _MISSING, dump_change as _dump_change, load_change as _load_change, value_of as _value
+from sazon.spec import MISSING as _MISSING, ScreeningSpec
+from sazon.screening_values import dump_change as _dump_change, load_change as _load_change, load_value as _decoded
 
 FIELD_ORDER = (Field.NAME, Field.EXPERIENCE, Field.AVAILABILITY, Field.SCHEDULE, Field.START_DATE,
                Field.CITY, Field.LICENSE)
@@ -184,7 +184,7 @@ class Screening(ChangeConfirmation, SlotOffer):
         self.send_reminder()
         return Directive(Kind.REMINDER)
 
-    def apply(self, ex: Extraction, message: str, today: date) -> Directive:
+    def apply(self, ex: ControlFlags, message: str, today: date) -> Directive:
         """Takes in what the candidate said and returns what to say next."""
         if ex.off_topic and (is_hesitation(message) or ex.wants_human or ex.asks_pay):
             # "mmm" did not answer, and a request for a person or a question about pay is never a strike
@@ -196,7 +196,7 @@ class Screening(ChangeConfirmation, SlotOffer):
             directive = replace(directive, notice=notice)
         return directive
 
-    def _notice(self, ex: Extraction, struck: bool = False) -> str | None:
+    def _notice(self, ex: ControlFlags, struck: bool = False) -> str | None:
         """A request for a person or a question about pay gets a fixed answer before the next question."""
         names = []
         if ex.wants_human:
@@ -208,7 +208,7 @@ class Screening(ChangeConfirmation, SlotOffer):
             names.append("offtopic")
         return "+".join(names) or None
 
-    def _next_directive(self, ex: Extraction, message: str, today: date) -> Directive:
+    def _next_directive(self, ex: ControlFlags, message: str, today: date) -> Directive:
         asking = self.next_field()
         if ex.language:
             self.language = ex.language
@@ -237,7 +237,7 @@ class Screening(ChangeConfirmation, SlotOffer):
             return Directive(Kind.FOLLOW_UP, field=unclear[0], reason=unclear[1])
         return Directive(Kind.ASK, field=self.next_field())
 
-    def _apply_facts(self, ex: Extraction, message: str, asking: Field | None,
+    def _apply_facts(self, ex: ControlFlags, message: str, asking: Field | None,
                      today: date) -> tuple[Field, str] | None:
         unclear = None
         answered = False
@@ -253,44 +253,25 @@ class Screening(ChangeConfirmation, SlotOffer):
         if self.awaiting_rejection and ex.confirms_rejection is not None:
             note(self.awaiting_rejection, self.confirm_rejection(ex.confirms_rejection))
         for field in self.spec.keys:
+            spec = self.spec.field(field)
             if field in self.values:  # already accepted: a different value is a change to confirm (D54)
-                candidate = self._experience_change(ex) if field == Field.EXPERIENCE else _value(ex, field, today)
+                candidate = spec.read(ex, today, self.values[field])
                 if candidate is not _MISSING and not (self.awaiting_confirmation or self.awaiting_rejection):
                     answered = True
                     self._consider_change(field, candidate, today)
                 continue
-            if field == Field.EXPERIENCE:
-                experience = self._experience(ex)
-                if experience is not _MISSING:
-                    result = self.submit(field, experience, today, raw=message)
-                    if result.status == Status.FOLLOW_UP:
-                        self._partial[field] = {"years": experience[0], "platforms": experience[1]}
-                    note(field, result)
-                continue
-            value = _value(ex, field, today)
+            value = spec.read(ex, today, self._partial.get(field))
             if value is not _MISSING:
-                note(field, self.submit(field, value, today, raw=message))
+                result = self.submit(field, value, today, raw=message)
+                if result.status == Status.FOLLOW_UP and spec.partial:
+                    self._partial[field] = spec.partial(value)
+                note(field, result)
         if not answered:
             if ex.off_topic:
                 self.off_topic()
             elif asking and not (ex.wants_human or ex.asks_pay):  # a question is not an unclear answer
                 note(asking, self.submit(asking, None, today, raw=message))
         return unclear
-
-    def _experience_change(self, ex: Extraction) -> object:
-        if ex.experience_years is None and not ex.platforms:
-            return _MISSING
-        old = self.values[Field.EXPERIENCE]
-        years = ex.experience_years if ex.experience_years is not None else old["years"]
-        return (years, ex.platforms or old["platforms"])
-
-    def _experience(self, ex: Extraction) -> object:
-        if ex.experience_years is None and not ex.platforms:
-            return _MISSING
-        earlier = self._partial.get(Field.EXPERIENCE, {})
-        years = ex.experience_years if ex.experience_years is not None else earlier.get("years")
-        platforms = ex.platforms or earlier.get("platforms", [])
-        return (years, platforms)
 
     def extracted(self) -> dict:
         return {
@@ -327,9 +308,7 @@ class Screening(ChangeConfirmation, SlotOffer):
         s = cls(areas, spec)
         # Every key is optional: a state saved by an older or newer version must still load.
         s.consent = state.get("consent")
-        s.values = dict(state.get("values", {}))
-        if isinstance(s.values.get("start_date"), str):
-            s.values["start_date"] = date.fromisoformat(s.values["start_date"])
+        s.values = {k: _decoded(spec, k, v) for k, v in state.get("values", {}).items()}
         s.blocked_on = state["blocked_on"] if state.get("blocked_on") else None
         s._slot_offer = list(state.get("slot_offer", []))
         s._slots_done = state.get("slots_done", False)
@@ -341,7 +320,7 @@ class Screening(ChangeConfirmation, SlotOffer):
         s.language = Language(state.get("language", Language.ES))
         s.validation_flags = {k: list(v) for k, v in state.get("validation_flags", {}).items()}
         s._partial = dict(state.get("partial", {}))
-        s._pending_change = _load_change(state.get("pending_change"))
+        s._pending_change = _load_change(spec, state.get("pending_change"))
         pending = state.get("pending_reject")
         s._pending_reject = (pending[0], pending[1]) if pending else None
         s._previous = dict(state.get("previous", {}))

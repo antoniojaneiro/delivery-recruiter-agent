@@ -4,7 +4,7 @@ from datetime import date
 import pytest
 
 from sazon.consent import ConsentReading
-from sazon.extraction import Extraction
+from sazon.sazon_spec import Extraction
 from sazon.model import Field, Language, Outcome, Reason
 from sazon.phrasing import Kind
 from sazon.screening import Screening

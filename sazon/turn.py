@@ -5,10 +5,11 @@ from datetime import date, datetime
 
 from sazon import session, slot_flow
 from sazon.consent import ConsentReading, is_stop_request, read_consent
-from sazon.extraction import Extraction, extract
+from sazon.extraction import ControlFlags, extract
 from sazon.llm import LLM, LLMError
 from sazon.phrasing import Directive, Kind, closed_message, consent_message, phrase, technical_error_message
 from sazon.screening import ExtractionContext, Screening
+from sazon.spec import ScreeningSpec
 from sazon.store import ConflictError
 
 NOT_STORED = "[message not stored: no consent]"
@@ -98,7 +99,8 @@ def _directive_for(llm: LLM, screening: Screening, message: str, today: date,
             return screening.resolve_change(reading.answer, today)
         screening.drop_change()  # anything else: forget the question and read the message normally
     try:
-        extraction = _extract_with_one_retry(llm, screening.extraction_context(), message, today, last_question)
+        extraction = _extract_with_one_retry(llm, screening.spec, screening.extraction_context(), message, today,
+                                             last_question)
     except LLMError as error:
         return screening.model_failed(f"unreachable:{error.kind}")
     if extraction is None:
@@ -106,10 +108,10 @@ def _directive_for(llm: LLM, screening: Screening, message: str, today: date,
     return screening.apply(extraction, message, today)
 
 
-def _extract_with_one_retry(llm: LLM, context: ExtractionContext, message: str, today: date,
-                            last_question: str | None) -> Extraction | None:
+def _extract_with_one_retry(llm: LLM, spec: ScreeningSpec, context: ExtractionContext, message: str, today: date,
+                            last_question: str | None) -> ControlFlags | None:
     for _ in range(2):
-        result = extract(llm, message, context.asking, context.awaiting_confirmation, today,
+        result = extract(llm, spec, message, context.asking, context.awaiting_confirmation, today,
                          last_question, context.previous_answer,
                          awaiting_rejection=context.awaiting_rejection)
         if result is not None:

@@ -6,7 +6,8 @@ from datetime import date, datetime
 import pytest
 
 from sazon import config, turn
-from sazon.extraction import Extraction, StartDate
+from sazon.extraction import StartDate
+from sazon.sazon_spec import Extraction
 from sazon.llm import LLMError
 from sazon.phrasing import Directive, Kind, consent_message, phrase
 from sazon.model import Field
@@ -43,7 +44,7 @@ def test_the_extraction_accepts_months_and_weekdays():
 
 
 def test_the_prompt_tells_the_model_not_to_compute_these_dates_either():
-    from sazon.extraction import SYSTEM
+    from sazon.sazon_spec import SYSTEM
     assert "in_months" in SYSTEM and "weekday" in SYSTEM
 
 

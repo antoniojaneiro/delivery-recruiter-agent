@@ -5,7 +5,7 @@ import pytest
 
 from sazon import config, turn
 from sazon.consent import read_consent
-from sazon.extraction import Extraction
+from sazon.sazon_spec import Extraction
 from sazon.model import Field
 from sazon.phrasing import Directive, Kind, consent_message, phrase
 from sazon.screening import Screening
@@ -67,7 +67,7 @@ def test_unclear_answers_now_reach_the_block_instead_of_ending_the_chat_early():
 
 
 def test_the_prompt_says_hesitation_is_not_off_topic():
-    from sazon.extraction import SYSTEM
+    from sazon.sazon_spec import SYSTEM
     assert "mmm" in SYSTEM and "NOT off_topic" in SYSTEM
 
 
@@ -148,7 +148,7 @@ def test_a_notice_is_not_repeated_on_the_next_turn():
 
 
 def test_the_extraction_schema_and_prompt_know_the_pay_flag():
-    from sazon.extraction import SYSTEM
+    from sazon.sazon_spec import SYSTEM
     assert Extraction.model_validate({"asks_pay": True}).asks_pay is True and "asks_pay" in SYSTEM
 
 
