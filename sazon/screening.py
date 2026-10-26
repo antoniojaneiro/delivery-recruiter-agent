@@ -6,7 +6,10 @@ from sazon import validators
 from sazon.consent import ConsentReading, is_hesitation, is_resume_request, read_consent
 from sazon.extraction import Extraction
 from sazon.model import CityMatchStatus, EventType, Field, Language, Outcome, Reason, Status
-from sazon.phrasing import Directive, Kind, consent_text_hash, describe_value
+from sazon.phrasing import Directive, Kind, consent_text_hash
+from sazon.screening_changes import ChangeConfirmation
+from sazon.screening_slots import SlotOffer
+from sazon.screening_values import MISSING as _MISSING, dump_change as _dump_change, load_change as _load_change, same as _same, value_of as _value
 
 FIELD_ORDER = (Field.NAME, Field.EXPERIENCE, Field.AVAILABILITY, Field.SCHEDULE, Field.START_DATE,
                Field.CITY, Field.LICENSE)
@@ -16,7 +19,6 @@ MAX_CITY_LENGTH = 80
 
 
 LIVE = (Outcome.IN_PROGRESS, Outcome.BLOCKED)  # the chat is still open
-_MISSING = object()
 
 
 class ConsentRequired(Exception):
@@ -46,7 +48,7 @@ class Decision:
     flags: list[str]
 
 
-class Screening:
+class Screening(ChangeConfirmation, SlotOffer):
     def __init__(self, areas: dict[str, list[str]]):
         self.areas = areas
         self.consent: bool | None = None
@@ -80,44 +82,6 @@ class Screening:
         self.consent = given
         self.events.append((EventType.CONSENT_GIVEN if given else EventType.CONSENT_DECLINED,
                             f"text_sha256={consent_text_hash()}"))
-
-    @property
-    def awaiting_change(self) -> bool:
-        return self._pending_change is not None
-
-    def drop_change(self) -> None:
-        self._pending_change = None
-
-    def resolve_change(self, yes: bool, today: date) -> Directive:
-        """The candidate's yes or no to "Antes me dijiste X. ¿Lo cambio a Y?" (D54)."""
-        field, candidate, _, _ = self._pending_change
-        self._pending_change = None
-        notice = "kept"
-        if yes:
-            self.events.append((EventType.FIELD_CHANGED, str(field)))
-            result = self.submit(field, candidate, today)  # the usual flows (typo, outside the area, no license) still apply
-            notice = "changed" if result.status == Status.OK else None  # else another question follows
-        directive = self._directive_now(None)
-        return replace(directive, notice=notice) if directive.kind != Kind.CLOSE else directive
-
-    def _consider_change(self, field: Field, candidate: object, today: date) -> None:
-        if self._pending_change is not None:
-            return  # one question at a time
-        old = self.values[field]
-        if field == Field.CITY:
-            if not isinstance(candidate, str):
-                return
-            match = validators.match_city(candidate, self.areas)
-            if match.city == old:
-                return  # the same city, however it is spelled (an outside-the-area city has no match)
-            shown = match.city or " ".join(candidate.split())[:40]
-        else:
-            result = self._validate(field, candidate, today)
-            if not result.ok or _same(field, old, result.value):
-                return
-            shown = result.value
-        self._pending_change = (field, candidate, describe_value(field, old, self.language),
-                                describe_value(field, shown, self.language))
 
     @property
     def awaiting_rejection(self) -> Field | None:
@@ -155,32 +119,6 @@ class Screening:
     @property
     def needs_consent(self) -> bool:
         return self.consent is None
-
-    @property
-    def slot_offer(self) -> list[int]:
-        return list(self._slot_offer)
-
-    @property
-    def slots_resolved(self) -> bool:
-        return self._slots_done
-
-    @property
-    def awaiting_slot_choice(self) -> bool:
-        return bool(self._slot_offer) and not self._slots_done and self.decide().outcome == Outcome.QUALIFIED
-
-    def offer_slots(self, slot_ids: list[int]) -> None:
-        self._slot_offer = list(slot_ids)
-        self.events.append((EventType.SLOTS_OFFERED, ",".join(str(i) for i in slot_ids)))
-
-    def note_unclear_pick(self) -> int:
-        """Counts a reply to the slot list that could not be read; returns how many so far."""
-        self._unclear_picks += 1
-        return self._unclear_picks
-
-    def resolve_slots(self) -> None:
-        """The offer is over: booked, declined, or nothing to offer."""
-        self._slot_offer = []
-        self._slots_done = True
 
     def missing_fields(self) -> list[Field]:
         return [f for f in FIELD_ORDER if f not in self.values]
@@ -576,54 +514,3 @@ class Screening:
             self._previous[field] = raw
         self.events.append((EventType.FOLLOW_UP, f"{field}: {result.reason}"))
         return SubmitResult(Status.FOLLOW_UP, result.reason)
-
-
-def _value(ex: Extraction, field: Field, today: date) -> object:
-    match field:
-        case Field.NAME:
-            return ex.name if ex.name is not None else _MISSING
-        case Field.AVAILABILITY:
-            return ex.availability or _MISSING
-        case Field.SCHEDULE:
-            return ex.schedule if ex.schedule is not None else _MISSING
-        case Field.START_DATE:
-            return ex.start_date.resolve(today) if ex.start_date is not None else _MISSING
-        case Field.CITY:
-            return ex.city if ex.city is not None else _MISSING
-        case Field.LICENSE:
-            return ex.has_license if ex.has_license is not None else _MISSING
-    return _MISSING
-
-
-def _same(field: Field, old: object, new: object) -> bool:
-    """Compares validated values, so the same answer in other words is never a change."""
-    if field == Field.NAME:
-        return validators.fold(old) == validators.fold(new)
-    if field == Field.AVAILABILITY:
-        return set(old) == set(new)
-    if field == Field.EXPERIENCE:
-        return old["years"] == new["years"] and set(old["platforms"]) == set(new["platforms"])
-    return old == new
-
-
-def _dump_change(pending) -> list | None:
-    if pending is None:
-        return None
-    field, candidate, old_text, new_text = pending
-    if isinstance(candidate, date):
-        candidate = candidate.isoformat()
-    elif isinstance(candidate, tuple):
-        candidate = list(candidate)
-    return [str(field), candidate, old_text, new_text]
-
-
-def _load_change(raw) -> tuple | None:
-    if not raw:
-        return None
-    field, candidate, old_text, new_text = raw
-    field = Field(field)
-    if field == Field.START_DATE and isinstance(candidate, str):
-        candidate = date.fromisoformat(candidate)
-    elif field == Field.EXPERIENCE:
-        candidate = tuple(candidate)
-    return field, candidate, old_text, new_text
