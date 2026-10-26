@@ -4,8 +4,8 @@ import streamlit as st
 
 from sazon import ui
 from sazon.model import Outcome, RecruiterStatus
-from sazon.recruiter_view import (OUTCOME_LABEL, STATUS_LABEL, call_label, escape_markdown, explain_error,
-                                  filter_records, kpis, name_of, table_rows)
+from sazon.recruiter_view import (OUTCOME_LABEL, PAGE_SIZE, STATUS_LABEL, call_label, escape_markdown, explain_error,
+                                  filter_records, kpis, name_of, page_of, table_rows)
 
 store = ui.store()
 recruiter = ui.recruiter_name()
@@ -15,7 +15,7 @@ if "erase_message" in st.session_state:
     kind, text = st.session_state.pop("erase_message")
     (st.success if kind == "success" else st.error)(text)
 
-records = store.list_candidates()
+records = ui.candidates()
 if not records:
     st.info("No hay candidatos todavía. Aparecerán aquí cuando alguien hable con el asistente.")
     st.stop()
@@ -43,7 +43,12 @@ if not shown:
     st.info("Ningún candidato coincide con los filtros.")
     st.stop()
 
-st.dataframe(table_rows(shown), hide_index=True, width="stretch")
+page = st.number_input("Página", min_value=1, step=1, value=1, key="page") if len(shown) > PAGE_SIZE else 1
+on_page, pages, page = page_of(shown, page)
+st.dataframe(table_rows(on_page), hide_index=True, width="stretch")
+if pages > 1:
+    first = (page - 1) * PAGE_SIZE + 1
+    st.caption(f"Mostrando {first}–{first + len(on_page) - 1} de {len(shown)} (página {page} de {pages}).")
 
 by_id = {r.candidate_id: r for r in shown}
 if st.session_state.get("candidate") not in by_id:

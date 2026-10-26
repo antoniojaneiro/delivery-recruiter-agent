@@ -5,7 +5,7 @@ from sazon.funnel import build_funnel
 from sazon.recruiter_view import OUTCOME_LABEL
 
 store = ui.store()
-funnel = build_funnel(store.list_candidates())
+funnel = build_funnel(ui.candidates())
 
 st.title("Embudo de candidatos")
 st.caption("Cuenta lo que el asistente ya guarda: hasta dónde llega cada persona y cuántas llegan a un reclutador.")

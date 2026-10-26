@@ -79,6 +79,16 @@ def table_rows(records: list[Record]) -> list[dict]:
     } for r in records]
 
 
+PAGE_SIZE = 50
+
+
+def page_of(items: list, page: int, size: int = PAGE_SIZE) -> tuple[list, int, int]:
+    """One page of a list: (the items, how many pages there are, the page number actually used)."""
+    pages = max(1, -(-len(items) // size))
+    page = min(max(int(page), 1), pages)
+    return items[(page - 1) * size: page * size], pages, page
+
+
 def _plain(text: str) -> str:
     """Lower case, no accents, and hyphens or apostrophes read as spaces."""
     return " ".join(re.sub(r"[^a-z0-9]+", " ", fold(text)).split())

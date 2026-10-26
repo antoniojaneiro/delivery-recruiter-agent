@@ -111,6 +111,13 @@ CREATE INDEX IF NOT EXISTS idx_outbox_pending ON outbox(delivered_at, candidate_
 CREATE INDEX IF NOT EXISTS idx_notes_candidate ON notes(candidate_id, id);
 """
 
+# A counter that moves whenever anything the candidate list shows changes, so the dashboard can cache the list
+# and read it again only when the counter has moved. Triggers keep it right whoever writes (chat, job, dashboard).
+_TRIGGERS = "".join(
+    f"CREATE TRIGGER IF NOT EXISTS rev_{table}_{event.lower()} AFTER {event} ON {table} BEGIN "
+    "UPDATE settings SET value = CAST(value AS INTEGER) + 1 WHERE key = 'rev'; END;\n"
+    for table in ("candidates", "recruiter", "slots") for event in ("INSERT", "UPDATE", "DELETE"))
+
 # Columns added after the first release; databases created earlier are upgraded in place.
 _ADDED_COLUMNS = {
     "candidates": {"reasons": "TEXT NOT NULL DEFAULT '[]'", "flags": "TEXT NOT NULL DEFAULT '[]'",
@@ -232,6 +239,8 @@ class Store:
                         except sqlite3.OperationalError:  # another process added it first
                             pass
             db.executescript(_INDEXES)
+            db.execute("INSERT OR IGNORE INTO settings (key, value) VALUES ('rev', '0')")
+            db.executescript(_TRIGGERS)
 
     @contextmanager
     def _connect(self):
@@ -365,6 +374,12 @@ class Store:
         with self._connect() as db:
             rows = db.execute("SELECT candidate_id, MAX(at) FROM messages GROUP BY candidate_id").fetchall()
         return {cid: datetime.fromisoformat(at) for cid, at in rows}
+
+    def revision(self) -> int:
+        """Moves whenever a candidate, a recruiter's status or assignee, or a slot changes. Reading never moves it."""
+        with self._connect() as db:
+            row = db.execute("SELECT value FROM settings WHERE key = 'rev'").fetchone()
+        return int(row[0]) if row else 0
 
     def last_activity_of(self, candidate_id: str) -> datetime | None:
         with self._connect() as db:
