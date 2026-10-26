@@ -3,6 +3,7 @@ single source of truth for a booking: the screening only remembers which slots a
 from datetime import datetime
 
 from sazon import config, session
+from sazon.client import Client
 from sazon.consent import is_stop_request
 from sazon.model import Field, Outcome
 from sazon.phrasing import Directive, Kind, slot_cancelled_message, slot_label
@@ -51,12 +52,12 @@ def handle_pick(store: Store, screening: Screening, candidate_id: str, message: 
     return Directive(Kind.SLOT_BOOKED, label=slot_label(booking.starts_at, screening.language))
 
 
-def notify_cancelled(store: Store, candidate_id: str, now: datetime) -> bool:
+def notify_cancelled(store: Store, client: Client, candidate_id: str, now: datetime) -> bool:
     """Queues the fixed 'your call was cancelled' message for a candidate whose booked slot a recruiter cancelled.
     False when there is nobody to tell (erased) or the record changed meanwhile."""
     if store.get(candidate_id) is None:
         return False
-    screening = session.load(store, candidate_id, config.AREAS)
+    screening = session.load(store, candidate_id, client)
     text = slot_cancelled_message(screening.language)
     try:
         session.commit(store, candidate_id, screening, now, messages=[("agent", text)], outbox=[text])

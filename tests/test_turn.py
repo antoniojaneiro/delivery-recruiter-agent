@@ -2,6 +2,7 @@ from datetime import datetime
 
 import pytest
 
+from tests.clients import client_for
 from sazon import turn
 from sazon.llm import LLMError
 from sazon.phrasing import consent_message
@@ -19,7 +20,7 @@ def store(tmp_path):
 
 def say(store, message, *extractions, id="c1", now=NOW, phrases=()):
     llm = ScriptedLLM(extractions, phrases)
-    reply = turn.handle_message(llm, store, AREAS, id, message, now)
+    reply = turn.handle_message(llm, store, client_for(AREAS), id, message, now)
     return reply, llm
 
 
@@ -28,20 +29,20 @@ def outcome(store, id="c1"):
 
 
 def test_the_first_message_is_the_fixed_disclosure_and_is_saved(store):
-    assert turn.start(store, AREAS, "c1", NOW) == consent_message()
+    assert turn.start(store, client_for(AREAS), "c1", NOW) == consent_message()
     assert [(m.role, m.text) for m in store.messages("c1")] == [("agent", consent_message())]
     assert outcome(store) == "IN_PROGRESS"
 
 
 def test_consent_yes_moves_on_to_the_first_question(store):
-    turn.start(store, AREAS, "c1", NOW)
+    turn.start(store, client_for(AREAS), "c1", NOW)
     reply, _ = say(store, "sí", {"consent": True, "language": "es"})
     assert "llamas" in reply
     assert store.get("c1").state["consent"] is True
 
 
 def test_consent_no_closes_politely_and_nothing_is_kept(store):
-    turn.start(store, AREAS, "c1", NOW)
+    turn.start(store, client_for(AREAS), "c1", NOW)
     reply, _ = say(store, "no", {"consent": False, "language": "es", "name": "Juan Pérez"})
     assert outcome(store) == "DISQUALIFIED" and "permiso" in reply
     assert store.get("c1").extracted == {}
@@ -49,14 +50,14 @@ def test_consent_no_closes_politely_and_nothing_is_kept(store):
 
 
 def test_an_unanswered_consent_question_is_asked_again(store):
-    turn.start(store, AREAS, "c1", NOW)
+    turn.start(store, client_for(AREAS), "c1", NOW)
     reply, _ = say(store, "¿quién eres?", {"language": "es"})
     assert reply == consent_message()
     assert store.get("c1").extracted == {}
 
 
 def test_one_message_can_answer_several_fields_and_the_rest_are_asked_in_order(store):
-    turn.start(store, AREAS, "c1", NOW)
+    turn.start(store, client_for(AREAS), "c1", NOW)
     say(store, "sí", {"consent": True})
     reply, _ = say(store, "Soy Juan Pérez, tengo licencia y vivo en CDMX",
                    {"name": "Juan Pérez", "has_license": True, "city": "CDMX"})
@@ -65,14 +66,14 @@ def test_one_message_can_answer_several_fields_and_the_rest_are_asked_in_order(s
 
 
 def test_a_start_date_given_as_weeks_is_computed_in_code(store):
-    turn.start(store, AREAS, "c1", NOW)
+    turn.start(store, client_for(AREAS), "c1", NOW)
     say(store, "sí", {"consent": True})
     say(store, "en dos semanas", {"start_date": {"in_weeks": 2}})
     assert store.get("c1").extracted["start_date"] == "2026-11-08"
 
 
 def test_the_reply_follows_the_candidates_language_when_they_switch(store):
-    turn.start(store, AREAS, "c1", NOW)
+    turn.start(store, client_for(AREAS), "c1", NOW)
     say(store, "yes", {"consent": True, "language": "en"})
     reply, _ = say(store, "John Smith", {"name": "John Smith", "language": "en"})
     assert "experience" in reply.lower()
@@ -83,14 +84,14 @@ def test_the_reply_follows_the_candidates_language_when_they_switch(store):
 
 
 def test_withdrawing_closes_the_chat_and_asks_nothing_more(store):
-    turn.start(store, AREAS, "c1", NOW)
+    turn.start(store, client_for(AREAS), "c1", NOW)
     say(store, "sí", {"consent": True})
     reply, _ = say(store, "mejor no, para", {"withdraw": True})
     assert outcome(store) == "WITHDRAWN" and "«continuar»" in reply
 
 
 def test_messages_after_the_chat_has_ended_get_the_close_again_without_calling_the_llm(store):
-    turn.start(store, AREAS, "c1", NOW)
+    turn.start(store, client_for(AREAS), "c1", NOW)
     say(store, "sí", {"consent": True})
     say(store, "no tengo licencia", {"has_license": False})
     say(store, "correcto", {"confirms_rejection": True})
@@ -100,14 +101,14 @@ def test_messages_after_the_chat_has_ended_get_the_close_again_without_calling_t
 
 
 def test_every_turn_stores_both_sides_of_the_conversation_in_order(store):
-    turn.start(store, AREAS, "c1", NOW)
+    turn.start(store, client_for(AREAS), "c1", NOW)
     reply, _ = say(store, "sí", {"consent": True})
     messages = [(m.role, m.text) for m in store.messages("c1")]
     assert messages == [("agent", consent_message()), ("candidate", "sí"), ("agent", reply)]
 
 
 def consented(store, id="c1"):
-    turn.start(store, AREAS, id, NOW)
+    turn.start(store, client_for(AREAS), id, NOW)
     say(store, "sí", {"consent": True}, id=id)
 
 
@@ -183,9 +184,9 @@ def test_a_complete_valid_candidate_qualifies_and_the_recruiter_data_is_saved(st
 def test_the_reminder_then_stall_then_resume_flow(store):
     consented(store)
     llm = ScriptedLLM()
-    reminder = turn.wait_24h(llm, store, AREAS, "c1", NOW)
+    reminder = turn.wait_24h(llm, store, client_for(AREAS), "c1", NOW)
     assert reminder and "sigues interesado" in reminder and outcome(store) == "IN_PROGRESS"
-    assert turn.wait_24h(llm, store, AREAS, "c1", NOW) is None
+    assert turn.wait_24h(llm, store, client_for(AREAS), "c1", NOW) is None
     assert outcome(store) == "STALLED"
     reply, _ = say(store, "hola, perdona", {"name": "Juan Pérez"})
     assert outcome(store) == "IN_PROGRESS" and "años" in reply
@@ -196,7 +197,7 @@ def test_waiting_does_nothing_once_the_chat_has_ended(store):
     consented(store)
     say(store, "no tengo licencia", {"has_license": False})
     say(store, "correcto", {"confirms_rejection": True})
-    assert turn.wait_24h(ScriptedLLM(), store, AREAS, "c1", NOW) is None
+    assert turn.wait_24h(ScriptedLLM(), store, client_for(AREAS), "c1", NOW) is None
     assert outcome(store) == "DISQUALIFIED"
 
 
@@ -218,7 +219,7 @@ def test_years_then_platform_in_separate_messages_make_one_experience_answer(sto
 
 
 def test_consent_and_each_screening_step_are_written_to_the_audit_log(store):
-    turn.start(store, AREAS, "c1", NOW)
+    turn.start(store, client_for(AREAS), "c1", NOW)
     say(store, "sí", {"consent": True})
     say(store, "Juan", {"name": "Juan"})
     say(store, "Juan Pérez", {"name": "Juan Pérez"})
@@ -228,14 +229,14 @@ def test_consent_and_each_screening_step_are_written_to_the_audit_log(store):
 
 
 def test_a_declined_consent_is_logged_and_the_candidates_text_is_not_kept(store):
-    turn.start(store, AREAS, "c1", NOW)
+    turn.start(store, client_for(AREAS), "c1", NOW)
     say(store, "no gracias, soy Juan Pérez")
     assert "consent_declined" in [e.type for e in store.events("c1")]
     assert all("Juan" not in m.text for m in store.messages("c1"))
 
 
 def test_text_sent_before_consent_is_not_stored(store):
-    turn.start(store, AREAS, "c1", NOW)
+    turn.start(store, client_for(AREAS), "c1", NOW)
     say(store, "me llamo Juan Pérez, mi teléfono es 600123123", {"off_topic": True})
     assert all("600123123" not in m.text for m in store.messages("c1"))
 
@@ -243,11 +244,11 @@ def test_text_sent_before_consent_is_not_stored(store):
 def test_every_new_period_of_silence_gets_its_own_single_reminder(store):
     consented(store)
     llm = ScriptedLLM()
-    assert turn.wait_24h(llm, store, AREAS, "c1", NOW)
+    assert turn.wait_24h(llm, store, client_for(AREAS), "c1", NOW)
     say(store, "perdona, estaba ocupado", {"name": "Juan Pérez"})
-    assert turn.wait_24h(llm, store, AREAS, "c1", NOW)
+    assert turn.wait_24h(llm, store, client_for(AREAS), "c1", NOW)
     assert outcome(store) == "IN_PROGRESS"
-    assert turn.wait_24h(llm, store, AREAS, "c1", NOW) is None
+    assert turn.wait_24h(llm, store, client_for(AREAS), "c1", NOW) is None
     assert outcome(store) == "STALLED"
 
 
@@ -323,28 +324,28 @@ def test_a_misread_license_never_rejects_in_one_step(store):
     "stop", "sí, soy Juan Pérez de Madrid",
 ])
 def test_the_consent_turn_sends_nothing_the_candidate_wrote_to_the_model(store, reply):
-    turn.start(store, AREAS, "c1", NOW)
+    turn.start(store, client_for(AREAS), "c1", NOW)
     _, llm = say(store, reply, {"name": "should never be read"})
     assert not any(call["json_mode"] for call in llm.calls)  # no extraction call
     assert all(reply not in call["user"] and reply not in call["system"] for call in llm.calls)
 
 
 def test_data_given_with_the_yes_is_ignored_and_asked_for_normally(store):
-    turn.start(store, AREAS, "c1", NOW)
+    turn.start(store, client_for(AREAS), "c1", NOW)
     reply, _ = say(store, "sí, soy Juan Pérez de Madrid", {"name": "Juan Pérez", "city": "Madrid"})
     assert store.get("c1").extracted == {}
     assert "llamas" in reply and store.get("c1").state["consent"] is True
 
 
 def test_agreeing_with_a_phrase_that_contains_no_is_not_a_refusal(store):
-    turn.start(store, AREAS, "c1", NOW)
+    turn.start(store, client_for(AREAS), "c1", NOW)
     reply, _ = say(store, "no hay problema")
     assert store.get("c1").outcome == "IN_PROGRESS" and "llamas" in reply
 
 
 @pytest.mark.parametrize("reply", ["stop", "para", "no quiero continuar", "no thanks"])
 def test_refusing_or_stopping_before_consent_counts_as_no_consent(store, reply):
-    turn.start(store, AREAS, "c1", NOW)
+    turn.start(store, client_for(AREAS), "c1", NOW)
     say(store, reply)
     record = store.get("c1")
     assert record.outcome == "DISQUALIFIED" and record.reasons == ["NO_CONSENT"]
@@ -352,7 +353,7 @@ def test_refusing_or_stopping_before_consent_counts_as_no_consent(store, reply):
 
 
 def test_an_unclear_consent_reply_is_asked_again_every_time_and_costs_nothing(store):
-    turn.start(store, AREAS, "c1", NOW)
+    turn.start(store, client_for(AREAS), "c1", NOW)
     for _ in range(6):
         reply, llm = say(store, "¿qué es esto?")
         assert reply == consent_message() and llm.calls == []
@@ -360,13 +361,13 @@ def test_an_unclear_consent_reply_is_asked_again_every_time_and_costs_nothing(st
 
 
 def test_an_english_yes_switches_the_chat_to_english(store):
-    turn.start(store, AREAS, "c1", NOW)
+    turn.start(store, client_for(AREAS), "c1", NOW)
     reply, _ = say(store, "yes, sure")
     assert "full name" in reply.lower()
 
 
 def test_an_unsupported_language_keeps_the_last_supported_one(store):
-    turn.start(store, AREAS, "c1", NOW)
+    turn.start(store, client_for(AREAS), "c1", NOW)
     say(store, "yes")
     reply, _ = say(store, "Joan Pere", {"language": "ca", "name": "Joan Pere"})
     assert "experience" in reply.lower()

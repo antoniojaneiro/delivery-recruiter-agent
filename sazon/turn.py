@@ -4,6 +4,7 @@ from dataclasses import replace
 from datetime import date, datetime
 
 from sazon import session, slot_flow
+from sazon.client import Client
 from sazon.consent import ConsentReading, is_stop_request, read_consent
 from sazon.extraction import ControlFlags, extract
 from sazon.llm import LLM, LLMError
@@ -15,10 +16,10 @@ from sazon.store import ConflictError
 NOT_STORED = "[message not stored: no consent]"
 
 
-def start(store, areas: dict[str, list[str]], candidate_id: str, now: datetime) -> str:
+def start(store, client: Client, candidate_id: str, now: datetime) -> str:
     if not store.accepting_applications():
         return closed_message()
-    screening = session.load(store, candidate_id, areas)
+    screening = session.load(store, candidate_id, client)
     text = consent_message()
     try:
         session.commit(store, candidate_id, screening, now, messages=[("agent", text)])
@@ -27,11 +28,11 @@ def start(store, areas: dict[str, list[str]], candidate_id: str, now: datetime) 
     return text
 
 
-def wait_24h(llm: LLM, store, areas: dict[str, list[str]], candidate_id: str, now: datetime) -> str | None:
+def wait_24h(llm: LLM, store, client: Client, candidate_id: str, now: datetime) -> str | None:
     """Simulates 24 hours of silence: first a reminder, then STALLED (D35)."""
     if not store.accepting_applications():
         return None
-    screening = session.load(store, candidate_id, areas)
+    screening = session.load(store, candidate_id, client)
     if not screening.is_open:
         return None
     directive = screening.on_silence()
@@ -43,23 +44,23 @@ def wait_24h(llm: LLM, store, areas: dict[str, list[str]], candidate_id: str, no
     return reply
 
 
-def handle_message(llm: LLM, store, areas: dict[str, list[str]], candidate_id: str, message: str,
+def handle_message(llm: LLM, store, client: Client, candidate_id: str, message: str,
                    now: datetime) -> str:
     if not store.accepting_applications():
         return closed_message()  # nothing is read, stored or sent to the model while applications are closed
     if store.get(candidate_id) is None:  # never started, or erased: they see the disclosure before anything else
-        return start(store, areas, candidate_id, now)
+        return start(store, client, candidate_id, now)
     for attempt in range(2):
         try:
-            return _handle(llm, store, areas, candidate_id, message, now)
+            return _handle(llm, store, client, candidate_id, message, now)
         except ConflictError:
             if store.get(candidate_id) is None:  # erased meanwhile: never bring the record back
                 break
-    return technical_error_message(session.load(store, candidate_id, areas).language)
+    return technical_error_message(session.load(store, candidate_id, client).language)
 
 
-def _handle(llm: LLM, store, areas: dict[str, list[str]], candidate_id: str, message: str, now: datetime) -> str:
-    screening = session.load(store, candidate_id, areas)
+def _handle(llm: LLM, store, client: Client, candidate_id: str, message: str, now: datetime) -> str:
+    screening = session.load(store, candidate_id, client)
     screening.resume()
     history = store.messages(candidate_id)
     last_question = history[-1].text if history and history[-1].role == "agent" else None

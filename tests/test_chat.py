@@ -3,6 +3,7 @@ from datetime import datetime
 
 import pytest
 
+from tests.clients import client_for
 from sazon import chat
 from sazon.phrasing import consent_message
 from sazon.store import Store
@@ -27,7 +28,7 @@ def run(store, lines, llm=None, log_path=None):
         except StopIteration:
             raise EOFError
 
-    chat.run(llm or ScriptedLLM(), store, AREAS, read=read, write=out.append, clock=lambda: NOW,
+    chat.run(llm or ScriptedLLM(), store, client_for(AREAS), read=read, write=out.append, clock=lambda: NOW,
              log_path=log_path)
     return out
 

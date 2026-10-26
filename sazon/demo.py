@@ -14,7 +14,8 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from sazon import config, turn
+from sazon import turn
+from sazon.sazon_client import SAZON_CLIENT
 from sazon.store import Store
 
 TECHNICAL_PROBLEM = ("problema técnico", "technical problem")
@@ -165,16 +166,16 @@ def run_scenario(llm, store: Store, scenario: Scenario, now: datetime, pause: fl
     candidate_id = f"demo-{scenario.name}"
     result = Result(scenario, candidate_id)
     write(f"\n=== {scenario.title} [{scenario.name}] ===")
-    opening = turn.start(store, config.AREAS, candidate_id, now)
+    opening = turn.start(store, SAZON_CLIENT, candidate_id, now)
     result.turns.append(Turn(None, opening))
     _show(write, "bot", opening)
     for message in scenario.messages:
         time.sleep(pause)
         _show(write, "you", message)
-        reply = turn.handle_message(llm, store, config.AREAS, candidate_id, message, now)
+        reply = turn.handle_message(llm, store, SAZON_CLIENT, candidate_id, message, now)
         if retry_wait and any(marker in reply for marker in TECHNICAL_PROBLEM):
             time.sleep(retry_wait)  # most likely the rate limit; a failed turn costs the candidate nothing (D39)
-            reply = turn.handle_message(llm, store, config.AREAS, candidate_id, message, now)
+            reply = turn.handle_message(llm, store, SAZON_CLIENT, candidate_id, message, now)
         result.turns.append(Turn(message, reply))
         _show(write, "bot", reply)
     record = store.get(candidate_id)

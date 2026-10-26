@@ -7,6 +7,8 @@ from datetime import datetime
 from pathlib import Path
 
 from sazon import config, turn
+from sazon.client import Client
+from sazon.sazon_client import SAZON_CLIENT
 from sazon.llm import LLM
 from sazon.model import Language
 from sazon.phrasing import Directive, Kind, phrase
@@ -15,14 +17,14 @@ from sazon.store import Store
 HELP = "Commands: /new, /resume <id>, /state, /inbox, /wait24h, /help, /quit"
 
 
-def run(llm: LLM, store: Store, areas: dict[str, list[str]], read=input, write=print,
+def run(llm: LLM, store: Store, client: Client, read=input, write=print,
         clock=datetime.now, log_path: Path | None = None) -> None:
     def report(error: Exception) -> None:
         write(_log_error(error, clock(), log_path))
 
     candidate_id = None
     try:
-        candidate_id = _new(store, areas, clock, write)
+        candidate_id = _new(store, client, clock, write)
     except Exception as error:
         report(error)
         write(f"[no active candidate] Type /new to start one. {HELP}")
@@ -38,7 +40,7 @@ def run(llm: LLM, store: Store, areas: dict[str, list[str]], read=input, write=p
             if command == "/quit":
                 return
             try:
-                candidate_id = _command(command, arg.strip(), candidate_id, llm, store, areas, clock, write)
+                candidate_id = _command(command, arg.strip(), candidate_id, llm, store, client, clock, write)
             except Exception as error:
                 report(error)
             continue
@@ -46,7 +48,7 @@ def run(llm: LLM, store: Store, areas: dict[str, list[str]], read=input, write=p
             write("[no active candidate] Type /new to start one.")
             continue
         try:
-            write(f"bot> {turn.handle_message(llm, store, areas, candidate_id, line, clock())}")
+            write(f"bot> {turn.handle_message(llm, store, client, candidate_id, line, clock())}")
         except Exception as error:
             report(error)
             write("bot> " + phrase(llm, Directive(Kind.TECHNICAL_ERROR), Language.ES))
@@ -71,19 +73,19 @@ def _draw_id() -> str:
     return uuid.uuid4().hex[:12]
 
 
-def _new(store, areas, clock, write) -> str:
+def _new(store, client, clock, write) -> str:
     candidate_id = _draw_id()
     while store.get(candidate_id) is not None:  # never merge two applicants into one record
         candidate_id = _draw_id()
-    text = turn.start(store, areas, candidate_id, clock())
+    text = turn.start(store, client, candidate_id, clock())
     write(f"[candidate {candidate_id}]")
     write(f"bot> {text}")
     return candidate_id
 
 
-def _command(command, arg, candidate_id, llm, store, areas, clock, write) -> str | None:
+def _command(command, arg, candidate_id, llm, store, client, clock, write) -> str | None:
     if command == "/new":
-        return _new(store, areas, clock, write)
+        return _new(store, client, clock, write)
     if command == "/resume":
         if store.get(arg) is None:
             write(f"[candidate {arg or '?'} not found]")
@@ -101,7 +103,7 @@ def _command(command, arg, candidate_id, llm, store, areas, clock, write) -> str
         if candidate_id is None:
             write("[no active candidate] Type /new to start one.")
             return candidate_id
-        reply = turn.wait_24h(llm, store, areas, candidate_id, clock())
+        reply = turn.wait_24h(llm, store, client, candidate_id, clock())
         write(f"bot> {reply}" if reply else "[no reply: stalled or already finished]")
         return candidate_id
     write(f"[unknown command {command}] {HELP}")
@@ -150,7 +152,7 @@ def main() -> None:
         print("\n".join(llm.models()))
         return
     print(f"Grupo Sazón screening chat (model {llm.model}). {HELP}\n")
-    run(llm, store, config.AREAS, log_path=config.LOG_PATH)
+    run(llm, store, SAZON_CLIENT, log_path=config.LOG_PATH)
 
 
 if __name__ == "__main__":

@@ -6,7 +6,8 @@ from datetime import datetime, timedelta
 
 import pytest
 
-from sazon import config, reminders, session, slot_flow, turn
+from sazon.sazon_client import SAZON_CLIENT
+from sazon import reminders, session, slot_flow, turn
 from sazon.phrasing import consent_message
 from sazon.store import ConflictError, Store
 from tests.fakes import ScriptedLLM
@@ -26,15 +27,15 @@ def store(path):
 
 
 def started(store, cid="c1"):
-    turn.start(store, config.AREAS, cid, NOW)
-    turn.handle_message(ScriptedLLM(), store, config.AREAS, cid, "sí", NOW)
+    turn.start(store, SAZON_CLIENT, cid, NOW)
+    turn.handle_message(ScriptedLLM(), store, SAZON_CLIENT, cid, "sí", NOW)
 
 
 # --- the version is checked while holding the write lock -------------------------------------------------------
 
 def test_a_save_that_waits_for_another_writer_notices_it_was_overtaken(store, path):
     started(store)
-    stale = session.load(store, "c1", config.AREAS)
+    stale = session.load(store, "c1", SAZON_CLIENT)
     stale.submit("name", "Juan Pérez", NOW.date())
 
     rival = sqlite3.connect(path, timeout=10)
@@ -120,7 +121,7 @@ def test_a_booking_for_a_candidate_who_was_just_erased_is_refused(store):
 
 
 def test_a_chat_message_for_an_unknown_candidate_shows_the_disclosure_instead_of_being_read_as_consent(store):
-    reply = turn.handle_message(ScriptedLLM(), store, config.AREAS, "never-started", "sí", NOW)
+    reply = turn.handle_message(ScriptedLLM(), store, SAZON_CLIENT, "never-started", "sí", NOW)
     assert reply == consent_message()
     assert store.get("never-started").state["consent"] is None
 
@@ -128,7 +129,7 @@ def test_a_chat_message_for_an_unknown_candidate_shows_the_disclosure_instead_of
 def test_after_an_erase_the_same_chat_starts_over_with_the_disclosure(store):
     started(store)
     store.erase_candidate("c1", "recruiter:Ana", NOW, "request")
-    reply = turn.handle_message(ScriptedLLM(), store, config.AREAS, "c1", "sí", NOW)
+    reply = turn.handle_message(ScriptedLLM(), store, SAZON_CLIENT, "c1", "sí", NOW)
     assert reply == consent_message() and store.get("c1").state["consent"] is None
 
 
@@ -156,7 +157,7 @@ def test_a_turn_that_meets_a_conflict_is_run_again_so_the_candidates_message_is_
         return real(*args, **kwargs)
 
     monkeypatch.setattr(turn.session, "commit", commit_once_conflicting)
-    reply = turn.handle_message(ScriptedLLM([{"name": "Juan Pérez"}, {"name": "Juan Pérez"}]), store, config.AREAS,
+    reply = turn.handle_message(ScriptedLLM([{"name": "Juan Pérez"}, {"name": "Juan Pérez"}]), store, SAZON_CLIENT,
                                 "c1", "Juan Pérez", NOW)
     assert "problema técnico" not in reply and store.get("c1").extracted["name"] == "Juan Pérez"
     assert [m.text for m in store.messages("c1")].count("Juan Pérez") == 1
@@ -169,7 +170,7 @@ def test_a_turn_that_keeps_conflicting_gives_the_technical_problem_message(store
         raise ConflictError("c1")
 
     monkeypatch.setattr(turn.session, "commit", always)
-    reply = turn.handle_message(ScriptedLLM([{"name": "Juan Pérez"}, {"name": "Juan Pérez"}]), store, config.AREAS,
+    reply = turn.handle_message(ScriptedLLM([{"name": "Juan Pérez"}, {"name": "Juan Pérez"}]), store, SAZON_CLIENT,
                                 "c1", "Juan Pérez", NOW)
     assert "problema técnico" in reply
 
@@ -180,8 +181,8 @@ def test_a_candidate_who_wrote_while_the_job_was_running_is_not_reminded(store, 
     started(store)
     monkeypatch.setattr(Store, "last_activity", lambda self: {"c1": NOW})  # the job's snapshot is old
     store_msg_time = NOW + 25 * HOUR - timedelta(minutes=5)
-    turn.handle_message(ScriptedLLM([{"name": "Juan Pérez"}]), store, config.AREAS, "c1", "Juan Pérez", store_msg_time)
-    assert reminders.run_once(store, config.AREAS, NOW + 25 * HOUR) == []
+    turn.handle_message(ScriptedLLM([{"name": "Juan Pérez"}]), store, SAZON_CLIENT, "c1", "Juan Pérez", store_msg_time)
+    assert reminders.run_once(store, SAZON_CLIENT, NOW + 25 * HOUR) == []
     assert store.outbox_pending() == []
 
 
@@ -196,7 +197,7 @@ def test_one_broken_candidate_does_not_stop_the_job_for_the_others(store, monkey
         return real(store_, cid, areas)
 
     monkeypatch.setattr(reminders.session, "load", load)
-    actions = reminders.run_once(store, config.AREAS, NOW + 24 * HOUR)
+    actions = reminders.run_once(store, SAZON_CLIENT, NOW + 24 * HOUR)
     assert {(a.candidate_id, a.kind) for a in actions} == {("c1", "error"), ("c2", "reminder")}
     assert [e.candidate_id for e in store.outbox_pending()] == ["c2"]
 
@@ -207,10 +208,10 @@ def test_a_cancelled_booking_queues_a_message_for_the_candidate_in_their_languag
     from tests.test_turn_slots import add_slots, qualify
     add_slots(store)
     qualify(store)
-    turn.handle_message(ScriptedLLM(), store, config.AREAS, "c1", "1", NOW)
+    turn.handle_message(ScriptedLLM(), store, SAZON_CLIENT, "c1", "1", NOW)
     slot = store.booking_of("c1").slot_id
     candidate = store.cancel_slot(slot, "Ana", NOW.astimezone())
-    assert slot_flow.notify_cancelled(store, candidate, NOW) is True
+    assert slot_flow.notify_cancelled(store, SAZON_CLIENT, candidate, NOW) is True
     [entry] = store.outbox_pending("c1")
     assert "ya no está disponible" in entry.text and "reclutador" in entry.text
     assert store.messages("c1")[-1].text == entry.text
@@ -219,5 +220,5 @@ def test_a_cancelled_booking_queues_a_message_for_the_candidate_in_their_languag
 def test_notifying_a_candidate_who_was_erased_does_nothing(store):
     started(store)
     store.erase_candidate("c1", "recruiter:Ana", NOW, "request")
-    assert slot_flow.notify_cancelled(store, "c1", NOW) is False
+    assert slot_flow.notify_cancelled(store, SAZON_CLIENT, "c1", NOW) is False
     assert store.outbox_pending() == []

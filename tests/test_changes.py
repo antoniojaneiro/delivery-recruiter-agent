@@ -4,6 +4,7 @@ from datetime import date, datetime
 
 import pytest
 
+from sazon.sazon_client import SAZON_CLIENT
 from sazon import config, turn
 from sazon.extraction import StartDate
 from sazon.sazon_spec import Extraction
@@ -172,11 +173,11 @@ def store(tmp_path):
 
 def talk(store, message, *extractions, phrases=()):
     llm = ScriptedLLM(extractions, phrases)
-    return turn.handle_message(llm, store, config.AREAS, "c1", message, NOW), llm
+    return turn.handle_message(llm, store, SAZON_CLIENT, "c1", message, NOW), llm
 
 
 def chat_until_city(store):
-    turn.start(store, config.AREAS, "c1", NOW)
+    turn.start(store, SAZON_CLIENT, "c1", NOW)
     talk(store, "sí")
     talk(store, "Juan Pérez", {"name": "Juan Pérez"})
     talk(store, "2 años Glovo", {"experience_years": 2, "platforms": ["Glovo"]})

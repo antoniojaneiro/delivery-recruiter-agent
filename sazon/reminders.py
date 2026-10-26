@@ -16,6 +16,8 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 
 from sazon import config, session, slot_flow
+from sazon.client import Client
+from sazon.sazon_client import SAZON_CLIENT
 from sazon.model import Outcome
 from sazon.phrasing import phrase
 from sazon.store import ConflictError, Store
@@ -34,7 +36,7 @@ def _naive(moment: datetime) -> datetime:
     return moment.replace(tzinfo=None)
 
 
-def run_once(store: Store, areas: dict[str, list[str]], now: datetime) -> list[Action]:
+def run_once(store: Store, client: Client, now: datetime) -> list[Action]:
     if not store.accepting_applications():
         return []
     now = _naive(now)
@@ -45,7 +47,7 @@ def run_once(store: Store, areas: dict[str, list[str]], now: datetime) -> list[A
         if record.outcome not in WATCHED or last is None or now - _naive(last) < REMIND_AFTER:
             continue
         try:
-            action = _remind(store, areas, record.candidate_id, now)
+            action = _remind(store, client, record.candidate_id, now)
         except Exception:  # noqa: BLE001  one damaged record must not stop the pass for everyone else
             action = Action(record.candidate_id, "error")
         if action:
@@ -53,11 +55,11 @@ def run_once(store: Store, areas: dict[str, list[str]], now: datetime) -> list[A
     return actions
 
 
-def _remind(store: Store, areas: dict[str, list[str]], candidate_id: str, now: datetime) -> Action | None:
+def _remind(store: Store, client: Client, candidate_id: str, now: datetime) -> Action | None:
     last = store.last_activity_of(candidate_id)  # fresh: they may have written since the pass started
     if last is None or now - _naive(last) < REMIND_AFTER:
         return None
-    screening = session.load(store, candidate_id, areas)
+    screening = session.load(store, candidate_id, client)
     if screening.needs_consent:
         return None  # they have not agreed to anything yet, so they are not contacted again
     if screening.awaiting_slot_choice:
@@ -84,7 +86,7 @@ def main(argv: list[str] | None = None) -> None:
     store = Store(config.db_path())
     while True:
         now = datetime.fromisoformat(args.now) if args.now else datetime.now()
-        for action in run_once(store, config.AREAS, now):
+        for action in run_once(store, SAZON_CLIENT, now):
             print(f"{now:%Y-%m-%d %H:%M}  {action.candidate_id}  {action.kind}")
         if not args.every:
             return

@@ -4,6 +4,7 @@ from datetime import date, datetime
 
 import pytest
 
+from tests.clients import client_for
 from sazon import session, turn
 from sazon.llm import LLMError
 from sazon.phrasing import Directive, Kind, phrase
@@ -107,11 +108,11 @@ def test_the_extracted_json_never_holds_anything_but_validated_values(consented)
 
 def say(store, message, *extractions, phrases=()):
     llm = ScriptedLLM(extractions, phrases)
-    return turn.handle_message(llm, store, AREAS, "c1", message, NOW), llm
+    return turn.handle_message(llm, store, client_for(AREAS), "c1", message, NOW), llm
 
 
 def consented_chat(store):
-    turn.start(store, AREAS, "c1", NOW)
+    turn.start(store, client_for(AREAS), "c1", NOW)
     say(store, "sí", {"consent": True})
 
 
@@ -156,8 +157,8 @@ def test_a_blocked_candidate_is_reminded_and_can_stall(store):
     consented_chat(store)
     for _ in range(6):
         say(store, "Juan", {"name": "Juan"})
-    assert turn.wait_24h(ScriptedLLM(), store, AREAS, "c1", NOW)
-    assert turn.wait_24h(ScriptedLLM(), store, AREAS, "c1", NOW) is None
+    assert turn.wait_24h(ScriptedLLM(), store, client_for(AREAS), "c1", NOW)
+    assert turn.wait_24h(ScriptedLLM(), store, client_for(AREAS), "c1", NOW) is None
     assert store.get("c1").outcome == "STALLED"
 
 

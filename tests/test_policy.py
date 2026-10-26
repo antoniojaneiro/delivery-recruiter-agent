@@ -3,6 +3,7 @@ from datetime import date, datetime
 
 import pytest
 
+from sazon.sazon_client import SAZON_CLIENT
 from sazon import config, turn
 from sazon.sazon_spec import Extraction
 from sazon.model import Outcome, Reason
@@ -125,10 +126,10 @@ def test_the_strike_count_survives_a_save_and_reload(consented):
 
 def test_a_good_answer_does_not_reset_the_strikes_in_a_real_conversation(tmp_path):
     store = Store(tmp_path / "s.db")
-    turn.start(store, config.AREAS, "c1", NOW)
+    turn.start(store, SAZON_CLIENT, "c1", NOW)
 
     def say(message, *extractions, phrases=()):
-        return turn.handle_message(ScriptedLLM(extractions, phrases), store, config.AREAS, "c1", message, NOW)
+        return turn.handle_message(ScriptedLLM(extractions, phrases), store, SAZON_CLIENT, "c1", message, NOW)
 
     say("sí")
     first = say("cuéntame un chiste", {"off_topic": True}, phrases=["¿Cómo te llamas?"])

@@ -3,6 +3,7 @@ from datetime import date, datetime
 
 import pytest
 
+from tests.clients import client_for
 from sazon import session
 from sazon.model import Language
 from sazon.screening import Screening
@@ -141,7 +142,7 @@ def test_the_candidates_own_words_never_reach_the_card():
 
 def test_the_card_is_saved_with_every_turn_and_refreshed(tmp_path):
     store = Store(tmp_path / "s.db")
-    s = session.load(store, "c1", AREAS)
+    s = session.load(store, "c1", client_for(AREAS))
     s.record_consent(True)
     session.commit(store, "c1", s, NOW)
     first = store.get("c1").summary

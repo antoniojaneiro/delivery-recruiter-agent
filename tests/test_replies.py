@@ -3,6 +3,7 @@ from datetime import date, datetime
 
 import pytest
 
+from sazon.sazon_client import SAZON_CLIENT
 from sazon import config, turn
 from sazon.consent import read_consent
 from sazon.sazon_spec import Extraction
@@ -154,10 +155,10 @@ def test_the_extraction_schema_and_prompt_know_the_pay_flag():
 
 def test_through_a_full_turn_the_reply_acknowledges_a_request_for_a_person(tmp_path):
     store = Store(tmp_path / "s.db")
-    turn.start(store, config.AREAS, "c1", NOW)
-    turn.handle_message(ScriptedLLM(), store, config.AREAS, "c1", "sí", NOW)
+    turn.start(store, SAZON_CLIENT, "c1", NOW)
+    turn.handle_message(ScriptedLLM(), store, SAZON_CLIENT, "c1", "sí", NOW)
     llm = ScriptedLLM([{"wants_human": True}], ["¿Cómo te llamas?"])
-    reply = turn.handle_message(llm, store, config.AREAS, "c1", "¿puedo hablar con una persona?", NOW)
+    reply = turn.handle_message(llm, store, SAZON_CLIENT, "c1", "¿puedo hablar con una persona?", NOW)
     assert "asistente virtual" in reply and "reclutador" in reply
     assert "human_requested" in [e.type for e in store.events("c1")]
 
@@ -165,7 +166,7 @@ def test_through_a_full_turn_the_reply_acknowledges_a_request_for_a_person(tmp_p
 # --- closings are not repeated word for word -------------------------------------------------------
 
 def talk(store, message, *extractions):
-    return turn.handle_message(ScriptedLLM(extractions), store, config.AREAS, "c1", message, NOW)
+    return turn.handle_message(ScriptedLLM(extractions), store, SAZON_CLIENT, "c1", message, NOW)
 
 
 @pytest.fixture
@@ -174,7 +175,7 @@ def store(tmp_path):
 
 
 def reject(store):
-    turn.start(store, config.AREAS, "c1", NOW)
+    turn.start(store, SAZON_CLIENT, "c1", NOW)
     talk(store, "sí")
     talk(store, "no tengo licencia", {"has_license": False})
     return talk(store, "sí, correcto", {"confirms_rejection": True})
@@ -188,7 +189,7 @@ def test_a_message_after_a_rejection_gets_a_short_note_not_the_same_close(store)
 
 
 def test_a_qualified_candidate_who_writes_again_is_told_once_more_without_the_celebration(store):
-    turn.start(store, config.AREAS, "c1", NOW)
+    turn.start(store, SAZON_CLIENT, "c1", NOW)
     talk(store, "sí")
     for message, ex in [("Soy Juan Pérez", {"name": "Juan Pérez"}), ("sin experiencia", {"experience_years": 0}),
                         ("tiempo completo", {"availability": ["full_time"]}), ("mañana", {"schedule": "morning"}),

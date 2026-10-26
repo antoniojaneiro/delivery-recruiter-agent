@@ -5,6 +5,7 @@ from datetime import date, datetime
 
 import pytest
 
+from sazon.sazon_client import SAZON_CLIENT
 from sazon import config, turn
 from sazon.extraction import StartDate
 from sazon.sazon_spec import Extraction
@@ -130,10 +131,10 @@ def test_an_llm_error_exposes_a_short_kind_without_the_message_content():
 
 def test_a_model_failure_event_says_what_kind_of_failure_it_was(tmp_path):
     store = Store(tmp_path / "s.db")
-    turn.start(store, config.AREAS, "c1", NOW)
-    turn.handle_message(ScriptedLLM(), store, config.AREAS, "c1", "sí", NOW)
+    turn.start(store, SAZON_CLIENT, "c1", NOW)
+    turn.handle_message(ScriptedLLM(), store, SAZON_CLIENT, "c1", "sí", NOW)
     llm = ScriptedLLM([LLMError("NotFoundError: models/x is not found for API version v1")])
-    turn.handle_message(llm, store, config.AREAS, "c1", "Juan Pérez", NOW)
+    turn.handle_message(llm, store, SAZON_CLIENT, "c1", "Juan Pérez", NOW)
     [failure] = [e for e in store.events("c1") if e.type == "model_failure"]
     assert failure.detail == "unreachable:NotFoundError"
 
@@ -151,7 +152,7 @@ def run_chat(store, lines):
         except StopIteration:
             raise EOFError
 
-    chat.run(ScriptedLLM(), store, config.AREAS, read=read, write=out.append, clock=lambda: NOW)
+    chat.run(ScriptedLLM(), store, SAZON_CLIENT, read=read, write=out.append, clock=lambda: NOW)
     return out
 
 

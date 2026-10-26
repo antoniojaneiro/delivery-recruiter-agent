@@ -4,6 +4,7 @@ from datetime import date, datetime
 
 import pytest
 
+from tests.clients import client_for
 from sazon import session
 from sazon.model import RecruiterStatus
 from sazon.screening import Screening
@@ -31,7 +32,7 @@ def test_reasons_and_flags_are_stored_with_each_turn_for_the_dashboard(store):
 
 
 def test_the_session_stores_the_decision_reasons_and_flags(store):
-    screening = session.load(store, "c1", AREAS)
+    screening = session.load(store, "c1", client_for(AREAS))
     screening.record_consent(True)
     for _ in range(6):
         screening.submit("name", "Juan", date(2026, 10, 25))
