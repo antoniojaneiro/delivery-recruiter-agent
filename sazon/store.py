@@ -6,16 +6,11 @@ from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
 
-from sazon import config
 from sazon.model import RecruiterStatus
 from sazon.store_schema import prepare
 from sazon.store_slots import SlotsMixin
 from sazon.store_types import (AGENT, NO_CHECK, AdminEntry, Booking, ConflictError, Event, InputError, Message,  # noqa: F401
-                               Note, OutboxEntry, Record, RecruiterRecord, Slot, stamp as _stamp)
-
-AGENT = "agent"
-NO_CHECK = object()  # commit_turn without a version check (tests and tools that own the whole record)
-
+                               Note, OutboxEntry, Record, RecruiterRecord, Slot)  # noqa: F401
 
 BUSY_TIMEOUT_SECONDS = 10
 

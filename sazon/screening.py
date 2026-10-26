@@ -9,7 +9,7 @@ from sazon.model import CityMatchStatus, EventType, Field, Language, Outcome, Re
 from sazon.phrasing import Directive, Kind, consent_text_hash
 from sazon.screening_changes import ChangeConfirmation
 from sazon.screening_slots import SlotOffer
-from sazon.screening_values import MISSING as _MISSING, dump_change as _dump_change, load_change as _load_change, same as _same, value_of as _value
+from sazon.screening_values import MISSING as _MISSING, dump_change as _dump_change, load_change as _load_change, value_of as _value
 
 FIELD_ORDER = (Field.NAME, Field.EXPERIENCE, Field.AVAILABILITY, Field.SCHEDULE, Field.START_DATE,
                Field.CITY, Field.LICENSE)
