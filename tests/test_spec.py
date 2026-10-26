@@ -74,3 +74,58 @@ def test_an_unclear_answer_is_followed_up_for_the_field_it_belongs_to():
     s = toy()
     directive = s.apply(TOY.extraction_model(name="Jo"), "Jo", TODAY)
     assert directive.field == "name" and directive.kind.value == "follow_up"
+
+
+def _conversation(tmp_path, lift):
+    from datetime import datetime
+
+    from sazon import turn
+    from sazon.store import Store
+    from tests.fakes import ScriptedLLM
+    from tests.toy_spec import TOY_CLIENT
+
+    now = datetime(2026, 10, 25, 10, 0)
+    store = Store(tmp_path / "toy.db")
+    llm = ScriptedLLM(extractions=[{"name": "Jo Smith"}, {"shift": "night"}, {"can_lift": lift}])
+    replies = [turn.start(store, TOY_CLIENT, "c1", now)]
+    for message in ("yes", "Jo Smith", "nights", "yes I can" if lift else "no"):
+        replies.append(turn.handle_message(llm, store, TOY_CLIENT, "c1", message, now))
+    return store, replies
+
+
+def test_a_second_client_runs_a_whole_conversation_in_its_own_words(tmp_path):
+    store, replies = _conversation(tmp_path, lift=True)
+    assert replies == [
+        TOY_PACK_CONSENT, "What's your full name?", "Do you prefer day or night shifts?", "Can you lift 20 kg?",
+        "Thanks, you are through. Our team will call you within 5 days."]
+    record = store.get("c1")
+    assert record.outcome == "QUALIFIED"
+    assert record.summary.splitlines() == [
+        "Jo Smith · Qualified", "Shift: night", "Can lift 20 kg: yes", "Chat: language English",
+        "Automatic summary: the recruiter decides."]
+
+
+def test_a_second_client_disqualifies_by_its_own_rule_and_says_so_in_its_own_words(tmp_path):
+    store, replies = _conversation(tmp_path, lift=False)
+    assert replies[-1] == "Just to confirm: you cannot lift 20 kg?"
+    from sazon import turn
+    from tests.fakes import ScriptedLLM
+    from tests.toy_spec import TOY_CLIENT
+    from datetime import datetime
+    closing = turn.handle_message(ScriptedLLM(extractions=[{"confirms_rejection": True}]), store, TOY_CLIENT, "c1",
+                                  "yes", datetime(2026, 10, 25, 10, 5))
+    assert closing.startswith("We need someone who can lift 20 kg")
+    record = store.get("c1")
+    assert record.outcome == "DISQUALIFIED" and record.reasons == ["CANNOT_LIFT"]
+    assert "Motivo" not in record.summary and "Reason: cannot lift 20 kg" in record.summary
+
+
+def test_nothing_of_sazon_reaches_a_second_clients_candidates(tmp_path):
+    store, replies = _conversation(tmp_path, lift=True)
+    text = " ".join(replies + [m.text for m in store.messages("c1")] + [store.get("c1").summary])
+    for leaked in ("Saz", "repartidor", "delivery", "48", "reclutador", "licen"):
+        assert leaked not in text
+
+
+TOY_PACK_CONSENT = ("Hi, I'm Acme Logistics' virtual assistant (an AI). I'll ask three questions about your picker "
+                    "application. A recruiter reviews every answer. May I save your answers?")

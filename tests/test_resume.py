@@ -3,6 +3,7 @@ from datetime import datetime
 
 import pytest
 
+from sazon.sazon_spec import SAZON
 from sazon.sazon_client import SAZON_CLIENT
 from sazon import turn
 from sazon.consent import is_resume_request
@@ -145,9 +146,9 @@ def test_closing_applications_stops_new_and_current_candidates_without_touching_
     before = (store.get("c1").state, len(store.messages("c1")))
     store.set_accepting(False, "Ana", AWARE)
     reply, llm = say(store, "mi teléfono es 600123123", {"name": "Otro Nombre"})
-    assert reply == closed_message() and llm.calls == []
+    assert reply == closed_message(SAZON) and llm.calls == []
     assert (store.get("c1").state, len(store.messages("c1"))) == before
-    assert turn.start(store, SAZON_CLIENT, "new", NOW) == closed_message()
+    assert turn.start(store, SAZON_CLIENT, "new", NOW) == closed_message(SAZON)
     assert store.get("new") is None
     assert turn.wait_24h(ScriptedLLM(), store, SAZON_CLIENT, "c1", NOW) is None
 
@@ -177,7 +178,7 @@ def test_the_switch_needs_a_name(store):
 
 
 def test_the_closed_notice_is_bilingual_because_the_language_is_not_known_yet():
-    text = closed_message()
+    text = closed_message(SAZON)
     assert "no estamos aceptando solicitudes" in text and "not accepting applications" in text
 
 

@@ -3,6 +3,7 @@ from datetime import datetime, timedelta
 
 import pytest
 
+from sazon.sazon_spec import SAZON
 from sazon.sazon_client import SAZON_CLIENT
 from sazon import reminders, session, turn
 from sazon.phrasing import Directive, Kind, phrase
@@ -12,7 +13,7 @@ from tests.test_turn_slots import add_slots, qualify
 
 T0 = datetime(2026, 10, 25, 10, 0)
 HOUR = timedelta(hours=1)
-REMINDER_TEXT = phrase(None, Directive(Kind.REMINDER), "es")
+REMINDER_TEXT = phrase(None, SAZON, Directive(Kind.REMINDER), "es")
 
 
 @pytest.fixture

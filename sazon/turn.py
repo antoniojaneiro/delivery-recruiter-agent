@@ -18,13 +18,13 @@ NOT_STORED = "[message not stored: no consent]"
 
 def start(store, client: Client, candidate_id: str, now: datetime) -> str:
     if not store.accepting_applications():
-        return closed_message()
+        return closed_message(client.spec)
     screening = session.load(store, candidate_id, client)
-    text = consent_message()
+    text = consent_message(client.spec)
     try:
         session.commit(store, candidate_id, screening, now, messages=[("agent", text)])
     except ConflictError:
-        return technical_error_message(screening.language)
+        return technical_error_message(client.spec, screening.language)
     return text
 
 
@@ -36,7 +36,7 @@ def wait_24h(llm: LLM, store, client: Client, candidate_id: str, now: datetime) 
     if not screening.is_open:
         return None
     directive = screening.on_silence()
-    reply = phrase(llm, directive, screening.language) if directive else None
+    reply = phrase(llm, client.spec, directive, screening.language) if directive else None
     try:
         session.commit(store, candidate_id, screening, now, messages=[("agent", reply)] if reply else [])
     except ConflictError:
@@ -47,7 +47,7 @@ def wait_24h(llm: LLM, store, client: Client, candidate_id: str, now: datetime) 
 def handle_message(llm: LLM, store, client: Client, candidate_id: str, message: str,
                    now: datetime) -> str:
     if not store.accepting_applications():
-        return closed_message()  # nothing is read, stored or sent to the model while applications are closed
+        return closed_message(client.spec)  # nothing is read, stored or sent to the model while applications are closed
     if store.get(candidate_id) is None:  # never started, or erased: they see the disclosure before anything else
         return start(store, client, candidate_id, now)
     for attempt in range(2):
@@ -56,7 +56,7 @@ def handle_message(llm: LLM, store, client: Client, candidate_id: str, message: 
         except ConflictError:
             if store.get(candidate_id) is None:  # erased meanwhile: never bring the record back
                 break
-    return technical_error_message(session.load(store, candidate_id, client).language)
+    return technical_error_message(client.spec, session.load(store, candidate_id, client).language)
 
 
 def _handle(llm: LLM, store, client: Client, candidate_id: str, message: str, now: datetime) -> str:
@@ -69,9 +69,9 @@ def _handle(llm: LLM, store, client: Client, candidate_id: str, message: str, no
     else:
         directive = _directive_for(llm, screening, message, now.date(), last_question)
         directive = slot_flow.after_close(store, screening, candidate_id, directive, now)
-    reply = consent_message() if directive is None else phrase(llm, directive, screening.language)
+    reply = consent_message(client.spec) if directive is None else phrase(llm, client.spec, directive, screening.language)
     if directive is not None and directive.kind == Kind.CLOSE:
-        short = phrase(llm, replace(directive, repeat=True), screening.language)
+        short = phrase(llm, client.spec, replace(directive, repeat=True), screening.language)
         if last_question in (reply, short):  # already said once: not the same close word for word
             reply = short
     kept = message if screening.consent else NOT_STORED

@@ -3,6 +3,7 @@ from datetime import datetime
 import pytest
 
 from tests.clients import client_for
+from sazon.sazon_spec import SAZON
 from sazon import turn
 from sazon.llm import LLMError
 from sazon.phrasing import consent_message
@@ -29,8 +30,8 @@ def outcome(store, id="c1"):
 
 
 def test_the_first_message_is_the_fixed_disclosure_and_is_saved(store):
-    assert turn.start(store, client_for(AREAS), "c1", NOW) == consent_message()
-    assert [(m.role, m.text) for m in store.messages("c1")] == [("agent", consent_message())]
+    assert turn.start(store, client_for(AREAS), "c1", NOW) == consent_message(SAZON)
+    assert [(m.role, m.text) for m in store.messages("c1")] == [("agent", consent_message(SAZON))]
     assert outcome(store) == "IN_PROGRESS"
 
 
@@ -52,7 +53,7 @@ def test_consent_no_closes_politely_and_nothing_is_kept(store):
 def test_an_unanswered_consent_question_is_asked_again(store):
     turn.start(store, client_for(AREAS), "c1", NOW)
     reply, _ = say(store, "¿quién eres?", {"language": "es"})
-    assert reply == consent_message()
+    assert reply == consent_message(SAZON)
     assert store.get("c1").extracted == {}
 
 
@@ -104,7 +105,7 @@ def test_every_turn_stores_both_sides_of_the_conversation_in_order(store):
     turn.start(store, client_for(AREAS), "c1", NOW)
     reply, _ = say(store, "sí", {"consent": True})
     messages = [(m.role, m.text) for m in store.messages("c1")]
-    assert messages == [("agent", consent_message()), ("candidate", "sí"), ("agent", reply)]
+    assert messages == [("agent", consent_message(SAZON)), ("candidate", "sí"), ("agent", reply)]
 
 
 def consented(store, id="c1"):
@@ -356,7 +357,7 @@ def test_an_unclear_consent_reply_is_asked_again_every_time_and_costs_nothing(st
     turn.start(store, client_for(AREAS), "c1", NOW)
     for _ in range(6):
         reply, llm = say(store, "¿qué es esto?")
-        assert reply == consent_message() and llm.calls == []
+        assert reply == consent_message(SAZON) and llm.calls == []
     assert store.get("c1").outcome == "IN_PROGRESS"
 
 

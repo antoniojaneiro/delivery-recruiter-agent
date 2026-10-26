@@ -5,7 +5,7 @@ import pytest
 
 from sazon.sazon_client import SAZON_CLIENT
 from sazon import config, turn
-from sazon.sazon_spec import Extraction
+from sazon.sazon_spec import SAZON, Extraction
 from sazon.model import Outcome, Reason
 from sazon.phrasing import Directive, Kind, consent_message, phrase
 from sazon.screening import Screening
@@ -17,13 +17,13 @@ NOW = datetime(2026, 10, 25, 10, 0)
 
 
 def close(outcome, language="es", reasons=(), repeat=False):
-    return phrase(FakeLLM(), Directive(Kind.CLOSE, outcome=outcome, reasons=list(reasons), repeat=repeat), language)
+    return phrase(FakeLLM(), SAZON, Directive(Kind.CLOSE, outcome=outcome, reasons=list(reasons), repeat=repeat), language)
 
 
 # --- D51: the consent text names the external AI service ---------------------------------------------
 
 def test_the_first_message_says_answers_go_to_an_external_ai_service_and_a_recruiter_reviews_them():
-    text = consent_message()
+    text = consent_message(SAZON)
     assert "servicio de IA externo" in text and "siempre las revisa un reclutador" in text
     assert "external AI service" in text and "always reviewed by a recruiter" in text
     assert text.count("?") == 2 and "asistente virtual" in text and "virtual assistant" in text
@@ -78,9 +78,9 @@ def strike(s, message="¿cuál es la capital de Francia?"):
 
 def test_an_off_topic_message_gets_a_redirect_then_the_same_question_again(consented):
     directive = strike(consented)
-    out = phrase(FakeLLM("¿Cómo te llamas?"), directive, "es")
+    out = phrase(FakeLLM("¿Cómo te llamas?"), SAZON, directive, "es")
     assert out.startswith("Eso no forma parte de mi función") and out.endswith("¿Cómo te llamas?")
-    en = phrase(FakeLLM("What is your name?"), directive, "en")
+    en = phrase(FakeLLM("What is your name?"), SAZON, directive, "en")
     assert "not part of my role" in en
 
 

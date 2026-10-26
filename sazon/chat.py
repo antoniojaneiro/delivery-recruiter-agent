@@ -51,7 +51,7 @@ def run(llm: LLM, store: Store, client: Client, read=input, write=print,
             write(f"bot> {turn.handle_message(llm, store, client, candidate_id, line, clock())}")
         except Exception as error:
             report(error)
-            write("bot> " + phrase(llm, Directive(Kind.TECHNICAL_ERROR), Language.ES))
+            write("bot> " + phrase(llm, client.spec, Directive(Kind.TECHNICAL_ERROR), Language.ES))
 
 
 def _log_error(error: Exception, now: datetime, log_path: Path | None) -> str:

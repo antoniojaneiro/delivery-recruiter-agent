@@ -5,6 +5,7 @@ from datetime import date, datetime
 import pytest
 
 from tests.clients import client_for
+from sazon.sazon_spec import SAZON
 from sazon import session, turn
 from sazon.llm import LLMError
 from sazon.phrasing import Directive, Kind, phrase
@@ -172,11 +173,11 @@ def test_a_blocked_candidate_is_reminded_and_can_stall(store):
 ])
 def test_the_blocked_message_is_fixed_and_names_what_is_missing(field, es, en):
     llm = FakeLLM("should never be used")
-    assert es in phrase(llm, Directive(Kind.BLOCKED, field=field), "es").lower()
-    assert en in phrase(llm, Directive(Kind.BLOCKED, field=field), "en").lower()
+    assert es in phrase(llm, SAZON, Directive(Kind.BLOCKED, field=field), "es").lower()
+    assert en in phrase(llm, SAZON, Directive(Kind.BLOCKED, field=field), "en").lower()
     assert llm.calls == []
 
 
 def test_the_follow_up_fallback_explains_the_information_is_needed_to_continue():
-    out = phrase(FakeLLM("x" * 400), Directive(Kind.FOLLOW_UP, field=Field.NAME), "es")
+    out = phrase(FakeLLM("x" * 400), SAZON, Directive(Kind.FOLLOW_UP, field=Field.NAME), "es")
     assert "necesito" in out.lower()

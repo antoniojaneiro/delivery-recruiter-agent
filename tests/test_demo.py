@@ -4,6 +4,7 @@ from datetime import datetime
 
 import pytest
 
+from sazon.sazon_spec import SAZON
 from sazon import demo
 from sazon.phrasing import consent_message
 from sazon.store import Store
@@ -40,7 +41,7 @@ def test_a_scenario_is_played_from_the_disclosure_to_the_last_message(store):
     scenario = demo.Scenario("t", "Test", ["sí", "Juan"])
     lines = []
     result = demo.run_scenario(ScriptedLLM(), store, scenario, NOW, pause=0, write=lines.append)
-    assert result.turns[0].bot == consent_message()
+    assert result.turns[0].bot == consent_message(SAZON)
     assert [t.you for t in result.turns[1:]] == ["sí", "Juan"]
     assert all(t.bot for t in result.turns)
     assert result.outcome == "IN_PROGRESS"

@@ -8,7 +8,7 @@ import pytest
 from sazon.sazon_client import SAZON_CLIENT
 from sazon import config, turn
 from sazon.extraction import StartDate
-from sazon.sazon_spec import Extraction
+from sazon.sazon_spec import SAZON, Extraction
 from sazon.llm import LLMError
 from sazon.phrasing import Directive, Kind, consent_message, phrase
 from sazon.model import Field
@@ -99,13 +99,13 @@ def test_places_that_really_are_outside_are_still_outside(text):
 ])
 def test_a_phrased_reply_that_mentions_pay_a_hire_or_a_call_time_is_replaced_by_the_fixed_question(promise):
     language = "en" if promise.split()[0] in {"You", "We"} else "es"
-    out = phrase(FakeLLM(promise), Directive(Kind.ASK, field=Field.LICENSE), language)
+    out = phrase(FakeLLM(promise), SAZON, Directive(Kind.ASK, field=Field.LICENSE), language)
     assert out != promise
 
 
 def test_an_ordinary_question_with_a_number_in_it_is_kept():
     text = "¿Cuántos años de experiencia tienes, 1 o 2?"
-    assert phrase(FakeLLM(text), Directive(Kind.ASK, field=Field.EXPERIENCE), "es") == text
+    assert phrase(FakeLLM(text), SAZON, Directive(Kind.ASK, field=Field.EXPERIENCE), "es") == text
 
 
 # --- consent evidence and failure traces ---------------------------------------------------------
@@ -115,7 +115,7 @@ def test_the_consent_event_records_which_wording_was_accepted():
     s.record_consent(True)
     kind, detail = s.events[0]
     assert kind == "consent_given"
-    assert detail == "text_sha256=" + hashlib.sha256(consent_message().encode("utf-8")).hexdigest()[:12]
+    assert detail == "text_sha256=" + hashlib.sha256(consent_message(SAZON).encode("utf-8")).hexdigest()[:12]
 
 
 def test_declining_also_records_the_wording_that_was_shown():

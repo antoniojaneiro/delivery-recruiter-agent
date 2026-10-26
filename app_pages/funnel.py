@@ -2,10 +2,11 @@ import streamlit as st
 
 from sazon import ui
 from sazon.funnel import build_funnel
+from sazon.sazon_client import SAZON_CLIENT
 from sazon.recruiter_view import OUTCOME_LABEL
 
 store = ui.store()
-funnel = build_funnel(ui.candidates())
+funnel = build_funnel(ui.candidates(), SAZON_CLIENT.spec)
 
 st.title("Embudo de candidatos")
 st.caption("Cuenta lo que el asistente ya guarda: hasta dónde llega cada persona y cuántas llegan a un reclutador.")

@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 
 import pytest
 
+from sazon.sazon_spec import SAZON
 from sazon.sazon_client import SAZON_CLIENT
 from sazon import reminders, session, slot_flow, turn
 from sazon.phrasing import consent_message
@@ -122,7 +123,7 @@ def test_a_booking_for_a_candidate_who_was_just_erased_is_refused(store):
 
 def test_a_chat_message_for_an_unknown_candidate_shows_the_disclosure_instead_of_being_read_as_consent(store):
     reply = turn.handle_message(ScriptedLLM(), store, SAZON_CLIENT, "never-started", "sí", NOW)
-    assert reply == consent_message()
+    assert reply == consent_message(SAZON)
     assert store.get("never-started").state["consent"] is None
 
 
@@ -130,7 +131,7 @@ def test_after_an_erase_the_same_chat_starts_over_with_the_disclosure(store):
     started(store)
     store.erase_candidate("c1", "recruiter:Ana", NOW, "request")
     reply = turn.handle_message(ScriptedLLM(), store, SAZON_CLIENT, "c1", "sí", NOW)
-    assert reply == consent_message() and store.get("c1").state["consent"] is None
+    assert reply == consent_message(SAZON) and store.get("c1").state["consent"] is None
 
 
 def test_the_erase_says_in_the_log_whether_the_log_file_was_really_emptied(store, monkeypatch):

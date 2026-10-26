@@ -78,7 +78,7 @@ def test_a_chat_turn_that_loses_the_race_apologises_and_changes_nothing(store, m
     started(store)
     competing = {}
 
-    def rival_commits_first(llm, directive, language):  # runs between the load and the save of the turn
+    def rival_commits_first(llm, spec, directive, language):  # runs between the load and the save of the turn
         other = session.load(store, "c1", SAZON_CLIENT)
         other.submit("name", "Rival Persona", NOW.date())
         session.commit(store, "c1", other, NOW)
@@ -95,7 +95,7 @@ def test_a_chat_turn_that_loses_the_race_apologises_and_changes_nothing(store, m
 def test_a_candidate_erased_during_a_turn_is_not_recreated_and_starts_fresh_next_time(store, monkeypatch):
     started(store)
 
-    def erase_first(llm, directive, language):
+    def erase_first(llm, spec, directive, language):
         store.erase_candidate("c1", "recruiter:Ana", NOW, "request")
         return "¿Cómo te llamas?"
 

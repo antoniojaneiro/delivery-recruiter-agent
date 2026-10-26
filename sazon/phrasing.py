@@ -1,12 +1,19 @@
+"""What the agent says. The wording is the client's (its pack and the texts on its spec); this module decides
+which text a directive needs, fills in the placeholders and keeps the model's rephrasing inside safe limits."""
 import hashlib
 import re
 from dataclasses import dataclass, field as dc_field
 from enum import StrEnum
+from typing import TYPE_CHECKING
 
 from sazon.llm import LLM, LLMError
-from sazon.model import Field, Language, Outcome, Reason
+from sazon.model import Language, Outcome, Reason
+
+if TYPE_CHECKING:
+    from sazon.spec import ScreeningSpec
 
 MAX_REPLY_CHARS = 280
+MAX_ECHO_CHARS = 40
 
 
 class Kind(StrEnum):
@@ -27,7 +34,7 @@ class Kind(StrEnum):
 @dataclass(frozen=True)
 class Directive:
     kind: Kind
-    field: Field | None = None
+    field: str | None = None
     reason: str = ""
     suggestion: str | None = None
     outcome: Outcome | None = None
@@ -38,65 +45,7 @@ class Directive:
     repeat: bool = False  # a closing already sent once: say it shortly instead of word for word
 
 
-_CONSENT = (
-    "Hola, soy el asistente virtual (una IA) de Grupo Sazón. Te haré unas preguntas para tu solicitud "
-    "de repartidor. Tus respuestas se procesan con un servicio de IA externo y siempre las revisa un "
-    "reclutador. ¿Te parece bien que guarde tus respuestas para el equipo de reclutamiento?\n"
-    "Hi, I'm Grupo Sazón's virtual assistant (an AI). I'll ask a few questions for your delivery "
-    "driver application. Your answers are processed by an external AI service and always reviewed by a "
-    "recruiter. Is it OK if I save your answers for the recruiting team?"
-)
-
-_ASK = {
-    Field.NAME: ("¿Cómo te llamas? Necesito tu nombre y apellido.", "What's your full name, first and last?"),
-    Field.EXPERIENCE: ("¿Tienes experiencia repartiendo? Dime cuántos años y en qué plataforma.",
-                       "Do you have delivery experience? Tell me how many years and on which platform."),
-    Field.AVAILABILITY: ("¿Qué disponibilidad tienes: tiempo completo, medio tiempo o fines de semana?",
-                         "What's your availability: full-time, part-time or weekends?"),
-    Field.SCHEDULE: ("¿Qué horario prefieres: mañana, tarde, noche o flexible?",
-                     "Which schedule do you prefer: morning, afternoon, evening or flexible?"),
-    Field.START_DATE: ("¿Cuándo podrías empezar?", "When could you start?"),
-    Field.CITY: ("¿En qué ciudad o zona vives?", "Which city or area do you live in?"),
-    Field.LICENSE: ("¿Tienes licencia de conducir?", "Do you have a driver's license?"),
-}
-
-_CLOSE = {
-    Outcome.QUALIFIED: (
-        "¡Genial, tu perfil encaja! Un reclutador te escribirá en un máximo de 48 horas para el siguiente paso.",
-        "Great, your profile fits! A recruiter will message you within 48 hours with the next step."),
-    Outcome.ENDED_OFF_TOPIC: (
-        "Has enviado varios mensajes ajenos a la solicitud y en Grupo Sazón pedimos un trato profesional, "
-        "así que termino la conversación. Un reclutador puede revisarlo.",
-        "You have sent several messages unrelated to the application, and Grupo Sazón asks for a professional "
-        "tone, so I'm ending the conversation. A recruiter can review it."),
-    Outcome.WITHDRAWN: (
-        "Entendido, paramos aquí. Si quieres retomar tu solicitud, escribe «continuar». Gracias por tu tiempo.",
-        "Understood, we'll stop here. If you want to pick your application back up, write «continue». "
-        "Thanks for your time."),
-}
-_CLOSE_REASON = {
-    Reason.NO_CONSENT: (
-        "Sin tu permiso para guardar las respuestas no puedo continuar. Si cambias de opinión, escribe «sí» y empezamos.",
-        "Without your permission to save your answers I can't continue. If you change your mind, write «yes» and we'll start."),
-    Reason.NO_LICENSE: (
-        "Para repartir necesitamos licencia de conducir, así que no puedo seguir con el proceso automático. "
-        "Un reclutador puede revisar tu caso si hay algún error. Gracias por tu interés.",
-        "We need a driver's license for delivery, so I can't continue with the automated process. "
-        "A recruiter can review your case if something is wrong. Thanks for your interest."),
-    Reason.OUT_OF_AREA: (
-        "Por ahora no operamos en tu zona, así que no puedo seguir con el proceso automático. "
-        "Un reclutador puede revisar tu caso si hay algún error. Gracias por tu interés.",
-        "We don't operate in your area yet, so I can't continue with the automated process. "
-        "A recruiter can review your case if something is wrong. Thanks for your interest."),
-}
-
-_CONFIRM_REJECTION = {
-    Field.LICENSE: ("Solo para confirmar: ¿es correcto que no tienes licencia de conducir?",
-                    "Just to confirm: is it right that you don't have a driver's license?"),
-    Field.CITY: ("Solo para confirmar: ¿es correcto que vives en {city}?",
-                 "Just to confirm: is it right that you live in {city}?"),
-}
-
+# Names of days and months are locale data, not a client's wording.
 _WEEKDAYS = {
     Language.ES: ("lun", "mar", "mié", "jue", "vie", "sáb", "dom"),
     Language.EN: ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"),
@@ -105,58 +54,23 @@ _MONTHS = {
     Language.ES: ("ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"),
     Language.EN: ("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"),
 }
-_OFFER = {
-    "first": ("¡Genial, tu perfil encaja! Elige una hora para una llamada corta con el equipo:",
-              "Great, your profile fits! Pick a time for a short call with the team:"),
-    "taken": ("Ese horario ya no está libre. Estas son las opciones disponibles:",
-              "That time is no longer free. These are the options available:"),
-    "unclear": ("No me quedó claro. Elige una opción:", "I didn't quite get that. Pick an option:"),
-    "reminder": ("Te recuerdo las horas disponibles para tu llamada:", "A reminder of the times available for your call:"),
-}
-_OFFER_END = (
-    "Responde con el número. Si ninguna te viene bien, responde 'ninguna' y un reclutador te escribirá en un máximo de 48 horas.",
-    "Reply with the number. If none suits you, reply 'none' and a recruiter will message you within 48 hours.",
-)
-_BOOKED = ("Listo, queda reservada tu llamada: {label}. Un reclutador te llamará a esa hora.",
-           "Done, your call is booked: {label}. A recruiter will call you then.")
-_ALREADY_BOOKED = ("Tu llamada ya está reservada: {label}. Si hay algún cambio, un reclutador te escribirá.",
-                   "Your call is already booked: {label}. If anything changes, a recruiter will message you.")
-
-_REMINDER = ("Hola, ¿sigues interesado en la solicitud? Cuando quieras, seguimos donde lo dejamos.",
-             "Hi, are you still interested in the application? We can pick up where we left off.")
-_ERROR = ("Tuve un problema técnico. ¿Puedes repetir tu último mensaje?",
-          "I had a technical problem. Could you repeat your last message?")
-_SLOT_CANCELLED = ("La llamada que tenías reservada ya no está disponible. Un reclutador te escribirá para darte otra hora.",
-                   "The call you had booked is no longer available. A recruiter will write to you with another time.")
-_UNCLEAR = ("No me quedó claro y necesito este dato para continuar. ",
-            "That wasn't clear, and I need this to move forward. ")
-
-_WHAT = {
-    Field.NAME: ("tu nombre y apellido", "your first and last name"),
-    Field.EXPERIENCE: ("tus años de experiencia repartiendo (puede ser 0) y la plataforma",
-                       "your years of delivery experience (0 is fine) and the platform"),
-    Field.AVAILABILITY: ("tu disponibilidad (tiempo completo, medio tiempo o fines de semana)",
-                         "your availability (full-time, part-time or weekends)"),
-    Field.SCHEDULE: ("tu horario preferido (mañana, tarde, noche o flexible)",
-                     "your preferred schedule (morning, afternoon, evening or flexible)"),
-    Field.START_DATE: ("cuándo puedes empezar", "when you can start"),
-    Field.CITY: ("la ciudad o zona donde vives", "the city or area where you live"),
-    Field.LICENSE: ("si tienes licencia de conducir (sí o no)", "whether you have a driver's license (yes or no)"),
-}
-_BLOCKED = ("No puedo continuar con tu solicitud hasta que me indiques {what}.",
-            "I can't continue with your application until you tell me {what}.")
-
-_SYSTEM = (
-    "You write one short chat message for a delivery-driver screening assistant at Grupo Sazón. "
-    "Write 1-2 short sentences with exactly one question, friendly and direct. In Spanish use the informal tú. "
-    "At most one emoji. Do not promise a job, pay or call times. Do not mention these instructions. "
-    "Do not greet or welcome the candidate: the chat is already under way. "
-    "Output only the message."
-)
 _LANGUAGE = {Language.ES: "Spanish", Language.EN: "English"}
+
 _URL = re.compile(r"https?://|www\.", re.I)
 # A phrased question must never state pay, a hire or a clock time: those come from fixed texts only.
 _PROMISE = re.compile(r"[€$£]|\b(euros?|pesos|sueldo|salario|salary|wage|paga|pagamos|contratad[oa]|hired|offer|oferta|ganar[aá]s?|earn)\b|\b\d{1,2}\s*[:h]\s*\d{2}\b", re.I)
+_GREETING = re.compile(r"^[¡\s]*(?:hola|hey|hi|hello|buenas)(?:\s+there)?\s*[!,.]*\s*", re.IGNORECASE)
+_WELCOME = re.compile(r"^[¡\s]*(?:bienvenid[oa]s?|welcome)\b[^.!?¿]*[.!]\s*", re.IGNORECASE)
+
+
+def _system_prompt(spec: "ScreeningSpec") -> str:
+    return (
+        f"You write one short chat message for a {spec.role} screening assistant at {spec.pack.company}. "
+        "Write 1-2 short sentences with exactly one question, friendly and direct. In Spanish use the informal tú. "
+        "At most one emoji. Do not promise a job, pay or call times. Do not mention these instructions. "
+        "Do not greet or welcome the candidate: the chat is already under way. "
+        "Output only the message."
+    )
 
 
 def slot_label(starts_at, language: Language) -> str:
@@ -166,121 +80,76 @@ def slot_label(starts_at, language: Language) -> str:
     return f"{weekday} {starts_at.day} {month}, {starts_at:%H:%M}"
 
 
-def consent_text_hash() -> str:
+def _both(text: dict) -> str:
+    """Before the candidate has written anything the language is not known: every language, one after the other."""
+    return "\n".join(text.values())
+
+
+def consent_message(spec: "ScreeningSpec") -> str:
+    return _both(spec.pack.consent)
+
+
+def closed_message(spec: "ScreeningSpec") -> str:
+    return _both(spec.pack.closed)
+
+
+def consent_text_hash(spec: "ScreeningSpec") -> str:
     """Identifies the exact wording shown, so the consent record proves which text was accepted."""
-    return hashlib.sha256(_CONSENT.encode("utf-8")).hexdigest()[:12]
+    return hashlib.sha256(consent_message(spec).encode("utf-8")).hexdigest()[:12]
 
 
-def technical_error_message(language: str) -> str:
-    return _pick(_ERROR, language)
+def technical_error_message(spec: "ScreeningSpec", language: str) -> str:
+    return spec.pack.pick(spec.pack.error, language)
 
 
-def slot_cancelled_message(language: str) -> str:
-    return _pick(_SLOT_CANCELLED, language)
+def slot_cancelled_message(spec: "ScreeningSpec", language: str) -> str:
+    return spec.pack.pick(spec.pack.slots.cancelled, language)
 
 
-def closed_message() -> str:
-    """Bilingual: before the candidate has written anything the language is not known."""
-    return _CLOSED
+def echo(text) -> str:
+    """A saved or proposed answer repeated back to the candidate: one line, short."""
+    return " ".join(str(text).split())[:MAX_ECHO_CHARS]
 
 
-def consent_message() -> str:
-    return _CONSENT
+def describe_value(spec: "ScreeningSpec", field: str, value, language: Language) -> str:
+    """A saved or proposed answer in the candidate's language, short and on one line, for the change question."""
+    describe = spec.field(field).describe
+    if describe is not None:
+        return describe(value, language)
+    return echo(value.isoformat() if hasattr(value, "isoformat") else value)
 
 
-def _pick(pair: tuple[str, str], language: str) -> str:
-    return pair[0] if language == Language.ES else pair[1]
-
-
-def _template(directive: Directive, language: str) -> str:
+def _template(spec: "ScreeningSpec", directive: Directive, language: str) -> str:
+    pack = spec.pack
+    pick = pack.pick
     match directive.kind:
         case Kind.ASK:
-            return _pick(_ASK[directive.field], language)
+            return pick(spec.field(directive.field).ask, language)
         case Kind.FOLLOW_UP:
-            return _pick(_UNCLEAR, language) + _pick(_ASK[directive.field], language)
+            return pick(pack.unclear, language) + pick(spec.field(directive.field).ask, language)
         case Kind.CONFIRM_CITY:
-            q = (f"¿Te refieres a {directive.suggestion}?", f"Do you mean {directive.suggestion}?")
-            return _pick(q, language)
+            return pick(pack.confirm_city, language).format(suggestion=directive.suggestion)
         case Kind.CONFIRM_CHANGE:
-            return _pick(_CONFIRM_CHANGE, language).format(old=directive.options[0], new=directive.options[1])
+            return pick(pack.confirm_change, language).format(old=directive.options[0], new=directive.options[1])
         case Kind.CONFIRM_REJECTION:
-            city = " ".join((directive.suggestion or "").split())[:40]
-            return _pick(_CONFIRM_REJECTION[directive.field], language).format(city=city)
+            city = " ".join((directive.suggestion or "").split())[:MAX_ECHO_CHARS]
+            return pick(spec.field(directive.field).confirm_rejection, language).format(city=city)
         case Kind.OFFER_SLOTS:
+            slots = pack.slots
             options = "\n".join(f"{i}) {label}" for i, label in enumerate(directive.options, start=1))
-            return f"{_pick(_OFFER[directive.reason], language)}\n{options}\n{_pick(_OFFER_END, language)}"
+            return f"{pick(slots.offer[directive.reason], language)}\n{options}\n{pick(slots.offer_end, language)}"
         case Kind.SLOT_BOOKED:
-            return _pick(_BOOKED, language).format(label=directive.label)
+            return pick(pack.slots.booked, language).format(label=directive.label)
         case Kind.ALREADY_BOOKED:
-            return _pick(_ALREADY_BOOKED, language).format(label=directive.label)
+            return pick(pack.slots.already_booked, language).format(label=directive.label)
         case Kind.BLOCKED:
-            return _pick(_BLOCKED, language).format(what=_pick(_WHAT[directive.field], language))
+            what = pick(spec.field(directive.field).what, language)
+            return pick(pack.blocked, language).format(what=what)
         case Kind.REMINDER:
-            return _pick(_REMINDER, language)
+            return pick(pack.reminder, language)
         case Kind.TECHNICAL_ERROR:
-            return _pick(_ERROR, language)
+            return pick(pack.error, language)
     raise ValueError(directive.kind)
-
-
-_CLOSE_REPEAT = {
-    Outcome.QUALIFIED: ("Ya tenemos todo lo que necesitamos: un reclutador te escribirá en un máximo de 48 horas.",
-                        "We already have everything we need: a recruiter will message you within 48 hours."),
-}
-_CONFIRM_CHANGE = ("Antes me dijiste {old}. ¿Lo cambio a {new}?", "Earlier you told me {old}. Shall I change it to {new}?")
-_VALUE_AVAILABILITY = {
-    "full_time": ("tiempo completo", "full-time"), "part_time": ("medio tiempo", "part-time"),
-    "weekends": ("fines de semana", "weekends"),
-}
-_VALUE_SCHEDULE = {
-    "morning": ("mañana", "morning"), "afternoon": ("tarde", "afternoon"), "evening": ("noche", "evening"),
-    "flexible": ("flexible", "flexible"),
-}
-MAX_ECHO_CHARS = 40
-
-
-def describe_value(field: Field, value, language: Language) -> str:
-    """A saved or proposed answer in the candidate's language, short and on one line, for the change question."""
-    def clean(text) -> str:
-        return " ".join(str(text).split())[:MAX_ECHO_CHARS]
-
-    if field == Field.LICENSE:
-        return _pick(("sí", "yes"), language) if value else "no"
-    if field == Field.AVAILABILITY:
-        return ", ".join(_pick(_VALUE_AVAILABILITY.get(v, (clean(v), clean(v))), language) for v in value)
-    if field == Field.SCHEDULE:
-        return _pick(_VALUE_SCHEDULE.get(value, (clean(value), clean(value))), language)
-    if field == Field.EXPERIENCE:
-        years, platforms = (value["years"], value["platforms"]) if isinstance(value, dict) else value
-        if not years:
-            return _pick(("sin experiencia", "no experience"), language)
-        unit = _pick(("año", "year"), language) if years == 1 else _pick(("años", "years"), language)
-        shown = f"{years:g} {unit}"
-        return f"{shown} ({', '.join(clean(p) for p in platforms)})" if platforms else shown
-    return clean(value.isoformat() if hasattr(value, "isoformat") else value)
-
-
-_CLOSE_REPEAT_WITHDRAWN = ("Has dejado la solicitud. Si quieres retomarla, escribe «continuar».",
-                           "You have left the application. If you want to pick it up, write «continue».")
-_CLOSED = (
-    "Por ahora no estamos aceptando solicitudes. ¡Gracias por tu interés!\n"
-    "We are not accepting applications right now. Thank you for your interest!"
-)
-_CLOSE_REPEAT_OTHER = ("Esta conversación ya está cerrada. Un reclutador revisará tu caso.",
-                       "This conversation is closed. A recruiter will review your case.")
-_NOTICE = {
-    "human": ("Soy un asistente virtual: un reclutador revisará tu solicitud y podrá hablar contigo después.",
-              "I'm a virtual assistant: a recruiter will review your application and can talk to you afterwards."),
-    "pay": ("Sobre el sueldo, te informará un reclutador.", "A recruiter will tell you about the pay."),
-    "changed": ("Hecho, lo he cambiado.", "Done, I've changed it."),
-    "kept": ("De acuerdo, lo dejo como estaba.", "OK, I'll leave it as it was."),
-    "offtopic": ("Eso no forma parte de mi función; sigamos con tu solicitud.",
-                 "That's not part of my role; let's continue with your application."),
-}
-_GREETING = re.compile(r"^[¡\s]*(?:hola|hey|hi|hello|buenas)(?:\s+there)?\s*[!,.]*\s*", re.IGNORECASE)
-_WELCOME = re.compile(r"^[¡\s]*(?:bienvenid[oa]s?|welcome)\b[^.!?¿]*[.!]\s*", re.IGNORECASE)
-
-_CLOSE_OTHER = ("Gracias por tu tiempo. Cuando quieras retomar tu solicitud, escríbenos.",
-                "Thanks for your time. Write to us whenever you want to pick up your application.")
 
 
 def _strip_greeting(text: str) -> str:
@@ -294,14 +163,15 @@ def _strip_greeting(text: str) -> str:
     return text
 
 
-def _close(directive: Directive, language: str) -> str:
+def _close(spec: "ScreeningSpec", directive: Directive, language: str) -> str:
+    pack = spec.pack
     if directive.repeat and Reason.NO_CONSENT not in directive.reasons:
         if directive.outcome == Outcome.WITHDRAWN:
-            return _pick(_CLOSE_REPEAT_WITHDRAWN, language)
-        return _pick(_CLOSE_REPEAT.get(directive.outcome, _CLOSE_REPEAT_OTHER), language)
+            return pack.pick(pack.close_repeat_withdrawn, language)
+        return pack.pick(pack.close_repeat.get(directive.outcome, pack.close_repeat_other), language)
     if directive.outcome == Outcome.DISQUALIFIED and directive.reasons:
-        return _pick(_CLOSE_REASON[directive.reasons[0]], language)
-    return _pick(_CLOSE.get(directive.outcome, _CLOSE_OTHER), language)
+        return pack.pick(spec.close_text(directive.reasons[0]), language)
+    return pack.pick(pack.close.get(directive.outcome, pack.close_other), language)
 
 
 def _usable(text: str, directive: Directive, language: Language) -> bool:
@@ -316,26 +186,26 @@ def _usable(text: str, directive: Directive, language: Language) -> bool:
     return not (directive.suggestion and directive.suggestion not in text)
 
 
-def phrase(llm: LLM, directive: Directive, language: str) -> str:
-    text = _phrase(llm, directive, language)
+def phrase(llm: LLM, spec: "ScreeningSpec", directive: Directive, language: str) -> str:
+    text = _phrase(llm, spec, directive, language)
     if directive.notice and directive.kind != Kind.CLOSE:
-        notices = [_pick(_NOTICE[name], language) for name in directive.notice.split("+")]
+        notices = [spec.pack.pick(spec.pack.notices[name], language) for name in directive.notice.split("+")]
         text = " ".join(notices) + " " + text
     return text
 
 
-def _phrase(llm: LLM, directive: Directive, language: str) -> str:
+def _phrase(llm: LLM, spec: "ScreeningSpec", directive: Directive, language: str) -> str:
     if directive.kind == Kind.CLOSE:
-        return _close(directive, language)
+        return _close(spec, directive, language)
     if directive.kind in (Kind.TECHNICAL_ERROR, Kind.REMINDER, Kind.CONFIRM_REJECTION, Kind.CONFIRM_CHANGE, Kind.BLOCKED,
                           Kind.OFFER_SLOTS, Kind.SLOT_BOOKED, Kind.ALREADY_BOOKED):
-        return _template(directive, language)
+        return _template(spec, directive, language)
     brief = [f"Language: {_LANGUAGE[language]}", f"Purpose: {directive.kind.replace('_', ' ')}"]
     if directive.field:
         brief.append(f"Topic: {directive.field}")
-        if directive.field in _ASK:
+        if directive.field in spec.keys:
             brief.append("Question to ask (keep its meaning and every option it lists, in your own friendly words): "
-                         + _pick(_ASK[directive.field], language))
+                         + spec.pack.pick(spec.field(directive.field).ask, language))
     if directive.reason:
         brief.append(f"What was unclear: {directive.reason}")
     if directive.kind == Kind.FOLLOW_UP:
@@ -343,7 +213,7 @@ def _phrase(llm: LLM, directive: Directive, language: str) -> str:
     if directive.suggestion:
         brief.append(f"Ask whether they mean this city: {directive.suggestion}")
     try:
-        text = _strip_greeting(llm.complete(_SYSTEM, "\n".join(brief)).strip())
+        text = _strip_greeting(llm.complete(_system_prompt(spec), "\n".join(brief)).strip())
     except LLMError:
-        return _template(directive, language)
-    return text if _usable(text, directive, language) else _template(directive, language)
+        return _template(spec, directive, language)
+    return text if _usable(text, directive, language) else _template(spec, directive, language)

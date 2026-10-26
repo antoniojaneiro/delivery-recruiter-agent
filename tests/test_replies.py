@@ -6,7 +6,7 @@ import pytest
 from sazon.sazon_client import SAZON_CLIENT
 from sazon import config, turn
 from sazon.consent import read_consent
-from sazon.sazon_spec import Extraction
+from sazon.sazon_spec import SAZON, Extraction
 from sazon.model import Field
 from sazon.phrasing import Directive, Kind, consent_message, phrase
 from sazon.screening import Screening
@@ -81,7 +81,7 @@ def test_the_prompt_says_hesitation_is_not_off_topic():
     ("¡Hola! 👋 Para conocerte mejor, ¿cuántos años tienes de experiencia?", "👋 Para conocerte mejor, ¿cuántos años tienes de experiencia?"),
 ])
 def test_a_leading_greeting_or_welcome_is_removed_from_a_phrased_question(raw, expected):
-    assert phrase(FakeLLM(raw), Directive(Kind.ASK, field=Field.CITY), "es") == expected
+    assert phrase(FakeLLM(raw), SAZON, Directive(Kind.ASK, field=Field.CITY), "es") == expected
 
 
 @pytest.mark.parametrize("raw,expected", [
@@ -90,17 +90,17 @@ def test_a_leading_greeting_or_welcome_is_removed_from_a_phrased_question(raw, e
     ("Hello, what is your city?", "What is your city?"),
 ])
 def test_the_same_in_english(raw, expected):
-    assert phrase(FakeLLM(raw), Directive(Kind.ASK, field=Field.CITY), "en") == expected
+    assert phrase(FakeLLM(raw), SAZON, Directive(Kind.ASK, field=Field.CITY), "en") == expected
 
 
 def test_a_reply_that_is_only_a_greeting_falls_back_to_the_fixed_question():
-    out = phrase(FakeLLM("¡Hola!"), Directive(Kind.ASK, field=Field.CITY), "es")
+    out = phrase(FakeLLM("¡Hola!"), SAZON, Directive(Kind.ASK, field=Field.CITY), "es")
     assert "ciudad" in out.lower()
 
 
 def test_the_phrasing_prompt_forbids_greeting_again():
     llm = FakeLLM("¿Y tu ciudad?")
-    phrase(llm, Directive(Kind.ASK, field=Field.CITY), "es")
+    phrase(llm, SAZON, Directive(Kind.ASK, field=Field.CITY), "es")
     assert "greet" in llm.calls[0]["system"].lower()
 
 
@@ -110,7 +110,7 @@ def test_asking_for_a_person_is_acknowledged_before_the_next_question():
     s = Screening(config.AREAS)
     s.record_consent(True)
     directive = s.apply(Extraction(wants_human=True), "¿puedo hablar con una persona?", TODAY)
-    out = phrase(FakeLLM("¿Cómo te llamas?"), directive, "es")
+    out = phrase(FakeLLM("¿Cómo te llamas?"), SAZON, directive, "es")
     assert out.startswith("Soy un asistente virtual") and "reclutador" in out and out.endswith("¿Cómo te llamas?")
 
 
@@ -118,7 +118,7 @@ def test_asking_about_pay_says_a_recruiter_will_answer():
     s = Screening(config.AREAS)
     s.record_consent(True)
     directive = s.apply(Extraction(asks_pay=True), "¿cuánto pagan?", TODAY)
-    out = phrase(FakeLLM("¿Cómo te llamas?"), directive, "es")
+    out = phrase(FakeLLM("¿Cómo te llamas?"), SAZON, directive, "es")
     assert "sueldo" in out and "reclutador" in out and out.endswith("¿Cómo te llamas?")
     assert s.decide().outcome == "IN_PROGRESS" and [k for k, _ in s.events].count("off_topic") == 0
 
@@ -127,7 +127,7 @@ def test_both_questions_in_one_message_get_both_answers_once():
     s = Screening(config.AREAS)
     s.record_consent(True)
     directive = s.apply(Extraction(wants_human=True, asks_pay=True), "¿hablo con alguien y cuánto pagan?", TODAY)
-    out = phrase(FakeLLM("¿Cómo te llamas?"), directive, "es")
+    out = phrase(FakeLLM("¿Cómo te llamas?"), SAZON, directive, "es")
     assert out.count("reclutador") >= 1 and "sueldo" in out and "asistente virtual" in out
 
 
@@ -136,7 +136,7 @@ def test_the_english_notices():
     s.record_consent(True)
     s.language = "en"
     directive = s.apply(Extraction(wants_human=True, asks_pay=True), "can I talk to someone? what is the pay?", TODAY)
-    out = phrase(FakeLLM("What is your name?"), directive, "en")
+    out = phrase(FakeLLM("What is your name?"), SAZON, directive, "en")
     assert "virtual assistant" in out and "pay" in out and out.endswith("What is your name?")
 
 

@@ -7,7 +7,7 @@ import pytest
 from sazon.sazon_client import SAZON_CLIENT
 from sazon import config, turn
 from sazon.extraction import StartDate
-from sazon.sazon_spec import Extraction
+from sazon.sazon_spec import SAZON, Extraction
 from sazon.model import Field
 from sazon.phrasing import Kind, phrase
 from sazon.screening import Screening
@@ -34,7 +34,7 @@ def ask(s, text, **fields):
 
 
 def text_of(directive, language="es"):
-    return phrase(FakeLLM(), directive, language)
+    return phrase(FakeLLM(), SAZON, directive, language)
 
 
 # --- what counts as a change ---------------------------------------------------------------------------------
@@ -98,7 +98,7 @@ def test_yes_applies_the_change_says_so_and_goes_on_with_the_next_question():
     ask(s, "soy Carlos López", name="Carlos López")
     directive = s.resolve_change(True, TODAY)
     assert s.values["name"] == "Carlos López" and not s.awaiting_change
-    out = phrase(FakeLLM("¿Tienes licencia?"), directive, "es")
+    out = phrase(FakeLLM("¿Tienes licencia?"), SAZON, directive, "es")
     assert out.startswith("Hecho, lo he cambiado.") and out.endswith("¿Tienes licencia?")
     assert ("field_changed", "name") in s.events
 
@@ -108,7 +108,7 @@ def test_no_keeps_the_old_value_and_says_so():
     ask(s, "mi jefe se llama Carlos López", name="Carlos López")
     directive = s.resolve_change(False, TODAY)
     assert s.values["name"] == "Juan Pérez"
-    assert phrase(FakeLLM("¿Tienes licencia?"), directive, "es").startswith("De acuerdo, lo dejo como estaba.")
+    assert phrase(FakeLLM("¿Tienes licencia?"), SAZON, directive, "es").startswith("De acuerdo, lo dejo como estaba.")
     assert ("field_changed", "name") not in s.events
 
 

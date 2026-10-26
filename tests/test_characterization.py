@@ -25,12 +25,12 @@ class NoModel:
 
 
 def _say(directive: Directive, language) -> str:
-    return phrasing.phrase(NoModel(), directive, language)
+    return phrasing.phrase(NoModel(), SAZON, directive, language)
 
 
 def _fixed_texts() -> dict:
-    out = {"consent": phrasing.consent_message(), "closed": phrasing.closed_message(),
-           "consent_hash": phrasing.consent_text_hash()}
+    out = {"consent": phrasing.consent_message(SAZON), "closed": phrasing.closed_message(SAZON),
+           "consent_hash": phrasing.consent_text_hash(SAZON)}
     fields = [f for f in Field if f != Field.CONSENT]
     for lang in LANGS:
         for field in fields:
@@ -48,8 +48,8 @@ def _fixed_texts() -> dict:
         out[f"reminder/{lang}"] = _say(Directive(Kind.REMINDER), lang)
         out[f"error/{lang}"] = _say(Directive(Kind.TECHNICAL_ERROR), lang)
         out[f"follow_up/{lang}"] = _say(Directive(Kind.FOLLOW_UP, field=Field.NAME, reason="need last name"), lang)
-        out[f"slot_cancelled/{lang}"] = phrasing.slot_cancelled_message(lang)
-        out[f"tech/{lang}"] = phrasing.technical_error_message(lang)
+        out[f"slot_cancelled/{lang}"] = phrasing.slot_cancelled_message(SAZON, lang)
+        out[f"tech/{lang}"] = phrasing.technical_error_message(SAZON, lang)
         for notice in ("human", "pay", "human+pay", "changed", "kept", "offtopic"):
             out[f"notice/{notice}/{lang}"] = _say(Directive(Kind.ASK, field=Field.NAME, notice=notice), lang)
         for outcome in Outcome:
@@ -65,7 +65,7 @@ def _fixed_texts() -> dict:
                   Field.START_DATE: [date(2026, 11, 1)], Field.NAME: ["Ana Ruiz"], Field.CITY: ["Madrid"]}
         for field, items in values.items():
             for i, value in enumerate(items):
-                out[f"describe/{field}/{i}/{lang}"] = phrasing.describe_value(field, value, lang)
+                out[f"describe/{field}/{i}/{lang}"] = phrasing.describe_value(SAZON, field, value, lang)
         out[f"slot_label/{lang}"] = phrasing.slot_label(datetime(2026, 11, 3, 10, 0), lang)
     return out
 
@@ -76,7 +76,7 @@ def _prompts() -> dict:
                        awaiting_rejection=Field.LICENSE)
     return {"extraction_system": SYSTEM, "extraction_user": llm.user,
             "extraction_schema": Extraction.model_json_schema(),
-            "phrasing_system": phrasing._SYSTEM}
+            "phrasing_system": phrasing._system_prompt(SAZON)}
 
 
 class _Recorder:
@@ -110,12 +110,12 @@ def _cards() -> dict:
         blocked.submit("name", "x", TODAY)
     return {"full": summary.summarise(full), "partial": summary.summarise(partial),
             "declined": summary.summarise(declined), "blocked": summary.summarise(blocked),
-            "outcome_labels": {str(k): v for k, v in summary.OUTCOME_LABEL.items()},
-            "field_labels": {str(k): v for k, v in summary.FIELD_LABEL.items()}}
+            "outcome_labels": {str(k): v for k, v in SAZON.recruiter.outcome_labels.items()},
+            "field_labels": {f.key: f.label for f in SAZON.fields}}
 
 
 def _funnel_stages() -> list:
-    return [name for name, _ in funnel.build_funnel([]).stages]
+    return [name for name, _ in funnel.build_funnel([], SAZON).stages]
 
 
 def _state() -> dict:

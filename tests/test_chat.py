@@ -4,6 +4,7 @@ from datetime import datetime
 import pytest
 
 from tests.clients import client_for
+from sazon.sazon_spec import SAZON
 from sazon import chat
 from sazon.phrasing import consent_message
 from sazon.store import Store
@@ -35,7 +36,7 @@ def run(store, lines, llm=None, log_path=None):
 
 def test_the_chat_opens_with_the_disclosure_and_quits_on_command(store):
     out = run(store, ["/quit"])
-    assert consent_message() in "\n".join(out)
+    assert consent_message(SAZON) in "\n".join(out)
     assert len(store.list_candidates()) == 1
 
 

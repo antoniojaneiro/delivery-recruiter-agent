@@ -45,5 +45,5 @@ class ChangeConfirmation:
             if not result.ok or self.spec.field(field).same(old, result.value):
                 return
             shown = result.value
-        self._pending_change = (field, candidate, describe_value(field, old, self.language),
-                                describe_value(field, shown, self.language))
+        self._pending_change = (field, candidate, describe_value(self.spec, field, old, self.language),
+                                describe_value(self.spec, field, shown, self.language))

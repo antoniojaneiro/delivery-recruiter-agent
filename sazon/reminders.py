@@ -69,7 +69,7 @@ def _remind(store: Store, client: Client, candidate_id: str, now: datetime) -> A
         kind = "reminder" if directive else "stalled"
     else:
         return None
-    text = phrase(None, directive, screening.language) if directive else None  # fixed texts: no model needed
+    text = phrase(None, client.spec, directive, screening.language) if directive else None  # fixed texts: no model needed
     try:
         session.commit(store, candidate_id, screening, now,
                        messages=[("agent", text)] if text else [], outbox=[text] if text else [])

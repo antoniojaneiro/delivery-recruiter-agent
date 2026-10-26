@@ -13,8 +13,6 @@ from sazon.sazon_spec import SAZON
 from sazon.spec import MISSING as _MISSING, ScreeningSpec
 from sazon.screening_values import dump_change as _dump_change, load_change as _load_change, load_value as _decoded
 
-FIELD_ORDER = (Field.NAME, Field.EXPERIENCE, Field.AVAILABILITY, Field.SCHEDULE, Field.START_DATE,
-               Field.CITY, Field.LICENSE)
 MAX_FOLLOW_UPS = 5
 MAX_OFF_TOPIC = 3  # in total, not in a row (D55)
 MAX_CITY_LENGTH = 80
@@ -64,7 +62,7 @@ class Screening(ChangeConfirmation, SlotOffer):
         self.withdrawn = False
         self.stalled = False
         self.reminder_sent = False
-        self.language = Language.ES
+        self.language = spec.pack.default_language
         self.version: int | None = None  # the stored version this copy was loaded at (None: a new candidate)
         self.events: list[tuple[str, str]] = []
         self._events_synced = 0
@@ -81,10 +79,15 @@ class Screening(ChangeConfirmation, SlotOffer):
     def awaiting_confirmation(self) -> str | None:
         return self._pending_city[0] if self._pending_city else None
 
+    def _hear_language(self, language: Language | None) -> None:
+        """The candidate's language, when the client has wording for it."""
+        if language and language in self.spec.pack.consent:
+            self.language = language
+
     def record_consent(self, given: bool) -> None:
         self.consent = given
         self.events.append((EventType.CONSENT_GIVEN if given else EventType.CONSENT_DECLINED,
-                            f"text_sha256={consent_text_hash()}"))
+                            f"text_sha256={consent_text_hash(self.spec)}"))
 
     @property
     def awaiting_rejection(self) -> Field | None:
@@ -135,8 +138,7 @@ class Screening(ChangeConfirmation, SlotOffer):
 
     def apply_consent_reply(self, reading: ConsentReading) -> Directive | None:
         """Nothing the candidate wrote with the answer is used (D44). None re-asks the question."""
-        if reading.language:
-            self.language = reading.language
+        self._hear_language(reading.language)
         if reading.answer is None:
             return None
         self.record_consent(reading.answer)
@@ -151,8 +153,7 @@ class Screening(ChangeConfirmation, SlotOffer):
             reading = read_consent(message)
             if reading.answer is not True and not is_resume_request(message):
                 return self.close_directive()
-            if reading.language:
-                self.language = reading.language
+            self._hear_language(reading.language)
             self.record_consent(True)
             return Directive(Kind.ASK, field=self.next_field())
         if self.withdrawn:
@@ -210,8 +211,7 @@ class Screening(ChangeConfirmation, SlotOffer):
 
     def _next_directive(self, ex: ControlFlags, message: str, today: date) -> Directive:
         asking = self.next_field()
-        if ex.language:
-            self.language = ex.language
+        self._hear_language(ex.language)
         if ex.wants_human:
             self.human_requested()
         if ex.withdraw:
@@ -317,7 +317,7 @@ class Screening(ChangeConfirmation, SlotOffer):
         s.withdrawn = state.get("withdrawn", False)
         s.stalled = state.get("stalled", False)
         s.reminder_sent = state.get("reminder_sent", False)
-        s.language = Language(state.get("language", Language.ES))
+        s.language = Language(state.get("language", spec.pack.default_language))
         s.validation_flags = {k: list(v) for k, v in state.get("validation_flags", {}).items()}
         s._partial = dict(state.get("partial", {}))
         s._pending_change = _load_change(spec, state.get("pending_change"))

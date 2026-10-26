@@ -20,6 +20,8 @@ def after_close(store: Store, screening: Screening, candidate_id: str, directive
     """When the chat closes as QUALIFIED: confirm an existing booking, or offer the next free slots."""
     if directive is None or directive.kind != Kind.CLOSE or directive.outcome != Outcome.QUALIFIED:
         return directive
+    if screening.spec.pack.slots is None:
+        return directive  # this client does not book calls
     booking = store.booking_of(candidate_id)
     if booking:
         return Directive(Kind.ALREADY_BOOKED, label=slot_label(booking.starts_at, screening.language))
@@ -58,7 +60,7 @@ def notify_cancelled(store: Store, client: Client, candidate_id: str, now: datet
     if store.get(candidate_id) is None:
         return False
     screening = session.load(store, candidate_id, client)
-    text = slot_cancelled_message(screening.language)
+    text = slot_cancelled_message(client.spec, screening.language)
     try:
         session.commit(store, candidate_id, screening, now, messages=[("agent", text)], outbox=[text])
     except ConflictError:

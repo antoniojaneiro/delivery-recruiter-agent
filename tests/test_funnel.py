@@ -5,6 +5,7 @@ from pathlib import Path
 import pytest
 from streamlit.testing.v1 import AppTest
 
+from sazon.sazon_spec import SAZON
 from sazon.funnel import build_funnel
 from sazon.store import Store
 from tests.dash import login, seed_accounts
@@ -43,14 +44,14 @@ def populate(store):
 
 
 def test_an_empty_database_gives_zeros_and_no_division_by_zero(store):
-    f = build_funnel(store.list_candidates())
+    f = build_funnel(store.list_candidates(), SAZON)
     assert f.total == 0 and f.consented == 0 and f.qualified == 0
     assert all(count == 0 for _, count in f.stages) and f.rates["qualified"] == 0
 
 
 def test_the_stages_count_how_far_candidates_got(store):
     populate(store)
-    f = build_funnel(store.list_candidates())
+    f = build_funnel(store.list_candidates(), SAZON)
     stages = dict(f.stages)
     assert stages["Empezaron"] == 12
     assert stages["Dieron su consentimiento"] == 10          # all but a and b
@@ -62,26 +63,26 @@ def test_the_stages_count_how_far_candidates_got(store):
 
 def test_the_stages_never_grow_as_the_conversation_goes_on(store):
     populate(store)
-    counts = [count for _, count in build_funnel(store.list_candidates()).stages[:-2]]
+    counts = [count for _, count in build_funnel(store.list_candidates(), SAZON).stages[:-2]]
     assert counts == sorted(counts, reverse=True)
 
 
 def test_the_outcomes_and_the_reasons_are_counted(store):
     populate(store)
-    f = build_funnel(store.list_candidates())
+    f = build_funnel(store.list_candidates(), SAZON)
     assert f.outcomes["QUALIFIED"] == 2 and f.outcomes["DISQUALIFIED"] == 3 and f.outcomes["WITHDRAWN"] == 1
     assert f.reasons == {"NO_CONSENT": 1, "NO_LICENSE": 1, "OUT_OF_AREA": 1, "BLOCKED_ON_EXPERIENCE": 1}
 
 
 def test_candidates_still_open_are_counted_where_they_stopped(store):
     populate(store)
-    f = build_funnel(store.list_candidates())
+    f = build_funnel(store.list_candidates(), SAZON)
     assert f.stopped_at == {"consentimiento": 1, "nombre": 1, "horario preferido": 2, "experiencia": 1}
 
 
 def test_the_rates_are_shares_of_the_right_group(store):
     populate(store)
-    r = build_funnel(store.list_candidates()).rates
+    r = build_funnel(store.list_candidates(), SAZON).rates
     assert r["consent"] == pytest.approx(10 / 12)
     assert r["qualified"] == pytest.approx(2 / 12)
     assert r["booked_of_qualified"] == pytest.approx(1 / 2)

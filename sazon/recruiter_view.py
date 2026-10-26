@@ -5,7 +5,7 @@ from sazon.model import Language, Outcome, Reason, RecruiterStatus
 from sazon.phrasing import slot_label
 from sazon.store import Booking, Record, Slot
 from sazon import slot_time
-from sazon.summary import OUTCOME_LABEL
+from sazon.sazon_spec import RECRUITER
 from sazon.validators import fold
 
 STATUS_LABEL = {
@@ -16,6 +16,7 @@ STATUS_LABEL = {
     RecruiterStatus.REJECTED: "Rechazado",
     RecruiterStatus.UNREACHABLE: "No localizable",
 }
+OUTCOME_LABEL = RECRUITER.outcome_labels
 NO_NAME = "(sin nombre)"
 COUNTRY_LABEL = {"ES": "España", "MX": "México"}
 

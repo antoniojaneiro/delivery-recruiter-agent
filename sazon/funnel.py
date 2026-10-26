@@ -4,9 +4,8 @@ from collections import Counter
 from dataclasses import dataclass
 
 from sazon.model import Outcome, Reason
-from sazon.screening import FIELD_ORDER
+from sazon.spec import ScreeningSpec
 from sazon.store import Record
-from sazon.summary import FIELD_LABEL
 
 OPEN_OUTCOMES = (Outcome.IN_PROGRESS, Outcome.STALLED, Outcome.BLOCKED)
 
@@ -28,26 +27,27 @@ def _share(part: int, whole: int) -> float:
     return part / whole if whole else 0.0
 
 
-def build_funnel(records: list[Record]) -> Funnel:
+def build_funnel(records: list[Record], spec: ScreeningSpec) -> Funnel:
+    texts = spec.recruiter
     total = len(records)
     consented = sum(1 for r in records if r.state.get("consent") is True)
-    answered = {field: sum(1 for r in records if field in r.extracted) for field in FIELD_ORDER}
+    answered = {field: sum(1 for r in records if field in r.extracted) for field in spec.keys}
     qualified = sum(1 for r in records if r.outcome == Outcome.QUALIFIED)
     booked = sum(1 for r in records if r.booking is not None)
-    stages = [("Empezaron", total), ("Dieron su consentimiento", consented)]
-    stages += [(f"Respondieron: {FIELD_LABEL[field]}", answered[field]) for field in FIELD_ORDER]
-    stages += [("Cualificaron", qualified), ("Reservaron una llamada", booked)]
+    stages = [(texts.started, total), (texts.consented, consented)]
+    stages += [(texts.answered.format(label=spec.field(field).label), answered[field]) for field in spec.keys]
+    stages += [(texts.qualified, qualified), (texts.booked, booked)]
 
     stopped = Counter()
     for r in records:
         if r.outcome not in OPEN_OUTCOMES:
             continue
         if r.state.get("consent") is not True:
-            stopped["consentimiento"] += 1
+            stopped[texts.consent_stage] += 1
             continue
-        missing = [f for f in FIELD_ORDER if f not in r.extracted]
+        missing = [f for f in spec.keys if f not in r.extracted]
         if missing:
-            stopped[FIELD_LABEL[missing[0]]] += 1
+            stopped[spec.field(missing[0]).label] += 1
 
     closed_by_agent = sum(1 for r in records if r.outcome == Outcome.ENDED_OFF_TOPIC or (
         r.outcome == Outcome.DISQUALIFIED and Reason.NO_CONSENT not in r.reasons))
