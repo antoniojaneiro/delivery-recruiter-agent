@@ -3,12 +3,15 @@ from datetime import date, datetime
 
 import pytest
 
-from sazon import config, turn
-from sazon.extraction import Extraction
-from sazon.model import Outcome, Reason
-from sazon.phrasing import Directive, Kind, consent_message, phrase
-from sazon.screening import Screening
-from sazon.store import Store
+from sazon.client import SAZON_CLIENT
+from screener import turn
+from sazon import config
+from sazon.spec import SAZON, Extraction
+from screener.model import Outcome
+from sazon.fields import Reason
+from screener.phrasing import Directive, Kind, consent_message, phrase
+from screener.screening import Screening
+from screener.store import Store
 from tests.fakes import FakeLLM, ScriptedLLM
 
 TODAY = date(2026, 10, 25)
@@ -16,13 +19,13 @@ NOW = datetime(2026, 10, 25, 10, 0)
 
 
 def close(outcome, language="es", reasons=(), repeat=False):
-    return phrase(FakeLLM(), Directive(Kind.CLOSE, outcome=outcome, reasons=list(reasons), repeat=repeat), language)
+    return phrase(FakeLLM(), SAZON, Directive(Kind.CLOSE, outcome=outcome, reasons=list(reasons), repeat=repeat), language)
 
 
 # --- D51: the consent text names the external AI service ---------------------------------------------
 
 def test_the_first_message_says_answers_go_to_an_external_ai_service_and_a_recruiter_reviews_them():
-    text = consent_message()
+    text = consent_message(SAZON)
     assert "servicio de IA externo" in text and "siempre las revisa un reclutador" in text
     assert "external AI service" in text and "always reviewed by a recruiter" in text
     assert text.count("?") == 2 and "asistente virtual" in text and "virtual assistant" in text
@@ -66,7 +69,7 @@ def test_the_off_topic_farewell_is_factual_and_points_to_a_human():
 
 @pytest.fixture
 def consented():
-    s = Screening(config.AREAS)
+    s = Screening(config.AREAS, SAZON)
     s.record_consent(True)
     return s
 
@@ -77,9 +80,9 @@ def strike(s, message="¿cuál es la capital de Francia?"):
 
 def test_an_off_topic_message_gets_a_redirect_then_the_same_question_again(consented):
     directive = strike(consented)
-    out = phrase(FakeLLM("¿Cómo te llamas?"), directive, "es")
+    out = phrase(FakeLLM("¿Cómo te llamas?"), SAZON, directive, "es")
     assert out.startswith("Eso no forma parte de mi función") and out.endswith("¿Cómo te llamas?")
-    en = phrase(FakeLLM("What is your name?"), directive, "en")
+    en = phrase(FakeLLM("What is your name?"), SAZON, directive, "en")
     assert "not part of my role" in en
 
 
@@ -118,17 +121,17 @@ def test_the_strike_count_survives_a_save_and_reload(consented):
     import json
     strike(consented)
     strike(consented)
-    restored = Screening.from_state(config.AREAS, json.loads(json.dumps(consented.to_state())))
+    restored = Screening.from_state(config.AREAS, json.loads(json.dumps(consented.to_state())), SAZON)
     strike(restored)
     assert restored.decide().outcome == "ENDED_OFF_TOPIC"
 
 
 def test_a_good_answer_does_not_reset_the_strikes_in_a_real_conversation(tmp_path):
     store = Store(tmp_path / "s.db")
-    turn.start(store, config.AREAS, "c1", NOW)
+    turn.start(store, SAZON_CLIENT, "c1", NOW)
 
     def say(message, *extractions, phrases=()):
-        return turn.handle_message(ScriptedLLM(extractions, phrases), store, config.AREAS, "c1", message, NOW)
+        return turn.handle_message(ScriptedLLM(extractions, phrases), store, SAZON_CLIENT, "c1", message, NOW)
 
     say("sí")
     first = say("cuéntame un chiste", {"off_topic": True}, phrases=["¿Cómo te llamas?"])

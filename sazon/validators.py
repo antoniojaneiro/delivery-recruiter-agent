@@ -1,83 +1,14 @@
-import difflib
+"""The checks on Grupo Sazón's own fields: licence, availability, schedule, experience and start date (D63)."""
 import math
-import re
-import unicodedata
-from dataclasses import dataclass
 from datetime import date, timedelta
-from typing import Any
 
-from sazon.model import CityMatchStatus
-
-MAX_NAME_LENGTH = 100
-_NAME_WORD = re.compile(r"^[^\W\d_]+(?:[-'’][^\W\d_]+)*\.?$")  # a trailing dot allows titles and initials
-
-
-@dataclass(frozen=True)
-class Validation:
-    ok: bool
-    value: Any = None
-    reason: str = ""
-    flags: tuple[str, ...] = ()
-
-
-def validate_name(raw: str) -> Validation:
-    if not isinstance(raw, str):
-        return Validation(False, reason="need first and last name")
-    words = raw.split()
-    if len(" ".join(words)) > MAX_NAME_LENGTH:
-        return Validation(False, reason="too long for a name")
-    if len(words) < 2:
-        return Validation(False, reason="need first and last name")
-    if not all(_NAME_WORD.match(w) for w in words):
-        return Validation(False, reason="letters, hyphens and apostrophes only")
-    return Validation(True, " ".join(words))
+from screener.validators import Validation, fold
 
 
 def validate_license(value: bool | None) -> Validation:
     if not isinstance(value, bool):
         return Validation(False, reason="need a clear yes or no")
     return Validation(True, value)
-
-
-@dataclass(frozen=True)
-class CityMatch:
-    status: CityMatchStatus
-    city: str | None = None
-
-
-def fold(text: str) -> str:
-    decomposed = unicodedata.normalize("NFKD", text)
-    stripped = "".join(c for c in decomposed if not unicodedata.combining(c))
-    return " ".join(stripped.casefold().split())
-
-
-# A country or state written after the place ("Madrid, España") is dropped; any other suffix is kept.
-_PLACE_QUALIFIERS = ("espana", "spain", "mexico", "jalisco", "nuevo leon", "comunidad de madrid", "cataluna",
-                     "catalunya", "comunitat valenciana", "estado de mexico", "edomex")
-
-
-def _plain(text: str) -> str:
-    return " ".join(re.sub(r"[^a-z0-9]+", " ", fold(text)).split())
-
-
-def match_city(raw: str, areas: dict[str, list[str]]) -> CityMatch:
-    names = {}
-    for city, aliases in areas.items():
-        for label in [city, *aliases]:
-            names[_plain(label)] = city
-    key = _plain(raw)
-    if key in names:
-        return CityMatch(CityMatchStatus.MATCH, names[key])
-    for qualifier in sorted(_PLACE_QUALIFIERS, key=len, reverse=True):
-        if key.endswith(" " + qualifier):
-            key = key[: -len(qualifier) - 1]
-            if key in names:
-                return CityMatch(CityMatchStatus.MATCH, names[key])
-            break
-    close = difflib.get_close_matches(key, names, n=1, cutoff=0.8)
-    if close:
-        return CityMatch(CityMatchStatus.CONFIRM, names[close[0]])
-    return CityMatch(CityMatchStatus.OUT_OF_AREA)
 
 
 AVAILABILITY = ("full_time", "part_time", "weekends")

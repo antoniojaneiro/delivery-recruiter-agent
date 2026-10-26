@@ -3,11 +3,13 @@ from datetime import date, datetime
 
 import pytest
 
-from sazon import session
-from sazon.model import Language
-from sazon.screening import Screening
-from sazon.store import Store
-from sazon.summary import summarise
+from tests.clients import client_for
+from sazon.spec import SAZON
+from screener import session
+from screener.model import Language
+from screener.screening import Screening
+from screener.store import Store
+from screener.summary import summarise
 
 AREAS = {"Madrid": [], "Guadalajara": []}
 TODAY = date(2026, 10, 25)
@@ -20,7 +22,7 @@ ANSWERS = {
 
 
 def screening(**overrides):
-    s = Screening(AREAS)
+    s = Screening(AREAS, SAZON)
     s.record_consent(True)
     answers = {**ANSWERS, **overrides}
     for field, value in answers.items():
@@ -67,14 +69,14 @@ def test_an_out_of_area_city_is_shown_with_the_candidates_own_city():
 
 
 def test_a_refused_consent_card_holds_no_personal_data():
-    s = Screening(AREAS)
+    s = Screening(AREAS, SAZON)
     s.record_consent(False)
     card = summarise(s)
     assert "no dio su consentimiento" in card and "Licencia" not in card and "Falta" not in card
 
 
 def test_a_blocked_candidate_says_what_has_not_been_provided():
-    s = Screening(AREAS)
+    s = Screening(AREAS, SAZON)
     s.record_consent(True)
     for _ in range(6):
         s.submit("name", "Juan", TODAY)
@@ -102,7 +104,7 @@ def test_chat_facts_are_listed_without_any_judgement_of_the_person():
 
 
 def test_clarifications_asked_are_counted():
-    s = Screening(AREAS)
+    s = Screening(AREAS, SAZON)
     s.record_consent(True)
     s.submit("name", "Juan", TODAY)
     s.submit("name", "Juan", TODAY)
@@ -132,7 +134,7 @@ def test_a_stalled_candidate_notes_that_a_reminder_was_sent():
 
 
 def test_the_candidates_own_words_never_reach_the_card():
-    s = Screening(AREAS)
+    s = Screening(AREAS, SAZON)
     s.record_consent(True)
     s.submit("name", "Juan", TODAY, raw="mi contraseña es 1234 y soy un tipo muy simpático")
     card = summarise(s)
@@ -141,7 +143,7 @@ def test_the_candidates_own_words_never_reach_the_card():
 
 def test_the_card_is_saved_with_every_turn_and_refreshed(tmp_path):
     store = Store(tmp_path / "s.db")
-    s = session.load(store, "c1", AREAS)
+    s = session.load(store, "c1", client_for(AREAS))
     s.record_consent(True)
     session.commit(store, "c1", s, NOW)
     first = store.get("c1").summary

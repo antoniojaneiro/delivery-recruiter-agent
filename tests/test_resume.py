@@ -3,10 +3,12 @@ from datetime import datetime
 
 import pytest
 
-from sazon import config, turn
-from sazon.consent import is_resume_request
-from sazon.phrasing import closed_message, consent_message
-from sazon.store import Store
+from sazon.spec import SAZON
+from sazon.client import SAZON_CALENDAR, SAZON_CLIENT
+from screener import turn
+from screener.consent import is_resume_request
+from screener.phrasing import closed_message, consent_message
+from screener.store import Store
 from tests.fakes import ScriptedLLM
 
 NOW = datetime(2026, 10, 25, 10, 0)
@@ -15,16 +17,16 @@ AWARE = NOW.astimezone()
 
 @pytest.fixture
 def store(tmp_path):
-    return Store(tmp_path / "s.db")
+    return Store(tmp_path / "s.db", calendar=SAZON_CALENDAR)
 
 
 def say(store, message, *extractions, cid="c1", phrases=()):
     llm = ScriptedLLM(extractions, phrases)
-    return turn.handle_message(llm, store, config.AREAS, cid, message, NOW), llm
+    return turn.handle_message(llm, store, SAZON_CLIENT, cid, message, NOW), llm
 
 
 def started(store, cid="c1"):
-    turn.start(store, config.AREAS, cid, NOW)
+    turn.start(store, SAZON_CLIENT, cid, NOW)
     say(store, "sí", cid=cid)
 
 
@@ -71,7 +73,7 @@ def test_a_withdrawn_candidate_who_asks_to_continue_is_back_where_they_stopped(s
 
 
 def test_the_english_way_back(store):
-    turn.start(store, config.AREAS, "c1", NOW)
+    turn.start(store, SAZON_CLIENT, "c1", NOW)
     say(store, "yes")
     say(store, "stop")
     reply, _ = say(store, "I want to continue")
@@ -81,7 +83,7 @@ def test_the_english_way_back(store):
 # --- declined consent: a later yes starts it ------------------------------------------------------------
 
 def test_a_candidate_who_declined_consent_can_say_yes_later_and_start(store):
-    turn.start(store, config.AREAS, "c1", NOW)
+    turn.start(store, SAZON_CLIENT, "c1", NOW)
     say(store, "no gracias")
     assert outcome(store) == "DISQUALIFIED"
     reply, _ = say(store, "sí", phrases=["¿Cómo te llamas?"])
@@ -91,14 +93,14 @@ def test_a_candidate_who_declined_consent_can_say_yes_later_and_start(store):
 
 
 def test_after_declining_other_messages_get_a_reminder_of_how_to_start(store):
-    turn.start(store, config.AREAS, "c1", NOW)
+    turn.start(store, SAZON_CLIENT, "c1", NOW)
     say(store, "no gracias")
     reply, llm = say(store, "hola, ¿qué tal?")
     assert "«sí»" in reply and llm.calls == [] and outcome(store) == "DISQUALIFIED"
 
 
 def test_nothing_the_candidate_writes_while_declined_is_stored(store):
-    turn.start(store, config.AREAS, "c1", NOW)
+    turn.start(store, SAZON_CLIENT, "c1", NOW)
     say(store, "no gracias")
     say(store, "mi teléfono es 600123123")
     assert all("600123123" not in m.text for m in store.messages("c1"))
@@ -125,8 +127,8 @@ def test_the_off_topic_exit_stays_closed_even_if_the_candidate_asks_to_continue(
 
 def test_a_stalled_or_blocked_candidate_returns_by_just_writing(store):
     started(store)
-    turn.wait_24h(ScriptedLLM(), store, config.AREAS, "c1", NOW)
-    turn.wait_24h(ScriptedLLM(), store, config.AREAS, "c1", NOW)
+    turn.wait_24h(ScriptedLLM(), store, SAZON_CLIENT, "c1", NOW)
+    turn.wait_24h(ScriptedLLM(), store, SAZON_CLIENT, "c1", NOW)
     assert outcome(store) == "STALLED"
     say(store, "Juan Pérez", {"name": "Juan Pérez"})
     assert outcome(store) == "IN_PROGRESS"
@@ -144,11 +146,11 @@ def test_closing_applications_stops_new_and_current_candidates_without_touching_
     before = (store.get("c1").state, len(store.messages("c1")))
     store.set_accepting(False, "Ana", AWARE)
     reply, llm = say(store, "mi teléfono es 600123123", {"name": "Otro Nombre"})
-    assert reply == closed_message() and llm.calls == []
+    assert reply == closed_message(SAZON) and llm.calls == []
     assert (store.get("c1").state, len(store.messages("c1"))) == before
-    assert turn.start(store, config.AREAS, "new", NOW) == closed_message()
+    assert turn.start(store, SAZON_CLIENT, "new", NOW) == closed_message(SAZON)
     assert store.get("new") is None
-    assert turn.wait_24h(ScriptedLLM(), store, config.AREAS, "c1", NOW) is None
+    assert turn.wait_24h(ScriptedLLM(), store, SAZON_CLIENT, "c1", NOW) is None
 
 
 def test_reopening_lets_everyone_continue_from_where_they_were(store):
@@ -176,7 +178,7 @@ def test_the_switch_needs_a_name(store):
 
 
 def test_the_closed_notice_is_bilingual_because_the_language_is_not_known_yet():
-    text = closed_message()
+    text = closed_message(SAZON)
     assert "no estamos aceptando solicitudes" in text and "not accepting applications" in text
 
 
@@ -184,14 +186,14 @@ def test_the_closed_notice_is_bilingual_because_the_language_is_not_known_yet():
 
 @pytest.mark.parametrize("message", ["me retiro", "cancelar", "basta", "stop"])
 def test_asking_to_stop_at_the_consent_question_closes_it_instead_of_asking_again(store, message):
-    turn.start(store, config.AREAS, "c1", NOW)
+    turn.start(store, SAZON_CLIENT, "c1", NOW)
     say(store, message)
     record = store.get("c1")
     assert record.outcome == "DISQUALIFIED" and record.reasons == ["NO_CONSENT"]
 
 
 def test_a_candidate_who_declined_consent_can_also_restart_with_continuar(store):
-    turn.start(store, config.AREAS, "c1", NOW)
+    turn.start(store, SAZON_CLIENT, "c1", NOW)
     say(store, "no gracias")
     reply, _ = say(store, "continuar", phrases=["¿Cómo te llamas?"])
     assert outcome(store) == "IN_PROGRESS" and "llamas" in reply

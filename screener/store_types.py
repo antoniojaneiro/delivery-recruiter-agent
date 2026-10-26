@@ -2,7 +2,7 @@
 from dataclasses import dataclass
 from datetime import datetime
 
-from sazon.model import RecruiterStatus
+from screener.model import RecruiterStatus
 
 AGENT = "agent"
 NO_CHECK = object()  # commit_turn without a version check (tests and tools that own the whole record)
@@ -99,5 +99,14 @@ class Note:
     at: datetime
 
 
+def local_naive(moment: datetime) -> datetime:
+    """Every time the store keeps is naive local time (this machine's), whatever the caller passes."""
+    return moment.astimezone().replace(tzinfo=None) if moment.tzinfo else moment
+
+
 def stamp(now: datetime) -> str:
-    return now.isoformat()
+    return local_naive(now).isoformat()
+
+
+def parse_stamp(text: str) -> datetime:
+    return local_naive(datetime.fromisoformat(text))

@@ -8,13 +8,16 @@ from datetime import datetime
 
 import streamlit as st
 
-from sazon import accounts, ui
+from screener import accounts
+
+from sazon import accounts as sazon_accounts
+from sazon import ui
 
 st.set_page_config(page_title="Candidatos · Grupo Sazón", page_icon=":material/groups:", layout="wide")
 
 if not st.session_state.get("recruiter"):  # only a successful login below ever sets this
     st.title("Grupo Sazón · Reclutamiento")
-    if not accounts.has_accounts(accounts.accounts_path()):
+    if not accounts.has_accounts(sazon_accounts.accounts_path()):
         st.error("No hay cuentas de reclutador, así que nadie puede entrar. "
                  "Crea una con: python -m sazon.accounts add NOMBRE")
         st.stop()
@@ -24,7 +27,7 @@ if not st.session_state.get("recruiter"):  # only a successful login below ever 
         submitted = st.form_submit_button("Entrar", key="login_submit")
     if submitted:
         try:
-            verified = accounts.verify(accounts.accounts_path(), name, password)
+            verified = accounts.verify(sazon_accounts.accounts_path(), name, password)
         except accounts.TooManyAttempts:
             st.error("Demasiados intentos con ese nombre. Espera 10 minutos e inténtalo de nuevo.")
             st.stop()

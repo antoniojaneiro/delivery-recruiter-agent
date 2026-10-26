@@ -7,8 +7,9 @@ from datetime import datetime, timedelta
 import pytest
 from dotenv import load_dotenv
 
-from sazon import config, turn
-from sazon.store import Store
+from sazon.client import SAZON_CALENDAR, SAZON_CLIENT
+from screener import turn
+from screener.store import Store
 
 load_dotenv()
 pytestmark = [
@@ -27,13 +28,13 @@ def show(transcript):
 
 @pytest.fixture(scope="module")
 def llm():
-    from sazon import gemini
+    from screener import gemini
 
     return gemini.from_env()
 
 
 def test_a_candidate_goes_from_consent_to_a_booked_call(tmp_path, llm):
-    store = Store(tmp_path / "live.db")
+    store = Store(tmp_path / "live.db", calendar=SAZON_CALENDAR)
     now = datetime.now()
     day = (now + timedelta(days=14)).replace(hour=9, minute=0, second=0, microsecond=0)
     slot_ids = [store.add_slot("MX", day + timedelta(days=i), "Luis", "Luis", now.astimezone()) for i in range(3)]
@@ -42,17 +43,17 @@ def test_a_candidate_goes_from_consent_to_a_booked_call(tmp_path, llm):
 
     def say(message):
         time.sleep(PAUSE_SECONDS)
-        reply = turn.handle_message(llm, store, config.AREAS, "live1", message, datetime.now())
+        reply = turn.handle_message(llm, store, SAZON_CLIENT, "live1", message, datetime.now())
         if "problema técnico" in reply or "technical problem" in reply:
             time.sleep(RETRY_WAIT_SECONDS)  # most likely the free-tier rate limit; a failed turn costs nothing (D39)
-            reply = turn.handle_message(llm, store, config.AREAS, "live1", message, datetime.now())
+            reply = turn.handle_message(llm, store, SAZON_CLIENT, "live1", message, datetime.now())
         transcript.append((message, reply))
         assert reply.strip(), show(transcript)
         assert "problema técnico" not in reply and "technical problem" not in reply, show(transcript)
         assert len(reply) < 700, show(transcript)
         return reply
 
-    turn.start(store, config.AREAS, "live1", now)
+    turn.start(store, SAZON_CLIENT, "live1", now)
     say("sí")
     assert "llamas" in transcript[-1][1].lower() or "nombre" in transcript[-1][1].lower(), show(transcript)
 

@@ -3,13 +3,15 @@ from datetime import date, datetime
 
 import pytest
 
-from sazon import config, turn
-from sazon.consent import read_consent
-from sazon.extraction import Extraction
-from sazon.model import Field
-from sazon.phrasing import Directive, Kind, consent_message, phrase
-from sazon.screening import Screening
-from sazon.store import Store
+from sazon.client import SAZON_CLIENT
+from screener import turn
+from sazon import config
+from screener.consent import read_consent
+from sazon.spec import SAZON, Extraction
+from sazon.fields import Field
+from screener.phrasing import Directive, Kind, consent_message, phrase
+from screener.screening import Screening
+from screener.store import Store
 from tests.fakes import FakeLLM, ScriptedLLM
 
 TODAY = date(2026, 10, 25)
@@ -40,7 +42,7 @@ def test_a_greeting_alone_or_with_something_else_is_unclear(text):
 
 @pytest.mark.parametrize("filler", ["mmm", "no sé", "jaja", "ok", "pues", "eh", "bueno", "ni idea", "hmm", "idk", "lol"])
 def test_hesitation_flagged_as_off_topic_by_the_model_does_not_count_as_off_topic(filler):
-    s = Screening(config.AREAS)
+    s = Screening(config.AREAS, SAZON)
     s.record_consent(True)
     for _ in range(4):
         s.apply(Extraction(off_topic=True), filler, TODAY)
@@ -50,7 +52,7 @@ def test_hesitation_flagged_as_off_topic_by_the_model_does_not_count_as_off_topi
 
 
 def test_real_off_topic_messages_still_count_and_still_end_the_chat():
-    s = Screening(config.AREAS)
+    s = Screening(config.AREAS, SAZON)
     s.record_consent(True)
     s.apply(Extraction(off_topic=True), "¿cuál es la capital de Francia?", TODAY)
     s.apply(Extraction(off_topic=True), "cuéntame un chiste", TODAY)
@@ -59,7 +61,7 @@ def test_real_off_topic_messages_still_count_and_still_end_the_chat():
 
 
 def test_unclear_answers_now_reach_the_block_instead_of_ending_the_chat_early():
-    s = Screening(config.AREAS)
+    s = Screening(config.AREAS, SAZON)
     s.record_consent(True)
     for filler in ["mmm", "no sé", "jaja", "ok", "pues", "eh", "bueno"]:
         s.apply(Extraction(off_topic=True), filler, TODAY)
@@ -67,7 +69,7 @@ def test_unclear_answers_now_reach_the_block_instead_of_ending_the_chat_early():
 
 
 def test_the_prompt_says_hesitation_is_not_off_topic():
-    from sazon.extraction import SYSTEM
+    from sazon.spec import SYSTEM
     assert "mmm" in SYSTEM and "NOT off_topic" in SYSTEM
 
 
@@ -80,7 +82,7 @@ def test_the_prompt_says_hesitation_is_not_off_topic():
     ("¡Hola! 👋 Para conocerte mejor, ¿cuántos años tienes de experiencia?", "👋 Para conocerte mejor, ¿cuántos años tienes de experiencia?"),
 ])
 def test_a_leading_greeting_or_welcome_is_removed_from_a_phrased_question(raw, expected):
-    assert phrase(FakeLLM(raw), Directive(Kind.ASK, field=Field.CITY), "es") == expected
+    assert phrase(FakeLLM(raw), SAZON, Directive(Kind.ASK, field=Field.CITY), "es") == expected
 
 
 @pytest.mark.parametrize("raw,expected", [
@@ -89,58 +91,58 @@ def test_a_leading_greeting_or_welcome_is_removed_from_a_phrased_question(raw, e
     ("Hello, what is your city?", "What is your city?"),
 ])
 def test_the_same_in_english(raw, expected):
-    assert phrase(FakeLLM(raw), Directive(Kind.ASK, field=Field.CITY), "en") == expected
+    assert phrase(FakeLLM(raw), SAZON, Directive(Kind.ASK, field=Field.CITY), "en") == expected
 
 
 def test_a_reply_that_is_only_a_greeting_falls_back_to_the_fixed_question():
-    out = phrase(FakeLLM("¡Hola!"), Directive(Kind.ASK, field=Field.CITY), "es")
+    out = phrase(FakeLLM("¡Hola!"), SAZON, Directive(Kind.ASK, field=Field.CITY), "es")
     assert "ciudad" in out.lower()
 
 
 def test_the_phrasing_prompt_forbids_greeting_again():
     llm = FakeLLM("¿Y tu ciudad?")
-    phrase(llm, Directive(Kind.ASK, field=Field.CITY), "es")
+    phrase(llm, SAZON, Directive(Kind.ASK, field=Field.CITY), "es")
     assert "greet" in llm.calls[0]["system"].lower()
 
 
 # --- asking for a person or about pay gets an answer ---------------------------------------------
 
 def test_asking_for_a_person_is_acknowledged_before_the_next_question():
-    s = Screening(config.AREAS)
+    s = Screening(config.AREAS, SAZON)
     s.record_consent(True)
     directive = s.apply(Extraction(wants_human=True), "¿puedo hablar con una persona?", TODAY)
-    out = phrase(FakeLLM("¿Cómo te llamas?"), directive, "es")
+    out = phrase(FakeLLM("¿Cómo te llamas?"), SAZON, directive, "es")
     assert out.startswith("Soy un asistente virtual") and "reclutador" in out and out.endswith("¿Cómo te llamas?")
 
 
 def test_asking_about_pay_says_a_recruiter_will_answer():
-    s = Screening(config.AREAS)
+    s = Screening(config.AREAS, SAZON)
     s.record_consent(True)
     directive = s.apply(Extraction(asks_pay=True), "¿cuánto pagan?", TODAY)
-    out = phrase(FakeLLM("¿Cómo te llamas?"), directive, "es")
+    out = phrase(FakeLLM("¿Cómo te llamas?"), SAZON, directive, "es")
     assert "sueldo" in out and "reclutador" in out and out.endswith("¿Cómo te llamas?")
     assert s.decide().outcome == "IN_PROGRESS" and [k for k, _ in s.events].count("off_topic") == 0
 
 
 def test_both_questions_in_one_message_get_both_answers_once():
-    s = Screening(config.AREAS)
+    s = Screening(config.AREAS, SAZON)
     s.record_consent(True)
     directive = s.apply(Extraction(wants_human=True, asks_pay=True), "¿hablo con alguien y cuánto pagan?", TODAY)
-    out = phrase(FakeLLM("¿Cómo te llamas?"), directive, "es")
+    out = phrase(FakeLLM("¿Cómo te llamas?"), SAZON, directive, "es")
     assert out.count("reclutador") >= 1 and "sueldo" in out and "asistente virtual" in out
 
 
 def test_the_english_notices():
-    s = Screening(config.AREAS)
+    s = Screening(config.AREAS, SAZON)
     s.record_consent(True)
     s.language = "en"
     directive = s.apply(Extraction(wants_human=True, asks_pay=True), "can I talk to someone? what is the pay?", TODAY)
-    out = phrase(FakeLLM("What is your name?"), directive, "en")
+    out = phrase(FakeLLM("What is your name?"), SAZON, directive, "en")
     assert "virtual assistant" in out and "pay" in out and out.endswith("What is your name?")
 
 
 def test_a_notice_is_not_repeated_on_the_next_turn():
-    s = Screening(config.AREAS)
+    s = Screening(config.AREAS, SAZON)
     s.record_consent(True)
     s.apply(Extraction(asks_pay=True), "¿cuánto pagan?", TODAY)
     again = s.apply(Extraction(name="Juan"), "Juan", TODAY)
@@ -148,16 +150,16 @@ def test_a_notice_is_not_repeated_on_the_next_turn():
 
 
 def test_the_extraction_schema_and_prompt_know_the_pay_flag():
-    from sazon.extraction import SYSTEM
+    from sazon.spec import SYSTEM
     assert Extraction.model_validate({"asks_pay": True}).asks_pay is True and "asks_pay" in SYSTEM
 
 
 def test_through_a_full_turn_the_reply_acknowledges_a_request_for_a_person(tmp_path):
     store = Store(tmp_path / "s.db")
-    turn.start(store, config.AREAS, "c1", NOW)
-    turn.handle_message(ScriptedLLM(), store, config.AREAS, "c1", "sí", NOW)
+    turn.start(store, SAZON_CLIENT, "c1", NOW)
+    turn.handle_message(ScriptedLLM(), store, SAZON_CLIENT, "c1", "sí", NOW)
     llm = ScriptedLLM([{"wants_human": True}], ["¿Cómo te llamas?"])
-    reply = turn.handle_message(llm, store, config.AREAS, "c1", "¿puedo hablar con una persona?", NOW)
+    reply = turn.handle_message(llm, store, SAZON_CLIENT, "c1", "¿puedo hablar con una persona?", NOW)
     assert "asistente virtual" in reply and "reclutador" in reply
     assert "human_requested" in [e.type for e in store.events("c1")]
 
@@ -165,7 +167,7 @@ def test_through_a_full_turn_the_reply_acknowledges_a_request_for_a_person(tmp_p
 # --- closings are not repeated word for word -------------------------------------------------------
 
 def talk(store, message, *extractions):
-    return turn.handle_message(ScriptedLLM(extractions), store, config.AREAS, "c1", message, NOW)
+    return turn.handle_message(ScriptedLLM(extractions), store, SAZON_CLIENT, "c1", message, NOW)
 
 
 @pytest.fixture
@@ -174,7 +176,7 @@ def store(tmp_path):
 
 
 def reject(store):
-    turn.start(store, config.AREAS, "c1", NOW)
+    turn.start(store, SAZON_CLIENT, "c1", NOW)
     talk(store, "sí")
     talk(store, "no tengo licencia", {"has_license": False})
     return talk(store, "sí, correcto", {"confirms_rejection": True})
@@ -188,7 +190,7 @@ def test_a_message_after_a_rejection_gets_a_short_note_not_the_same_close(store)
 
 
 def test_a_qualified_candidate_who_writes_again_is_told_once_more_without_the_celebration(store):
-    turn.start(store, config.AREAS, "c1", NOW)
+    turn.start(store, SAZON_CLIENT, "c1", NOW)
     talk(store, "sí")
     for message, ex in [("Soy Juan Pérez", {"name": "Juan Pérez"}), ("sin experiencia", {"experience_years": 0}),
                         ("tiempo completo", {"availability": ["full_time"]}), ("mañana", {"schedule": "morning"}),

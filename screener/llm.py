@@ -13,3 +13,13 @@ class LLMError(Exception):
 
 class LLM(Protocol):
     def complete(self, system: str, user: str, json_mode: bool = False) -> str: ...
+
+
+class _NoModel:
+    """For a job that sends only fixed texts: if a text ever needs the model, the caller falls back to its fixed one."""
+
+    def complete(self, system: str, user: str, json_mode: bool = False) -> str:
+        raise LLMError("no model in this job")
+
+
+NO_MODEL: LLM = _NoModel()

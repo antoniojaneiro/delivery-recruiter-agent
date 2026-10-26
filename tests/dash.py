@@ -1,5 +1,5 @@
 """Helpers shared by the dashboard tests: recruiter accounts and the real login."""
-from sazon import accounts
+from screener import accounts
 
 PASSWORD = "contraseña-segura-1"
 

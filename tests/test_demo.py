@@ -4,9 +4,11 @@ from datetime import datetime
 
 import pytest
 
+from sazon.client import SAZON_CALENDAR
+from sazon.spec import SAZON
 from sazon import demo
-from sazon.phrasing import consent_message
-from sazon.store import Store
+from screener.phrasing import consent_message
+from screener.store import Store
 from tests.fakes import ScriptedLLM
 
 NOW = datetime(2026, 10, 25, 10, 0)
@@ -14,7 +16,7 @@ NOW = datetime(2026, 10, 25, 10, 0)
 
 @pytest.fixture
 def store(tmp_path):
-    return Store(tmp_path / "demo.db")
+    return Store(tmp_path / "demo.db", calendar=SAZON_CALENDAR)
 
 
 def test_scenarios_have_unique_names_titles_and_messages():
@@ -40,7 +42,7 @@ def test_a_scenario_is_played_from_the_disclosure_to_the_last_message(store):
     scenario = demo.Scenario("t", "Test", ["sí", "Juan"])
     lines = []
     result = demo.run_scenario(ScriptedLLM(), store, scenario, NOW, pause=0, write=lines.append)
-    assert result.turns[0].bot == consent_message()
+    assert result.turns[0].bot == consent_message(SAZON)
     assert [t.you for t in result.turns[1:]] == ["sí", "Juan"]
     assert all(t.bot for t in result.turns)
     assert result.outcome == "IN_PROGRESS"

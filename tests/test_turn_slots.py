@@ -3,9 +3,12 @@ from datetime import datetime
 
 import pytest
 
-from sazon import config, turn
-from sazon.phrasing import consent_message
-from sazon.store import Store
+from tests.clients import client_for
+from sazon.client import SAZON_CALENDAR
+from screener import turn
+from sazon import config
+from screener.phrasing import consent_message
+from screener.store import Store
 from tests.fakes import ScriptedLLM
 
 AREAS = config.AREAS
@@ -18,16 +21,16 @@ MX_SLOT = datetime(2026, 11, 3, 9, 0)
 
 @pytest.fixture
 def store(tmp_path):
-    return Store(tmp_path / "sazon.db")
+    return Store(tmp_path / "sazon.db", calendar=SAZON_CALENDAR)
 
 
 def say(store, message, *extractions, cid="c1"):
     llm = ScriptedLLM(extractions)
-    return turn.handle_message(llm, store, AREAS, cid, message, NOW), llm
+    return turn.handle_message(llm, store, client_for(AREAS), cid, message, NOW), llm
 
 
 def qualify(store, cid="c1", city="Madrid", language="sí"):
-    turn.start(store, AREAS, cid, NOW)
+    turn.start(store, client_for(AREAS), cid, NOW)
     say(store, language, cid=cid)
     say(store, "Soy Juan Pérez", {"name": "Juan Pérez"}, cid=cid)
     say(store, "2 años con Glovo", {"experience_years": 2, "platforms": ["Glovo"]}, cid=cid)
@@ -166,14 +169,14 @@ def test_the_offer_and_the_booking_are_in_the_audit_log(store):
 def test_the_offer_survives_a_restart_because_it_lives_in_the_saved_state(store):
     add_slots(store)
     qualify(store)
-    reloaded = Store(store._path)
-    reply = turn.handle_message(ScriptedLLM(), reloaded, AREAS, "c1", "2", NOW)
+    reloaded = Store(store._path, calendar=SAZON_CALENDAR)
+    reply = turn.handle_message(ScriptedLLM(), reloaded, client_for(AREAS), "c1", "2", NOW)
     assert "queda reservada" in reply
 
 
 def test_a_candidate_is_not_offered_slots_before_qualifying(store):
     add_slots(store)
-    turn.start(store, AREAS, "c1", NOW)
+    turn.start(store, client_for(AREAS), "c1", NOW)
     reply, _ = say(store, "sí")
     assert "1)" not in reply
     reply, _ = say(store, "Soy Juan Pérez", {"name": "Juan Pérez"})
@@ -182,7 +185,7 @@ def test_a_candidate_is_not_offered_slots_before_qualifying(store):
 
 def test_a_rejected_candidate_never_gets_slots(store):
     add_slots(store)
-    turn.start(store, AREAS, "c1", NOW)
+    turn.start(store, client_for(AREAS), "c1", NOW)
     say(store, "sí")
     say(store, "no tengo licencia", {"has_license": False})
     reply, _ = say(store, "sí, correcto", {"confirms_rejection": True})

@@ -1,6 +1,6 @@
 import pytest
 
-from sazon.validators import validate_name
+from screener.validators import validate_name
 
 
 @pytest.mark.parametrize("raw", ["Juan Pérez", "María García-López", "Sean O'Brien", "  Ana   Ruiz "])
@@ -31,7 +31,7 @@ def test_license_unsure_is_not_valid_and_asks_again():
     assert result.reason
 
 
-from sazon.validators import match_city
+from screener.validators import match_city
 
 AREAS = {
     "Madrid": [],

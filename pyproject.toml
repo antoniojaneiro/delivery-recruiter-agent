@@ -6,14 +6,14 @@ dependencies = ["pydantic>=2", "openai>=1.50", "python-dotenv>=1", "tzdata"]
 
 [project.optional-dependencies]
 dashboard = ["streamlit>=1.57"]
-dev = ["pytest>=8", "streamlit>=1.57"]
+dev = ["pytest>=8", "pytest-xdist>=3", "streamlit>=1.57"]
 
 [build-system]
 requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
-packages = ["sazon"]
+packages = ["sazon", "screener"]
 
 [tool.pytest.ini_options]
 pythonpath = ["."]

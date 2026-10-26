@@ -1,7 +1,7 @@
 """The test doubles must fail like the real client, or tests prove nothing about failures."""
 import pytest
 
-from sazon.llm import LLMError
+from screener.llm import LLMError
 from tests.fakes import FakeLLM, ScriptedLLM
 
 

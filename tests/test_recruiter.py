@@ -4,10 +4,12 @@ from datetime import date, datetime
 
 import pytest
 
-from sazon import session
-from sazon.model import RecruiterStatus
-from sazon.screening import Screening
-from sazon.store import Store
+from tests.clients import client_for
+from sazon.client import SAZON_CALENDAR
+from screener import session
+from screener.model import RecruiterStatus
+from screener.screening import Screening
+from screener.store import Store
 
 AREAS = {"Madrid": []}
 T1 = datetime(2026, 10, 25, 10, 0)
@@ -17,7 +19,7 @@ T3 = datetime(2026, 10, 25, 12, 0)
 
 @pytest.fixture
 def store(tmp_path):
-    return Store(tmp_path / "sazon.db")
+    return Store(tmp_path / "sazon.db", calendar=SAZON_CALENDAR)
 
 
 def turn(store, cid="c1", now=T1, outcome="QUALIFIED", extracted=None, reasons=(), flags=()):
@@ -31,7 +33,7 @@ def test_reasons_and_flags_are_stored_with_each_turn_for_the_dashboard(store):
 
 
 def test_the_session_stores_the_decision_reasons_and_flags(store):
-    screening = session.load(store, "c1", AREAS)
+    screening = session.load(store, "c1", client_for(AREAS))
     screening.record_consent(True)
     for _ in range(6):
         screening.submit("name", "Juan", date(2026, 10, 25))
@@ -135,7 +137,7 @@ def test_a_database_created_before_these_columns_is_upgraded_in_place(tmp_path):
     """)
     db.commit()
     db.close()
-    store = Store(path)
+    store = Store(path, calendar=SAZON_CALENDAR)
     assert store.get("old1").outcome == "QUALIFIED" and store.get("old1").reasons == []
     assert store.events("old1")[0].actor == "agent"
     store.set_status("old1", RecruiterStatus.CONTACTED, "Ana", T2)

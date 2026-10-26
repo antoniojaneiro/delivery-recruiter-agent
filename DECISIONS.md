@@ -569,3 +569,25 @@ Four reviewers (security and compliance, conversation robustness, data and opera
 - **Options considered:** split only (no speed-up); skip the refactor.
 - **Cons:** the pieces of `Screening` are mixins that share its attributes, so they are not independent classes; the precedence rules still live in `Screening`. The cache is per dashboard process; the funnel and KPIs still read every candidate when the data changes.
 - **Decided by:** user, 2026-10-26.
+
+## D63: Make the product reusable for another client (review of 2026-10-26)
+
+- **Chosen:** (user) Build review candidates 1-5: one screening spec per client written as Python dataclasses (fields, questions, labels, limits, qualification rules with their texts), copy and language packs plus one region config passed down (no global config reads), screening state with one owner instead of mixins, and guards against silent failures. Candidate 6 (a Store interface) is left out. Proof of reuse: a small second spec in the tests, run through the real engine. The package split into a generic engine and a client folder comes last, as a mechanical commit. Pure refactor first: Sazón's texts, the extraction prompt and schema, the consent hash and saved state keep their exact values, guarded by characterization tests.
+- **Options considered:** YAML/JSON spec (two places per client because rules need code); split the package first (big diff up front); keep one package (less reusable); a real second example client (more to maintain); all six candidates.
+- **Cons:** reopens part of D62 (the mixins); a spec adds a layer to read; behaviour that only Sazón needs (city and area matching, licence parsing) stays as hook functions rather than becoming spec features.
+- **Decided by:** user, 2026-10-26.
+
+## D64: How the reuse refactor ended (closes D63)
+
+- **Built:** a `ScreeningSpec` (fields with their validators, readers, wording, recruiter labels; rules that end a screening), a `Pack` (all fixed candidate text) and a `Client` (service areas, optional `SlotCalendar`, reminder clock) replace the Sazón values that were spread over about nine files. An incomplete spec or client fails when built and lists every problem. The engine lives in `screener/`, Grupo Sazón in `sazon/`; a boundary test fails on any client import or client word in the engine. A second toy client (English only, no areas; and a UK one that books calls) runs a whole conversation in the tests. Saved states, prompts, schema, fixed texts and the consent hash are unchanged (golden test).
+- **Differs from the review card:** candidate 4 was drawn as a state dataclass plus collaborator objects. What was built is a declared list of saved fields (`screening_state.STATE_FIELDS`, each attribute written once), a pure `propose_change` function, and the slot-offer methods folded back into `Screening`, because the saved JSON keys are flat and must not change. The precedence rules (what to ask or confirm first) still live in `Screening`.
+- **Declined, with reason:** a `Store` interface (one adapter, SQLite is part of the design); `models()` on the model protocol (it is only called by the command that builds the Gemini client).
+- **Still client-specific or open:** the dashboard page text in `app_pages/` is Spanish; the yes, stop and numbered-choice word lists, the weekday and month names and the `"es" or "en"` line of the extraction prompt are Spanish and English only, so a third language needs engine edits; the filler examples in the extraction prompt are Spanish; "48 horas" is three literals in Sazón's pack (one number would help the lawyers); `confirms_city` is the name of the area-confirmation flag in the model's reply.
+- **Decided by:** user (scope D63); agent (details).
+
+## D65: The four known leftovers (D61, D62), closed
+
+- **Chosen:** (user, "item 4 leftovers only") (1) The login lockout is kept in a `.failures` file beside the accounts file, so a restart or a second process does not clear it; a damaged file counts as empty. (2) The funnel and the key numbers are counted by SQL (`Store.funnel_counts`, `Store.kpi_counts`) and no longer load every candidate; the candidate table still loads the cached list to filter and search it. (3) Every stored time is naive local time: `stamp()` converts what it is given and `parse_stamp()` converts old rows written with a zone. (4) What the agent says first when several things wait is a plain function with its own table test (`screening_precedence.py`); the order of the checks inside `apply` (stop, facts, notices) still lives in `Screening`.
+- **Options considered:** a database for the lockout (heavier than a file for a prototype); keeping the Python funnel on a cached list (still reads everything when data changes); storing aware UTC times (needs a migration of old rows).
+- **Cons / still open:** the lockout file is per accounts file, not shared between machines; the table still reads every candidate for search; the legal wording items and the voice agent, CV upload and presentation are not done.
+- **Decided by:** user, 2026-10-26.

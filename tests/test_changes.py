@@ -4,12 +4,15 @@ from datetime import date, datetime
 
 import pytest
 
-from sazon import config, turn
-from sazon.extraction import Extraction, StartDate
-from sazon.model import Field
-from sazon.phrasing import Kind, phrase
-from sazon.screening import Screening
-from sazon.store import Store
+from sazon.client import SAZON_CLIENT
+from screener import turn
+from sazon import config
+from screener.extraction import StartDate
+from sazon.spec import SAZON, Extraction
+from sazon.fields import Field
+from screener.phrasing import Kind, phrase
+from screener.screening import Screening
+from screener.store import Store
 from tests.fakes import FakeLLM, ScriptedLLM
 
 TODAY = date(2026, 10, 25)
@@ -17,7 +20,7 @@ NOW = datetime(2026, 10, 25, 10, 0)
 
 
 def accepted(**overrides):
-    s = Screening(config.AREAS)
+    s = Screening(config.AREAS, SAZON)
     s.record_consent(True)
     values = {"name": "Juan Pérez", "experience": (2, ["Glovo"]), "availability": ["full_time"], "schedule": "morning",
               "start_date": date(2026, 11, 1), "city": "Madrid"}
@@ -32,7 +35,7 @@ def ask(s, text, **fields):
 
 
 def text_of(directive, language="es"):
-    return phrase(FakeLLM(), directive, language)
+    return phrase(FakeLLM(), SAZON, directive, language)
 
 
 # --- what counts as a change ---------------------------------------------------------------------------------
@@ -96,7 +99,7 @@ def test_yes_applies_the_change_says_so_and_goes_on_with_the_next_question():
     ask(s, "soy Carlos López", name="Carlos López")
     directive = s.resolve_change(True, TODAY)
     assert s.values["name"] == "Carlos López" and not s.awaiting_change
-    out = phrase(FakeLLM("¿Tienes licencia?"), directive, "es")
+    out = phrase(FakeLLM("¿Tienes licencia?"), SAZON, directive, "es")
     assert out.startswith("Hecho, lo he cambiado.") and out.endswith("¿Tienes licencia?")
     assert ("field_changed", "name") in s.events
 
@@ -106,7 +109,7 @@ def test_no_keeps_the_old_value_and_says_so():
     ask(s, "mi jefe se llama Carlos López", name="Carlos López")
     directive = s.resolve_change(False, TODAY)
     assert s.values["name"] == "Juan Pérez"
-    assert phrase(FakeLLM("¿Tienes licencia?"), directive, "es").startswith("De acuerdo, lo dejo como estaba.")
+    assert phrase(FakeLLM("¿Tienes licencia?"), SAZON, directive, "es").startswith("De acuerdo, lo dejo como estaba.")
     assert ("field_changed", "name") not in s.events
 
 
@@ -139,7 +142,7 @@ def test_the_question_is_in_english_with_english_labels():
     s.language = "en"
     directive = ask(s, "I work weekends", availability=["weekends"])
     assert text_of(directive, "en") == "Earlier you told me full-time. Shall I change it to weekends?"
-    partly = Screening(config.AREAS)
+    partly = Screening(config.AREAS, SAZON)
     partly.record_consent(True)
     partly.language = "en"
     partly.submit("license", True, TODAY)
@@ -149,7 +152,7 @@ def test_the_question_is_in_english_with_english_labels():
 def test_the_pending_change_survives_a_save_and_reload():
     s = accepted()
     ask(s, "en realidad empiezo el 15 de noviembre", start_date=StartDate(iso=date(2026, 11, 15)))
-    restored = Screening.from_state(config.AREAS, json.loads(json.dumps(s.to_state())))
+    restored = Screening.from_state(config.AREAS, json.loads(json.dumps(s.to_state())), SAZON)
     assert restored.awaiting_change
     restored.resolve_change(True, TODAY)
     assert restored.values["start_date"] == date(2026, 11, 15)
@@ -171,11 +174,11 @@ def store(tmp_path):
 
 def talk(store, message, *extractions, phrases=()):
     llm = ScriptedLLM(extractions, phrases)
-    return turn.handle_message(llm, store, config.AREAS, "c1", message, NOW), llm
+    return turn.handle_message(llm, store, SAZON_CLIENT, "c1", message, NOW), llm
 
 
 def chat_until_city(store):
-    turn.start(store, config.AREAS, "c1", NOW)
+    turn.start(store, SAZON_CLIENT, "c1", NOW)
     talk(store, "sí")
     talk(store, "Juan Pérez", {"name": "Juan Pérez"})
     talk(store, "2 años Glovo", {"experience_years": 2, "platforms": ["Glovo"]})
@@ -244,7 +247,7 @@ def test_another_spelling_of_the_saved_city_is_not_a_change():
 
 
 def test_a_withdrawal_forgets_a_change_question_that_was_waiting():
-    from sazon.consent import is_stop_request
+    from screener.consent import is_stop_request
     s = accepted()
     ask(s, "soy Carlos López", name="Carlos López")
     assert s.awaiting_change

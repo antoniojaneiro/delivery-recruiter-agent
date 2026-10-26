@@ -3,8 +3,9 @@ from datetime import date, datetime
 
 import pytest
 
-from sazon import session
-from sazon.store import Store
+from tests.clients import client_for
+from screener import session
+from screener.store import Store
 
 AREAS = {"Madrid": [], "Guadalajara": []}
 TODAY = date(2026, 10, 25)
@@ -18,25 +19,25 @@ def store(tmp_path):
 
 
 def test_loading_an_unknown_candidate_starts_a_fresh_screening(store):
-    screening = session.load(store, "c1", AREAS)
+    screening = session.load(store, "c1", client_for(AREAS))
     assert screening.next_field() == "consent"
 
 
 def test_a_half_finished_screening_resumes_where_it_stopped(store):
-    screening = session.load(store, "c1", AREAS)
+    screening = session.load(store, "c1", client_for(AREAS))
     screening.record_consent(True)
     screening.submit("name", "Juan", TODAY)
     screening.submit("city", "Guadalajra", TODAY)
     session.commit(store, "c1", screening, T1)
 
-    resumed = session.load(store, "c1", AREAS)
+    resumed = session.load(store, "c1", client_for(AREAS))
     assert resumed.confirm_city(True).status == "ok"
     statuses = [resumed.submit("name", "Juan", TODAY).status for _ in range(5)]
     assert statuses == ["follow_up"] * 4 + ["blocked"]
 
 
 def test_commit_stores_extracted_json_and_the_outcome_for_the_dashboard(store):
-    screening = session.load(store, "c1", AREAS)
+    screening = session.load(store, "c1", client_for(AREAS))
     screening.record_consent(True)
     screening.submit("start_date", date(2026, 11, 1), TODAY)
     session.commit(store, "c1", screening, T1)
@@ -47,12 +48,12 @@ def test_commit_stores_extracted_json_and_the_outcome_for_the_dashboard(store):
 
 
 def test_screening_events_reach_the_audit_log_once_with_a_timestamp(store):
-    screening = session.load(store, "c1", AREAS)
+    screening = session.load(store, "c1", client_for(AREAS))
     screening.record_consent(True)
     screening.human_requested()
     session.commit(store, "c1", screening, T1)
     session.commit(store, "c1", screening, T2)
-    again = session.load(store, "c1", AREAS)
+    again = session.load(store, "c1", client_for(AREAS))
     again.off_topic()
     session.commit(store, "c1", again, T2)
     events = [(e.type, e.at) for e in store.events("c1") if e.type in ("human_requested", "off_topic")]
@@ -60,7 +61,7 @@ def test_screening_events_reach_the_audit_log_once_with_a_timestamp(store):
 
 
 def test_a_decision_event_is_logged_only_when_the_outcome_changes(store):
-    screening = session.load(store, "c1", AREAS)
+    screening = session.load(store, "c1", client_for(AREAS))
     screening.record_consent(True)
     session.commit(store, "c1", screening, T1)
     session.commit(store, "c1", screening, T2)
@@ -73,7 +74,7 @@ def test_a_decision_event_is_logged_only_when_the_outcome_changes(store):
 
 
 def test_messages_are_saved_with_the_turn(store):
-    screening = session.load(store, "c1", AREAS)
+    screening = session.load(store, "c1", client_for(AREAS))
     session.commit(store, "c1", screening, T1,
                    messages=[("agent", "Hola, soy el asistente virtual."), ("candidate", "Sí")])
     assert [(m.role, m.text) for m in store.messages("c1")] == [
@@ -81,7 +82,7 @@ def test_messages_are_saved_with_the_turn(store):
 
 
 def test_a_failed_commit_does_not_lose_events_on_retry(store):
-    screening = session.load(store, "c1", AREAS)
+    screening = session.load(store, "c1", client_for(AREAS))
     screening.record_consent(True)
     screening.human_requested()
     with pytest.raises(Exception):

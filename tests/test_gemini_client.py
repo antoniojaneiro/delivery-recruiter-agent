@@ -4,8 +4,8 @@ import httpx
 import openai
 import pytest
 
-from sazon.llm import LLMError
-from sazon.gemini import GeminiClient, from_env
+from screener.llm import LLMError
+from screener.gemini import GeminiClient, from_env
 
 
 class FakeSDK:

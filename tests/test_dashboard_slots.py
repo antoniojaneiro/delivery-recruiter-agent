@@ -5,7 +5,8 @@ from pathlib import Path
 import pytest
 from streamlit.testing.v1 import AppTest
 
-from sazon.store import Store
+from sazon.client import SAZON_CALENDAR
+from screener.store import Store
 from tests.dash import login, logout, seed_accounts
 
 APP = str(Path(__file__).resolve().parent.parent / "dashboard.py")
@@ -20,7 +21,7 @@ def db(tmp_path, monkeypatch):
     monkeypatch.setenv("SAZON_DB", str(path))
     monkeypatch.setenv("SAZON_ACCOUNTS", str(tmp_path / "recruiters.json"))
     seed_accounts(tmp_path / "recruiters.json")
-    return Store(path)
+    return Store(path, calendar=SAZON_CALENDAR)
 
 
 def candidate(store, cid, name, city="Madrid", outcome="QUALIFIED"):

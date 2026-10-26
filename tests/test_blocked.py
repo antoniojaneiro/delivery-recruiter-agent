@@ -4,12 +4,14 @@ from datetime import date, datetime
 
 import pytest
 
-from sazon import session, turn
-from sazon.llm import LLMError
-from sazon.phrasing import Directive, Kind, phrase
-from sazon.model import Field
-from sazon.screening import Screening
-from sazon.store import Store
+from tests.clients import client_for
+from sazon.spec import SAZON
+from screener import session, turn
+from screener.llm import LLMError
+from screener.phrasing import Directive, Kind, phrase
+from sazon.fields import Field
+from screener.screening import Screening
+from screener.store import Store
 from tests.fakes import FakeLLM, ScriptedLLM
 
 AREAS = {"Madrid": [], "Guadalajara": []}
@@ -19,7 +21,7 @@ NOW = datetime(2026, 10, 25, 10, 0)
 
 @pytest.fixture
 def consented():
-    s = Screening(AREAS)
+    s = Screening(AREAS, SAZON)
     s.record_consent(True)
     return s
 
@@ -77,7 +79,7 @@ def test_a_city_confirmation_declined_again_and_again_ends_up_blocked(consented)
 def test_being_blocked_is_logged_and_survives_a_save_and_reload(consented):
     unclear(consented, "name", "Juan", 6)
     assert ("blocked", "name") in consented.events
-    restored = Screening.from_state(AREAS, json.loads(json.dumps(consented.to_state())))
+    restored = Screening.from_state(AREAS, json.loads(json.dumps(consented.to_state())), SAZON)
     assert restored.decide().outcome == "BLOCKED"
     assert restored.submit("name", "Juan", TODAY).status == "blocked"
 
@@ -107,11 +109,11 @@ def test_the_extracted_json_never_holds_anything_but_validated_values(consented)
 
 def say(store, message, *extractions, phrases=()):
     llm = ScriptedLLM(extractions, phrases)
-    return turn.handle_message(llm, store, AREAS, "c1", message, NOW), llm
+    return turn.handle_message(llm, store, client_for(AREAS), "c1", message, NOW), llm
 
 
 def consented_chat(store):
-    turn.start(store, AREAS, "c1", NOW)
+    turn.start(store, client_for(AREAS), "c1", NOW)
     say(store, "sí", {"consent": True})
 
 
@@ -156,8 +158,8 @@ def test_a_blocked_candidate_is_reminded_and_can_stall(store):
     consented_chat(store)
     for _ in range(6):
         say(store, "Juan", {"name": "Juan"})
-    assert turn.wait_24h(ScriptedLLM(), store, AREAS, "c1", NOW)
-    assert turn.wait_24h(ScriptedLLM(), store, AREAS, "c1", NOW) is None
+    assert turn.wait_24h(ScriptedLLM(), store, client_for(AREAS), "c1", NOW)
+    assert turn.wait_24h(ScriptedLLM(), store, client_for(AREAS), "c1", NOW) is None
     assert store.get("c1").outcome == "STALLED"
 
 
@@ -171,11 +173,11 @@ def test_a_blocked_candidate_is_reminded_and_can_stall(store):
 ])
 def test_the_blocked_message_is_fixed_and_names_what_is_missing(field, es, en):
     llm = FakeLLM("should never be used")
-    assert es in phrase(llm, Directive(Kind.BLOCKED, field=field), "es").lower()
-    assert en in phrase(llm, Directive(Kind.BLOCKED, field=field), "en").lower()
+    assert es in phrase(llm, SAZON, Directive(Kind.BLOCKED, field=field), "es").lower()
+    assert en in phrase(llm, SAZON, Directive(Kind.BLOCKED, field=field), "en").lower()
     assert llm.calls == []
 
 
 def test_the_follow_up_fallback_explains_the_information_is_needed_to_continue():
-    out = phrase(FakeLLM("x" * 400), Directive(Kind.FOLLOW_UP, field=Field.NAME), "es")
+    out = phrase(FakeLLM("x" * 400), SAZON, Directive(Kind.FOLLOW_UP, field=Field.NAME), "es")
     assert "necesito" in out.lower()

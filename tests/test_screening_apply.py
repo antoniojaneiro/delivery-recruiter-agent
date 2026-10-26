@@ -3,11 +3,12 @@ from datetime import date
 
 import pytest
 
-from sazon.consent import ConsentReading
-from sazon.extraction import Extraction
-from sazon.model import Field, Language, Outcome, Reason
-from sazon.phrasing import Kind
-from sazon.screening import Screening
+from screener.consent import ConsentReading
+from sazon.spec import SAZON, Extraction
+from screener.model import Language, Outcome
+from sazon.fields import Field, Reason
+from screener.phrasing import Kind
+from screener.screening import Screening
 
 AREAS = {"Madrid": [], "Guadalajara": []}
 TODAY = date(2026, 10, 25)
@@ -15,25 +16,25 @@ TODAY = date(2026, 10, 25)
 
 @pytest.fixture
 def consented():
-    s = Screening(AREAS)
+    s = Screening(AREAS, SAZON)
     s.record_consent(True)
     return s
 
 
 def test_a_clear_yes_asks_the_first_question_and_sets_the_language():
-    s = Screening(AREAS)
+    s = Screening(AREAS, SAZON)
     directive = s.apply_consent_reply(ConsentReading(True, Language.EN))
     assert (directive.kind, directive.field) == (Kind.ASK, Field.NAME) and s.language == Language.EN
     assert not s.needs_consent
 
 
 def test_a_clear_no_closes_with_no_consent():
-    directive = Screening(AREAS).apply_consent_reply(ConsentReading(False))
+    directive = Screening(AREAS, SAZON).apply_consent_reply(ConsentReading(False))
     assert directive.kind == Kind.CLOSE and directive.reasons == [Reason.NO_CONSENT]
 
 
 def test_an_unclear_reply_changes_nothing_and_asks_the_question_again():
-    s = Screening(AREAS)
+    s = Screening(AREAS, SAZON)
     assert s.apply_consent_reply(ConsentReading(None)) is None
     assert s.needs_consent and s.events == []
 
@@ -87,7 +88,7 @@ def test_the_extraction_context_tells_the_model_what_was_asked(consented):
 def test_silence_sends_one_reminder_then_stalls_and_does_nothing_once_closed(consented):
     assert consented.on_silence().kind == Kind.REMINDER
     assert consented.on_silence() is None and consented.decide().outcome == Outcome.STALLED
-    done = Screening(AREAS)
+    done = Screening(AREAS, SAZON)
     done.record_consent(False)
     assert done.on_silence() is None
 

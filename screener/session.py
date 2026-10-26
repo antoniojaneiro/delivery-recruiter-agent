@@ -1,17 +1,18 @@
 import json
 from datetime import datetime
 
-from sazon.screening import Screening
-from sazon.store import Store
-from sazon.summary import summarise
+from screener.client import Client
+from screener.screening import Screening
+from screener.store import Store
+from screener.summary import summarise
 
 
-def load(store: Store, candidate_id: str, areas: dict[str, list[str]]) -> Screening:
+def load(store: Store, candidate_id: str, client: Client) -> Screening:
     record = store.get(candidate_id)
     if record is None or not record.state:
-        screening = Screening(areas)
+        screening = Screening(client.areas, client.spec)
     else:
-        screening = Screening.from_state(areas, record.state)
+        screening = Screening.from_state(client.areas, record.state, client.spec)
     screening.version = record.version if record else None
     return screening
 

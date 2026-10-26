@@ -3,9 +3,11 @@ from datetime import datetime
 import streamlit as st
 
 from sazon import ui
-from sazon.model import Outcome, RecruiterStatus
-from sazon.recruiter_view import (OUTCOME_LABEL, PAGE_SIZE, STATUS_LABEL, call_label, escape_markdown, explain_error,
-                                  filter_records, kpis, name_of, page_of, table_rows)
+from screener.model import Outcome, RecruiterStatus
+from screener.recruiter_view import PAGE_SIZE, escape_markdown, filter_records, page_of
+from sazon.client import SAZON_CLIENT
+from sazon.recruiter_view import (OUTCOME_LABEL, STATUS_LABEL, call_label, explain_error, name_of,
+                                        table_rows)
 
 store = ui.store()
 recruiter = ui.recruiter_name()
@@ -20,7 +22,7 @@ if not records:
     st.info("No hay candidatos todavía. Aparecerán aquí cuando alguien hable con el asistente.")
     st.stop()
 
-numbers = kpis(records)
+numbers = store.kpi_counts()
 cols = st.columns(5)
 cols[0].metric("Candidatos", numbers["total"])
 cols[1].metric("Cualificados por contactar", numbers["to_contact"])
@@ -38,7 +40,7 @@ with st.container(horizontal=True, vertical_alignment="bottom"):
     search = st.text_input("Buscar por nombre, ciudad o id", key="f_search")
     review_only = st.checkbox("Solo descartes por revisar", key="f_review")
 
-shown = filter_records(records, outcomes, statuses, search, review_only)
+shown = filter_records(records, outcomes, statuses, search, SAZON_CLIENT.spec, review_only)
 if not shown:
     st.info("Ningún candidato coincide con los filtros.")
     st.stop()

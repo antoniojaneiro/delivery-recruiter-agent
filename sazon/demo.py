@@ -14,8 +14,9 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from sazon import config, turn
-from sazon.store import Store
+from screener import turn
+from sazon.client import SAZON_CLIENT
+from screener.store import Store
 
 TECHNICAL_PROBLEM = ("problema técnico", "technical problem")
 PAUSE_SECONDS = 4  # the free tier allows only a handful of requests per minute
@@ -165,16 +166,16 @@ def run_scenario(llm, store: Store, scenario: Scenario, now: datetime, pause: fl
     candidate_id = f"demo-{scenario.name}"
     result = Result(scenario, candidate_id)
     write(f"\n=== {scenario.title} [{scenario.name}] ===")
-    opening = turn.start(store, config.AREAS, candidate_id, now)
+    opening = turn.start(store, SAZON_CLIENT, candidate_id, now)
     result.turns.append(Turn(None, opening))
     _show(write, "bot", opening)
     for message in scenario.messages:
         time.sleep(pause)
         _show(write, "you", message)
-        reply = turn.handle_message(llm, store, config.AREAS, candidate_id, message, now)
+        reply = turn.handle_message(llm, store, SAZON_CLIENT, candidate_id, message, now)
         if retry_wait and any(marker in reply for marker in TECHNICAL_PROBLEM):
             time.sleep(retry_wait)  # most likely the rate limit; a failed turn costs the candidate nothing (D39)
-            reply = turn.handle_message(llm, store, config.AREAS, candidate_id, message, now)
+            reply = turn.handle_message(llm, store, SAZON_CLIENT, candidate_id, message, now)
         result.turns.append(Turn(message, reply))
         _show(write, "bot", reply)
     record = store.get(candidate_id)
@@ -221,8 +222,8 @@ def main(argv: list[str] | None = None) -> None:
     if unknown:
         sys.exit(f"Unknown scenario: {', '.join(unknown)}. Use --list to see the names.")
 
-    from sazon import gemini
-    from sazon.llm import LLMError
+    from screener import gemini
+    from screener.llm import LLMError
 
     try:
         llm = gemini.from_env()
@@ -231,7 +232,7 @@ def main(argv: list[str] | None = None) -> None:
     now = datetime.now()
     results = []
     with TemporaryDirectory() as folder:
-        store = Store(Path(folder) / "demo.db")
+        store = Store(Path(folder) / "demo.db", calendar=SAZON_CLIENT.calendar)
         seed_slots(store, now.astimezone())
         for name in names:
             results.append(run_scenario(llm, store, BY_NAME[name], now, args.pause, print, RETRY_WAIT_SECONDS))

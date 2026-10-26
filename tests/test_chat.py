@@ -3,9 +3,12 @@ from datetime import datetime
 
 import pytest
 
-from sazon import chat
-from sazon.phrasing import consent_message
-from sazon.store import Store
+from tests.clients import client_for
+from sazon.spec import SAZON
+from screener import chat
+from sazon import config, chat as sazon_chat
+from screener.phrasing import consent_message
+from screener.store import Store
 from tests.fakes import ScriptedLLM
 
 AREAS = {"Madrid": []}
@@ -27,14 +30,14 @@ def run(store, lines, llm=None, log_path=None):
         except StopIteration:
             raise EOFError
 
-    chat.run(llm or ScriptedLLM(), store, AREAS, read=read, write=out.append, clock=lambda: NOW,
+    chat.run(llm or ScriptedLLM(), store, client_for(AREAS), read=read, write=out.append, clock=lambda: NOW,
              log_path=log_path)
     return out
 
 
 def test_the_chat_opens_with_the_disclosure_and_quits_on_command(store):
     out = run(store, ["/quit"])
-    assert consent_message() in "\n".join(out)
+    assert consent_message(SAZON) in "\n".join(out)
     assert len(store.list_candidates()) == 1
 
 
@@ -144,11 +147,11 @@ def test_an_unwritable_log_never_makes_things_worse(store, monkeypatch, tmp_path
 def test_an_unopenable_database_exits_with_a_clear_message(tmp_path, monkeypatch):
     blocker = tmp_path / "file"
     blocker.write_text("not a directory")
-    monkeypatch.setattr(chat.config, "DB_PATH", blocker / "x.db")
-    monkeypatch.setattr("sazon.gemini.from_env", lambda: type("L", (), {"model": "m"})())
+    monkeypatch.setattr(config, "DB_PATH", blocker / "x.db")
+    monkeypatch.setattr("screener.gemini.from_env", lambda: type("L", (), {"model": "m"})())
     monkeypatch.setattr("sys.argv", ["sazon.chat"])
     with pytest.raises(SystemExit) as exit_info:
-        chat.main()
+        sazon_chat.main()
     assert "database" in str(exit_info.value).lower()
 
 

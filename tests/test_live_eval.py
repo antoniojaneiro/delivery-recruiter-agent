@@ -6,8 +6,9 @@ from datetime import date
 import pytest
 from dotenv import load_dotenv
 
-from sazon.extraction import extract
-from sazon.model import Field
+from screener.extraction import extract
+from sazon.spec import SAZON
+from sazon.fields import Field
 
 load_dotenv()
 pytestmark = [
@@ -19,13 +20,13 @@ TODAY = date(2026, 10, 25)
 
 @pytest.fixture(scope="module")
 def llm():
-    from sazon import gemini
+    from screener import gemini
 
     return gemini.from_env()
 
 
 def ask(llm, message, asking, awaiting=None):
-    result = extract(llm, message, asking=asking, awaiting_confirmation=awaiting, today=TODAY)
+    result = extract(llm, SAZON, message, asking=asking, awaiting_confirmation=awaiting, today=TODAY)
     assert result is not None, "the model returned unusable JSON"
     return result
 

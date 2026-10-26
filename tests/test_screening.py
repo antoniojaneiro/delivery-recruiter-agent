@@ -2,7 +2,8 @@ from datetime import date
 
 import pytest
 
-from sazon.screening import ConsentRequired, Screening
+from sazon.spec import SAZON
+from screener.screening import ConsentRequired, Screening
 
 AREAS = {"Madrid": [], "Ciudad de México": ["CDMX"], "Guadalajara": []}
 TODAY = date(2026, 10, 25)
@@ -10,7 +11,7 @@ TODAY = date(2026, 10, 25)
 
 @pytest.fixture
 def screening():
-    return Screening(AREAS)
+    return Screening(AREAS, SAZON)
 
 
 def test_consent_is_the_first_thing_asked(screening):
@@ -216,7 +217,7 @@ def test_half_finished_screening_survives_a_save_and_reload(consented):
     consented.human_requested()
     state = json.loads(json.dumps(consented.to_state()))
 
-    restored = Screening.from_state(AREAS, state)
+    restored = Screening.from_state(AREAS, state, SAZON)
 
     restored.off_topic()
     assert restored.decide().outcome == "ENDED_OFF_TOPIC"
@@ -229,7 +230,7 @@ def test_half_finished_screening_survives_a_save_and_reload(consented):
 
 def test_reloaded_screening_keeps_dates_and_consent(consented):
     fill(consented)
-    restored = Screening.from_state(AREAS, json.loads(json.dumps(consented.to_state())))
+    restored = Screening.from_state(AREAS, json.loads(json.dumps(consented.to_state())), SAZON)
     assert restored.values["start_date"] == date(2026, 11, 1)
     assert restored.decide() == consented.decide()
 
@@ -250,7 +251,7 @@ def test_withdrawing_wins_over_a_known_disqualifier(consented):
 
 def test_withdrawal_survives_a_save_and_reload(consented):
     consented.withdraw()
-    restored = Screening.from_state(AREAS, json.loads(json.dumps(consented.to_state())))
+    restored = Screening.from_state(AREAS, json.loads(json.dumps(consented.to_state())), SAZON)
     assert restored.decide().outcome == "WITHDRAWN"
 
 
@@ -279,7 +280,7 @@ def test_far_start_date_reaches_the_decision_flags_and_clears_when_corrected(con
 
 def test_far_start_date_flag_survives_a_save_and_reload(consented):
     consented.submit("start_date", date(2027, 6, 1), TODAY)
-    restored = Screening.from_state(AREAS, json.loads(json.dumps(consented.to_state())))
+    restored = Screening.from_state(AREAS, json.loads(json.dumps(consented.to_state())), SAZON)
     assert "START_DATE_FAR" in restored.decide().flags
 
 
@@ -297,7 +298,8 @@ def test_garbage_city_is_a_follow_up_never_a_crash(consented):
     assert consented.submit("city", 7, TODAY).status == "follow_up"
 
 
-from sazon.model import EventType, Field, Outcome, Status
+from screener.model import EventType, Outcome, Status
+from sazon.fields import Field
 
 
 def test_outcomes_statuses_and_events_are_typed_but_stay_plain_strings_in_json(consented):
@@ -337,7 +339,7 @@ def test_nothing_more_is_asked_once_qualified(consented):
 def test_language_is_conversation_state_and_survives_reload(consented):
     assert consented.language == "es"
     consented.language = "en"
-    restored = Screening.from_state(AREAS, json.loads(json.dumps(consented.to_state())))
+    restored = Screening.from_state(AREAS, json.loads(json.dumps(consented.to_state())), SAZON)
     assert restored.language == "en"
 
 
@@ -362,7 +364,7 @@ def test_stalled_never_overrides_a_final_outcome(consented):
 def test_stall_state_survives_reload(consented):
     consented.send_reminder()
     consented.mark_stalled()
-    restored = Screening.from_state(AREAS, json.loads(json.dumps(consented.to_state())))
+    restored = Screening.from_state(AREAS, json.loads(json.dumps(consented.to_state())), SAZON)
     assert restored.decide().outcome == "STALLED" and restored.reminder_sent
 
 
@@ -423,7 +425,7 @@ def test_a_stray_rejection_confirmation_is_a_follow_up_not_a_crash(consented):
 
 def test_a_pending_rejection_survives_a_save_and_reload(consented):
     consented.submit("license", False, TODAY)
-    restored = Screening.from_state(AREAS, json.loads(json.dumps(consented.to_state())))
+    restored = Screening.from_state(AREAS, json.loads(json.dumps(consented.to_state())), SAZON)
     assert restored.awaiting_rejection == "license"
     restored.confirm_rejection(True)
     assert restored.decide().outcome == "DISQUALIFIED"

@@ -25,7 +25,7 @@ A candidate screening agent for Grupo Sazón (fictional): a restaurant chain hir
 - Opus is not used for routine edits or lookups.
 - The launch flags `claude --advisor opus --subagents haiku` come from a post. They are unverified here. If `claude --help` in your terminal confirms them, you can also start with them. The roles above work without the flags.
 
-**Last architecture review:** 2026-10-25 at commit `ce9ac4e` (whole product, four reviewers plus a real-model scenario run, D61). Its bugs were fixed afterwards; the structural proposals (split `screening.py` and `store.py`, dashboard loading) are still open. 3 commits since, so a new review is not due. Update this line each time a review happens.
+**Last architecture review:** 2026-10-26 at commit `9cf9c2a` (focused on reuse for another client and on the D62 split, D63). Its candidates 1-5 were built on branch `refactor/screening-spec` (D63, D64; not pushed or merged yet); run `git rev-list --count 9cf9c2a..HEAD` for the commits since. Update this line each time a review happens.
 
 ## Decisions
 
@@ -37,6 +37,9 @@ All settled design and tech choices are logged in [DECISIONS.md](DECISIONS.md), 
 - **Channel:** terminal chat first, real channel later (D1).
 - **LLM:** Gemini free tier, through the course wrapper at `C:/Users/AJ/agent_engineering/Agentic-AI-Course/00-setup/course_llm.py` (D2).
 - **Storage:** SQLite (D3).
+- **Code layout (D63):** `screener/` is the engine and must never import or name a client; `sazon/` is Grupo Sazón as a
+  client (spec, wording, areas, Spanish dashboard labels, the commands). `tests/toy_spec.py` is a second client used by
+  the tests, and `tests/test_engine_boundary.py` fails if the engine leaks. Put anything reusable in the engine.
 - **Voice:** ElevenLabs is the suggested option (see the `agents` skill).
 - **Recruiter UI:** Streamlit dashboard, run locally (D4). The course capstone uses Streamlit too, and the `developing-with-streamlit` skill covers it.
 

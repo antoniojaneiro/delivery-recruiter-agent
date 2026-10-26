@@ -5,8 +5,9 @@ from pathlib import Path
 
 import pytest
 
-from sazon.model import RecruiterStatus
-from sazon.store import Store
+from sazon.client import SAZON_CALENDAR
+from screener.model import RecruiterStatus
+from screener.store import Store
 
 NOW = datetime(2026, 10, 25, 10, 0)
 MARK = "Zxqvbnm Unico"
@@ -20,7 +21,7 @@ def path(tmp_path):
 
 @pytest.fixture
 def store(path):
-    return Store(path)
+    return Store(path, calendar=SAZON_CALENDAR)
 
 
 def fill(store, cid="c1", name=MARK, outcome="QUALIFIED", when=NOW, recruiter=True, status=RecruiterStatus.CONTACTED):

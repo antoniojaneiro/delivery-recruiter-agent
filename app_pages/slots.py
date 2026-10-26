@@ -2,10 +2,14 @@ from datetime import datetime, time
 
 import streamlit as st
 
-from sazon import slot_flow, ui
-from sazon.model import Language
-from sazon.phrasing import slot_label
-from sazon.recruiter_view import COUNTRY_LABEL, escape_markdown, explain_error, name_of, slot_state
+from screener import slot_flow
+
+from sazon import ui
+from sazon.client import SAZON_CLIENT
+from screener.model import Language
+from screener.phrasing import slot_label
+from screener.recruiter_view import escape_markdown
+from sazon.recruiter_view import COUNTRY_LABEL, explain_error, name_of, slot_state
 
 store = ui.store()
 recruiter = ui.recruiter_name()
@@ -58,7 +62,7 @@ if slots:
             if booked_by:
                 booked = store.get(booked_by)
                 who = f"{escape_markdown(name_of(booked))} ({booked_by})" if booked else booked_by
-                told = slot_flow.notify_cancelled(store, booked_by, now.replace(tzinfo=None))
+                told = slot_flow.notify_cancelled(store, SAZON_CLIENT, booked_by, now.replace(tzinfo=None))
                 st.warning(f"Ese horario estaba reservado por {who}. "
                            + ("El asistente le dejará un aviso en su chat. " if told else "No se pudo dejar el aviso: escríbele tú. ")
                            + "Se quedó sin llamada reservada.")
@@ -71,7 +75,7 @@ if not slots:
 else:
     def state(slot) -> str:
         booked = store.get(slot.candidate_id) if slot.candidate_id else None
-        return slot_state(slot, name_of(booked) if booked else None, now)
+        return slot_state(slot, name_of(booked) if booked else None, now, store.calendar)
 
     st.dataframe(
         [{"Id": s.id, "País": COUNTRY_LABEL[s.country], "Día y hora": slot_label(s.starts_at, Language.ES),

@@ -34,11 +34,30 @@ python -m sazon.chat --list-models   # if the default model name returns 404 (ov
 Errors are logged to `data/sazon.log` and the database lives in `data/sazon.db` (both git-ignored; set `SAZON_DB`
 to use another file for the chat and the dashboard alike).
 
+## Code layout, and a second client
+
+The code is split in two packages (D63):
+
+- **`screener/`** is the engine: the conversation rules, extraction, storage, reminders, summary card, funnel and the
+  recruiter-side logic. It knows nothing about any company; a test fails if it imports a client or names one.
+- **`sazon/`** is Grupo Sazón as a client: its fields and validators (`spec.py`, `validators.py`, `fields.py`), its
+  fixed wording in Spanish and English (`pack.py`), its service areas, time zones and reminder clock (`client.py`,
+  `config.py`), its Spanish dashboard labels (`recruiter_view.py`), and the commands you run (`chat.py`,
+  `reminders.py`, `accounts.py`, `demo.py`).
+
+To serve a similar client, add a package beside `sazon/` with the same four pieces: a `ScreeningSpec` (fields, how to
+read and check each one, the rules that end a screening), a `Pack` (every fixed text, in each language), a `Client`
+(service areas, an optional call calendar, the reminder clock) and its entry points. A spec or client that is
+incomplete fails when it is built and lists every problem. `tests/toy_spec.py` is a second client (warehouse pickers,
+English only) that the tests run through the real engine, so a detail of Sazón that leaks back into the engine fails.
+Still client-specific: the dashboard's Spanish page text in `app_pages/`, and the Spanish and English word lists the
+engine uses to read a yes, a stop or a numbered choice (`screener/consent.py`, `screener/slot_choice.py`).
+
 ## Why this LLM
 
 **Gemini (`gemini-3.5-flash-lite` by default), reached through its OpenAI-compatible endpoint** (D2, D23, D33).
 It follows JSON instructions well enough for structured extraction in Spanish and English, it has a free tier with
-no card, and the OpenAI-style client keeps the model swappable behind one small interface (`sazon/llm.py`).
+no card, and the OpenAI-style client keeps the model swappable behind one small interface (`screener/llm.py`).
 The code decides everything that matters (validation, qualified or disqualified, what to ask next, what is
 stored); the model only reads a message into fields and phrases a short question. Consent, refusals, stop requests,
 slot picks and every closing message are read or written by plain code, never by the model.

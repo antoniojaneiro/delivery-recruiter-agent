@@ -1,7 +1,7 @@
 """D48: the candidate's pick is read in plain code. A wrong pick books a real call, so it is strict."""
 import pytest
 
-from sazon.slot_choice import NONE, read_slot_choice
+from screener.slot_choice import NONE, read_slot_choice
 
 
 @pytest.mark.parametrize("text,number", [

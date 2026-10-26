@@ -6,7 +6,7 @@ class FakeLLM:
         self.calls = []
 
     def complete(self, system: str, user: str, json_mode: bool = False) -> str:
-        from sazon.llm import LLMError
+        from screener.llm import LLMError
 
         self.calls.append({"system": system, "user": user, "json_mode": json_mode})
         if not self.replies:
@@ -28,7 +28,7 @@ class ScriptedLLM:
         self.calls = []
 
     def complete(self, system: str, user: str, json_mode: bool = False) -> str:
-        from sazon.llm import LLMError
+        from screener.llm import LLMError
 
         self.calls.append({"system": system, "user": user, "json_mode": json_mode})
         queue = self.extractions if json_mode else self.phrases
