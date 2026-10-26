@@ -9,7 +9,7 @@ TODAY = date(2026, 10, 25)
 
 
 def toy() -> Screening:
-    s = Screening({}, spec=TOY)
+    s = Screening({}, TOY)
     s.record_consent(True)
     return s
 

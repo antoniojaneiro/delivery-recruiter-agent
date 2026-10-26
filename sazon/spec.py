@@ -7,7 +7,7 @@ from operator import eq
 from typing import Any, Callable
 
 from sazon.extraction import ControlFlags, build_model
-from sazon.model import Language, Outcome, Reason
+from sazon.model import NO_CONSENT, Language, Outcome
 from sazon.pack import Pack, Text
 from sazon.validators import Validation
 
@@ -84,9 +84,9 @@ class ScreeningSpec:
     pack: Pack
     recruiter: RecruiterTexts
     rules: tuple[Rule, ...] = ()
-    role: str = "job"  # "delivery-driver" in "a delivery-driver screening chat"
+    role: str = "job"  # "warehouse-picker" in "a warehouse-picker screening chat"
     area_field: str | None = None  # the field matched against the client's service areas
-    place_qualifiers: tuple[str, ...] = ()  # words that may follow a place ("Madrid, España") and are dropped
+    place_qualifiers: tuple[str, ...] = ()  # words that may follow a place ("Leeds, England") and are dropped
     title_field: str | None = None  # the answer that heads the summary card
     card_order: tuple[str, ...] = ()  # the fields that get a line on the card, in order
 
@@ -114,7 +114,7 @@ class ScreeningSpec:
         raise ValueError(f"unknown reason: {reason}")
 
     def close_text(self, reason: str) -> Text:
-        return self.pack.close_no_consent if reason == Reason.NO_CONSENT else self.rule(reason).close
+        return self.pack.close_no_consent if reason == NO_CONSENT else self.rule(reason).close
 
 
 class SpecError(ValueError):
@@ -167,7 +167,7 @@ def check_spec(spec: "ScreeningSpec") -> None:
         if reasons.count(reason) > 1:
             problems.append(f"reason {reason} is used by two rules")
     for rule in spec.rules:
-        if rule.reason == Reason.NO_CONSENT:
+        if rule.reason == NO_CONSENT:
             problems.append("NO_CONSENT is the engine's own reason")
         need_text(f"rule {rule.reason}: close", rule.close)
         if not rule.summary:

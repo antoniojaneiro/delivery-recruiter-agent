@@ -5,7 +5,7 @@ import pytest
 
 from sazon.extraction import extract
 from sazon.sazon_spec import SAZON
-from sazon.model import Field
+from sazon.sazon_fields import Field
 from tests.fakes import FakeLLM
 
 TODAY = date(2026, 10, 25)

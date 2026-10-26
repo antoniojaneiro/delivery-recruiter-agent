@@ -8,7 +8,8 @@ from pathlib import Path
 
 from sazon import extraction, funnel, phrasing, summary
 from sazon.sazon_spec import SAZON, SYSTEM, Extraction
-from sazon.model import Field, Language, Outcome, Reason
+from sazon.model import Language, Outcome
+from sazon.sazon_fields import Field, Reason
 from sazon.phrasing import Directive, Kind
 from sazon.screening import Screening
 
@@ -86,7 +87,7 @@ class _Recorder:
 
 
 def _complete_screening() -> Screening:
-    s = Screening(AREAS)
+    s = Screening(AREAS, SAZON)
     s.record_consent(True)
     answers = {"name": "Juan Pérez", "experience": (2, ["glovo", "uber eats"]), "availability": ["full_time"],
                "schedule": "morning", "start_date": date(2027, 3, 1), "city": "Madrid", "license": True}
@@ -97,14 +98,14 @@ def _complete_screening() -> Screening:
 
 def _cards() -> dict:
     full = _complete_screening()
-    partial = Screening(AREAS)
+    partial = Screening(AREAS, SAZON)
     partial.record_consent(True)
     partial.submit("name", "Ana Ruiz", TODAY)
     partial.submit("license", False, TODAY)
     partial.submit("license", False, TODAY)
-    declined = Screening(AREAS)
+    declined = Screening(AREAS, SAZON)
     declined.record_consent(False)
-    blocked = Screening(AREAS)
+    blocked = Screening(AREAS, SAZON)
     blocked.record_consent(True)
     for _ in range(7):
         blocked.submit("name", "x", TODAY)
@@ -148,7 +149,7 @@ def test_sazon_texts_prompts_cards_and_state_are_unchanged():
 
 def test_a_state_saved_by_the_first_release_still_loads():
     saved = json.loads(GOLDEN.read_text(encoding="utf-8"))["state"]
-    loaded = Screening.from_state(AREAS, saved)
+    loaded = Screening.from_state(AREAS, saved, SAZON)
     assert _roundtrip(loaded.to_state()) == saved
     assert loaded.awaiting_change
     assert loaded.values["city"] == "Madrid"

@@ -2,7 +2,8 @@ import pytest
 
 from sazon.sazon_spec import SAZON
 from sazon.llm import LLMError
-from sazon.model import Field, Outcome
+from sazon.model import Outcome
+from sazon.sazon_fields import Field
 from sazon.phrasing import Directive, Kind, consent_message, phrase
 from tests.fakes import FakeLLM
 

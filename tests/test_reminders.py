@@ -5,7 +5,7 @@ import pytest
 
 from sazon.sazon_spec import SAZON
 from sazon.sazon_client import SAZON_CALENDAR, SAZON_CLIENT
-from sazon import reminders, session, turn
+from sazon import reminders, sazon_reminders, session, turn
 from sazon.phrasing import Directive, Kind, phrase
 from sazon.store import ConflictError, Store
 from tests.fakes import ScriptedLLM
@@ -199,6 +199,6 @@ def test_erasing_a_candidate_removes_their_queued_messages_too(store):
 def test_the_command_runs_once_and_says_what_it_did(store, tmp_path, monkeypatch, capsys):
     in_progress(store)
     monkeypatch.setenv("SAZON_DB", str(tmp_path / "s.db"))
-    reminders.main(["--now", (T0 + 24 * HOUR).isoformat()])
+    sazon_reminders.main(["--now", (T0 + 24 * HOUR).isoformat()])
     out = capsys.readouterr().out
     assert "c1" in out and "reminder" in out

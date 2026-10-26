@@ -6,9 +6,8 @@ import uuid
 from datetime import datetime
 from pathlib import Path
 
-from sazon import config, turn
+from sazon import turn
 from sazon.client import Client
-from sazon.sazon_client import SAZON_CLIENT
 from sazon.llm import LLM
 from sazon.model import Language
 from sazon.phrasing import Directive, Kind, phrase
@@ -135,7 +134,7 @@ def _show_state(store, candidate_id, write) -> str | None:
     return candidate_id
 
 
-def main() -> None:
+def main(client: Client, db_path: Path, log_path: Path, title: str) -> None:
     from sazon import gemini
     from sazon.llm import LLMError
 
@@ -143,17 +142,12 @@ def main() -> None:
         llm = gemini.from_env()
     except LLMError as error:
         sys.exit(str(error))
-    path = config.db_path()
     try:
-        store = Store(path, calendar=SAZON_CLIENT.calendar)
+        store = Store(db_path, calendar=client.calendar)
     except (OSError, sqlite3.Error) as error:
-        sys.exit(f"Cannot open the database at {path}: {error}")
+        sys.exit(f"Cannot open the database at {db_path}: {error}")
     if "--list-models" in sys.argv:
         print("\n".join(llm.models()))
         return
-    print(f"Grupo Sazón screening chat (model {llm.model}). {HELP}\n")
-    run(llm, store, SAZON_CLIENT, log_path=config.LOG_PATH)
-
-
-if __name__ == "__main__":
-    main()
+    print(f"{title} (model {llm.model}). {HELP}\n")
+    run(llm, store, client, log_path=log_path)

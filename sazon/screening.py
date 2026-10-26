@@ -5,11 +5,10 @@ from datetime import date
 from sazon import validators
 from sazon.consent import ConsentReading, is_hesitation, is_resume_request, read_consent
 from sazon.extraction import ControlFlags
-from sazon.model import CityMatchStatus, EventType, Field, Language, Outcome, Reason, Status
+from sazon.model import CONSENT, NO_CONSENT, CityMatchStatus, EventType, Language, Outcome, Status
 from sazon.phrasing import Directive, Kind, consent_text_hash
 from sazon.screening_changes import propose_change
 from sazon.screening_state import STATE_FIELDS, jsonable_values
-from sazon.sazon_spec import SAZON
 from sazon.spec import MISSING as _MISSING, ScreeningSpec
 
 MAX_FOLLOW_UPS = 5
@@ -34,9 +33,9 @@ class SubmitResult:
 @dataclass(frozen=True)
 class ExtractionContext:
     """What the model needs to know to read the next message."""
-    asking: Field | None
+    asking: str | None
     awaiting_confirmation: str | None
-    awaiting_rejection: Field | None
+    awaiting_rejection: str | None
     previous_answer: str | None
 
 
@@ -48,7 +47,7 @@ class Decision:
 
 
 class Screening:
-    def __init__(self, areas: dict[str, list[str]], spec: ScreeningSpec = SAZON):
+    def __init__(self, areas: dict[str, list[str]], spec: ScreeningSpec):
         self.areas = areas
         self.spec = spec
         for f in STATE_FIELDS:
@@ -70,7 +69,7 @@ class Screening:
                             f"text_sha256={consent_text_hash(self.spec)}"))
 
     @property
-    def awaiting_rejection(self) -> Field | None:
+    def awaiting_rejection(self) -> str | None:
         return self._pending_reject[0] if self._pending_reject else None
 
     @property
@@ -109,7 +108,7 @@ class Screening:
         notice = "kept"
         if yes:
             self.events.append((EventType.FIELD_CHANGED, str(field)))
-            result = self.submit(field, candidate, today)  # the usual flows (typo, outside the area, no license) still apply
+            result = self.submit(field, candidate, today)  # the usual flows (typo, outside the area, a rejecting answer) still apply
             notice = "changed" if result.status == Status.OK else None  # else another question follows
         directive = self._directive_now(None)
         return replace(directive, notice=notice) if directive.kind != Kind.CLOSE else directive
@@ -147,7 +146,7 @@ class Screening:
         self._slot_offer = []
         self._slots_done = True
 
-    def previous_answer(self, field: Field | None) -> str | None:
+    def previous_answer(self, field: str | None) -> str | None:
         return self._previous.get(field)
 
     @property
@@ -158,7 +157,7 @@ class Screening:
     def needs_consent(self) -> bool:
         return self.consent is None
 
-    def missing_fields(self) -> list[Field]:
+    def missing_fields(self) -> list[str]:
         return [f for f in self.spec.keys if f not in self.values]
 
     def close_directive(self) -> Directive:
@@ -254,7 +253,7 @@ class Screening:
         unclear = self._apply_facts(ex, message, asking, today)
         return self._directive_now(unclear)
 
-    def _directive_now(self, unclear: tuple[Field, str] | None) -> Directive:
+    def _directive_now(self, unclear: tuple[str, str] | None) -> Directive:
         if not self.is_open:
             return self.close_directive()
         if self.awaiting_rejection:
@@ -271,12 +270,12 @@ class Screening:
             return Directive(Kind.FOLLOW_UP, field=unclear[0], reason=unclear[1])
         return Directive(Kind.ASK, field=self.next_field())
 
-    def _apply_facts(self, ex: ControlFlags, message: str, asking: Field | None,
-                     today: date) -> tuple[Field, str] | None:
+    def _apply_facts(self, ex: ControlFlags, message: str, asking: str | None,
+                     today: date) -> tuple[str, str] | None:
         unclear = None
         answered = False
 
-        def note(field: Field, result: SubmitResult) -> None:
+        def note(field: str, result: SubmitResult) -> None:
             nonlocal unclear, answered
             answered = True
             if result.status == Status.FOLLOW_UP and unclear is None:
@@ -314,7 +313,7 @@ class Screening:
         return {f.key: f.dump(getattr(self, f.attribute)) for f in STATE_FIELDS}
 
     @classmethod
-    def from_state(cls, areas: dict[str, list[str]], state: dict, spec: ScreeningSpec = SAZON) -> "Screening":
+    def from_state(cls, areas: dict[str, list[str]], state: dict, spec: ScreeningSpec) -> "Screening":
         s = cls(areas, spec)
         for f in STATE_FIELDS:  # every key is optional: a state saved by an older or newer version must still load
             if f.key in state:
@@ -368,7 +367,7 @@ class Screening:
     def decide(self) -> Decision:
         flags = sorted(f for fl in self.validation_flags.values() for f in fl)
         if self.consent is False:
-            return Decision(Outcome.DISQUALIFIED, [Reason.NO_CONSENT], [])
+            return Decision(Outcome.DISQUALIFIED, [NO_CONSENT], [])
         if self.withdrawn:
             return Decision(Outcome.WITHDRAWN, [], flags)
         if self._off_topic >= MAX_OFF_TOPIC:
@@ -384,14 +383,14 @@ class Screening:
             return Decision(Outcome.IN_PROGRESS, [], flags)
         return Decision(Outcome.QUALIFIED, [], flags)
 
-    def next_field(self) -> Field | None:
+    def next_field(self) -> str | None:
         if self.decide().outcome not in LIVE:
             return None
         return self._missing_field()
 
-    def _missing_field(self) -> Field | None:
+    def _missing_field(self) -> str | None:
         if self.consent is None:
-            return Field.CONSENT
+            return CONSENT
         return next((f for f in self.spec.keys if f not in self.values), None)
 
     def submit(self, field: str, value: object, today: date, raw: object = None) -> SubmitResult:

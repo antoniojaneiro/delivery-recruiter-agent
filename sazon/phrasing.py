@@ -7,7 +7,7 @@ from enum import StrEnum
 from typing import TYPE_CHECKING
 
 from sazon.llm import LLM, LLMError
-from sazon.model import Language, Outcome, Reason
+from sazon.model import NO_CONSENT, Language, Outcome
 
 if TYPE_CHECKING:
     from sazon.spec import ScreeningSpec
@@ -165,7 +165,7 @@ def _strip_greeting(text: str) -> str:
 
 def _close(spec: "ScreeningSpec", directive: Directive, language: str) -> str:
     pack = spec.pack
-    if directive.repeat and Reason.NO_CONSENT not in directive.reasons:
+    if directive.repeat and NO_CONSENT not in directive.reasons:
         if directive.outcome == Outcome.WITHDRAWN:
             return pack.pick(pack.close_repeat_withdrawn, language)
         return pack.pick(pack.close_repeat.get(directive.outcome, pack.close_repeat_other), language)

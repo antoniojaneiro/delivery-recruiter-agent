@@ -5,7 +5,7 @@ import pytest
 
 from tests.clients import client_for
 from sazon.sazon_spec import SAZON
-from sazon import chat
+from sazon import chat, config, sazon_chat
 from sazon.phrasing import consent_message
 from sazon.store import Store
 from tests.fakes import ScriptedLLM
@@ -146,11 +146,11 @@ def test_an_unwritable_log_never_makes_things_worse(store, monkeypatch, tmp_path
 def test_an_unopenable_database_exits_with_a_clear_message(tmp_path, monkeypatch):
     blocker = tmp_path / "file"
     blocker.write_text("not a directory")
-    monkeypatch.setattr(chat.config, "DB_PATH", blocker / "x.db")
+    monkeypatch.setattr(config, "DB_PATH", blocker / "x.db")
     monkeypatch.setattr("sazon.gemini.from_env", lambda: type("L", (), {"model": "m"})())
     monkeypatch.setattr("sys.argv", ["sazon.chat"])
     with pytest.raises(SystemExit) as exit_info:
-        chat.main()
+        sazon_chat.main()
     assert "database" in str(exit_info.value).lower()
 
 

@@ -9,7 +9,7 @@ from sazon.sazon_spec import SAZON
 from sazon import session, turn
 from sazon.llm import LLMError
 from sazon.phrasing import Directive, Kind, phrase
-from sazon.model import Field
+from sazon.sazon_fields import Field
 from sazon.screening import Screening
 from sazon.store import Store
 from tests.fakes import FakeLLM, ScriptedLLM
@@ -21,7 +21,7 @@ NOW = datetime(2026, 10, 25, 10, 0)
 
 @pytest.fixture
 def consented():
-    s = Screening(AREAS)
+    s = Screening(AREAS, SAZON)
     s.record_consent(True)
     return s
 
@@ -79,7 +79,7 @@ def test_a_city_confirmation_declined_again_and_again_ends_up_blocked(consented)
 def test_being_blocked_is_logged_and_survives_a_save_and_reload(consented):
     unclear(consented, "name", "Juan", 6)
     assert ("blocked", "name") in consented.events
-    restored = Screening.from_state(AREAS, json.loads(json.dumps(consented.to_state())))
+    restored = Screening.from_state(AREAS, json.loads(json.dumps(consented.to_state())), SAZON)
     assert restored.decide().outcome == "BLOCKED"
     assert restored.submit("name", "Juan", TODAY).status == "blocked"
 

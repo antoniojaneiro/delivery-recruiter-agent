@@ -41,11 +41,11 @@ def test_every_saved_key_is_declared_exactly_once():
     keys = [f.key for f in STATE_FIELDS]
     attributes = [f.attribute for f in STATE_FIELDS]
     assert len(keys) == len(set(keys)) and len(attributes) == len(set(attributes))
-    assert set(Screening(AREAS).to_state()) == set(keys)
+    assert set(Screening(AREAS, SAZON).to_state()) == set(keys)
 
 
 def test_every_declared_attribute_survives_a_save_and_a_load():
-    s = Screening(AREAS)
+    s = Screening(AREAS, SAZON)
     s.record_consent(True)
     for field, value in {"name": "Ana Ruiz", "experience": (1, ["glovo"]), "start_date": date(2026, 11, 2)}.items():
         s.submit(field, value, TODAY)
@@ -56,7 +56,7 @@ def test_every_declared_attribute_survives_a_save_and_a_load():
     s.language = Language.EN
     s.reminder_sent = True
     saved = json.loads(json.dumps(s.to_state()))
-    again = Screening.from_state(AREAS, saved)
+    again = Screening.from_state(AREAS, saved, SAZON)
     assert json.loads(json.dumps(again.to_state())) == saved
     for f in STATE_FIELDS:
         assert getattr(again, f.attribute) == getattr(s, f.attribute), f.attribute

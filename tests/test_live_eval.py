@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 
 from sazon.extraction import extract
 from sazon.sazon_spec import SAZON
-from sazon.model import Field
+from sazon.sazon_fields import Field
 
 load_dotenv()
 pytestmark = [

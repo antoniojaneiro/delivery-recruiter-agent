@@ -3,7 +3,7 @@ It only counts what the chat already stores, so it needs no extra tracking."""
 from collections import Counter
 from dataclasses import dataclass
 
-from sazon.model import Outcome, Reason
+from sazon.model import NO_CONSENT, Outcome
 from sazon.spec import ScreeningSpec
 from sazon.store import Record
 
@@ -50,7 +50,7 @@ def build_funnel(records: list[Record], spec: ScreeningSpec) -> Funnel:
             stopped[spec.field(missing[0]).label] += 1
 
     closed_by_agent = sum(1 for r in records if r.outcome == Outcome.ENDED_OFF_TOPIC or (
-        r.outcome == Outcome.DISQUALIFIED and Reason.NO_CONSENT not in r.reasons))
+        r.outcome == Outcome.DISQUALIFIED and NO_CONSENT not in r.reasons))
     rates = {
         "consent": _share(consented, total),
         "qualified": _share(qualified, total),

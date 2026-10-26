@@ -6,7 +6,8 @@ import pytest
 from sazon.sazon_client import SAZON_CLIENT
 from sazon import config, turn
 from sazon.sazon_spec import SAZON, Extraction
-from sazon.model import Outcome, Reason
+from sazon.model import Outcome
+from sazon.sazon_fields import Reason
 from sazon.phrasing import Directive, Kind, consent_message, phrase
 from sazon.screening import Screening
 from sazon.store import Store
@@ -67,7 +68,7 @@ def test_the_off_topic_farewell_is_factual_and_points_to_a_human():
 
 @pytest.fixture
 def consented():
-    s = Screening(config.AREAS)
+    s = Screening(config.AREAS, SAZON)
     s.record_consent(True)
     return s
 
@@ -119,7 +120,7 @@ def test_the_strike_count_survives_a_save_and_reload(consented):
     import json
     strike(consented)
     strike(consented)
-    restored = Screening.from_state(config.AREAS, json.loads(json.dumps(consented.to_state())))
+    restored = Screening.from_state(config.AREAS, json.loads(json.dumps(consented.to_state())), SAZON)
     strike(restored)
     assert restored.decide().outcome == "ENDED_OFF_TOPIC"
 

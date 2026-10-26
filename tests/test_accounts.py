@@ -3,7 +3,7 @@ import json
 
 import pytest
 
-from sazon import accounts
+from sazon import accounts, sazon_accounts
 
 PASSWORD = "contraseña-segura-1"
 
@@ -79,20 +79,20 @@ def test_listing_gives_the_registered_names(path):
 
 def test_the_default_path_comes_from_the_environment_or_the_data_folder(monkeypatch, tmp_path):
     monkeypatch.setenv("SAZON_ACCOUNTS", str(tmp_path / "x.json"))
-    assert accounts.accounts_path() == tmp_path / "x.json"
+    assert sazon_accounts.accounts_path() == tmp_path / "x.json"
     monkeypatch.delenv("SAZON_ACCOUNTS")
-    assert accounts.accounts_path().name == "recruiters.json" and accounts.accounts_path().parent.name == "data"
+    assert sazon_accounts.accounts_path().name == "recruiters.json" and sazon_accounts.accounts_path().parent.name == "data"
 
 
 def test_the_command_adds_lists_and_removes(path, monkeypatch, capsys):
     monkeypatch.setenv("SAZON_ACCOUNTS", str(path))
     answers = iter([PASSWORD, PASSWORD])
     monkeypatch.setattr("getpass.getpass", lambda prompt="": next(answers))
-    accounts.main(["add", "Ana"])
-    accounts.main(["list"])
+    sazon_accounts.main(["add", "Ana"])
+    sazon_accounts.main(["list"])
     assert "Ana" in capsys.readouterr().out
     assert accounts.verify(path, "Ana", PASSWORD) == "Ana"
-    accounts.main(["remove", "Ana"])
+    sazon_accounts.main(["remove", "Ana"])
     assert accounts.has_accounts(path) is False
 
 
@@ -101,5 +101,5 @@ def test_the_command_refuses_passwords_that_do_not_match(path, monkeypatch):
     answers = iter([PASSWORD, "otra-distinta-9"])
     monkeypatch.setattr("getpass.getpass", lambda prompt="": next(answers))
     with pytest.raises(SystemExit):
-        accounts.main(["add", "Ana"])
+        sazon_accounts.main(["add", "Ana"])
     assert accounts.has_accounts(path) is False

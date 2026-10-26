@@ -16,7 +16,7 @@ def test_name_single_word_or_bad_characters_is_invalid(raw):
     assert result.reason
 
 
-from sazon.validators import validate_license
+from sazon.sazon_validators import validate_license
 
 
 @pytest.mark.parametrize("value,expected", [(True, True), (False, False)])
@@ -64,7 +64,7 @@ def test_city_not_in_list_is_out_of_area():
     assert result.status == "out_of_area" and result.city is None
 
 
-from sazon.validators import validate_availability, validate_schedule
+from sazon.sazon_validators import validate_availability, validate_schedule
 
 
 def test_availability_accepts_one_or_more_known_values_without_duplicates():
@@ -86,7 +86,7 @@ def test_schedule_unknown_is_invalid():
     assert not validate_schedule("night").ok
 
 
-from sazon.validators import validate_experience
+from sazon.sazon_validators import validate_experience
 
 
 def test_experience_years_with_known_platform_is_normalised():
@@ -110,7 +110,7 @@ def test_experience_missing_negative_or_platformless_years_is_invalid(years, pla
 
 from datetime import date
 
-from sazon.validators import validate_start_date
+from sazon.sazon_validators import validate_start_date
 
 TODAY = date(2026, 10, 25)
 

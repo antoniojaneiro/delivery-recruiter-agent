@@ -4,8 +4,10 @@ from datetime import datetime, timezone
 import pytest
 
 from sazon.sazon_client import SAZON_CALENDAR
+from sazon.sazon_spec import SAZON
 from sazon.model import RecruiterStatus
-from sazon.recruiter_view import (OUTCOME_LABEL, STATUS_LABEL, filter_records, kpis, matches, table_rows)
+from sazon.recruiter_view import filter_records, kpis, matches
+from sazon.sazon_recruiter_view import OUTCOME_LABEL, STATUS_LABEL, table_rows
 from sazon.store import Store
 
 T1 = datetime(2026, 10, 25, 10, 0)
@@ -57,16 +59,16 @@ def test_a_candidate_without_a_name_is_still_listed(store):
     ("sevilla", ["c3"]), ("c4", ["c4"]), ("   ", ["c1", "c2", "c3", "c4", "c5"]), ("zzz", []),
 ])
 def test_search_ignores_accents_and_case_and_looks_at_name_city_and_id(store, text, expected):
-    found = [r for r in store.list_candidates() if matches(r, text)]
+    found = [r for r in store.list_candidates() if matches(r, text, SAZON)]
     assert sorted(ids(found)) == sorted(expected)
 
 
 def test_filters_combine_outcome_status_and_search(store):
     records = store.list_candidates()
-    assert sorted(ids(filter_records(records, outcomes=["QUALIFIED"], statuses=[], search=""))) == ["c1", "c2"]
-    assert ids(filter_records(records, outcomes=["QUALIFIED"], statuses=["new"], search="")) == ["c1"]
-    assert ids(filter_records(records, outcomes=[], statuses=["contacted"], search="garcia")) == ["c2"]
-    assert len(filter_records(records, outcomes=[], statuses=[], search="")) == 5
+    assert sorted(ids(filter_records(records, outcomes=["QUALIFIED"], statuses=[], search="", spec=SAZON))) == ["c1", "c2"]
+    assert ids(filter_records(records, outcomes=["QUALIFIED"], statuses=["new"], search="", spec=SAZON)) == ["c1"]
+    assert ids(filter_records(records, outcomes=[], statuses=["contacted"], search="garcia", spec=SAZON)) == ["c2"]
+    assert len(filter_records(records, outcomes=[], statuses=[], search="", spec=SAZON)) == 5
 
 
 def test_the_key_numbers_count_what_a_recruiter_must_act_on(store):
@@ -75,7 +77,7 @@ def test_the_key_numbers_count_what_a_recruiter_must_act_on(store):
 
 
 def test_a_booked_call_shows_in_the_table_and_leaves_the_to_contact_number(store):
-    from sazon.recruiter_view import call_label
+    from sazon.sazon_recruiter_view import call_label
     store.commit_turn("c1", T1, {}, {"name": "Juan Pérez"}, "QUALIFIED", [], [])
     slot_id = store.add_slot("ES", datetime(2027, 6, 15, 10, 0), "Ana", "Ana", T1.astimezone())
     before = kpis(store.list_candidates())["to_contact"]
@@ -90,7 +92,7 @@ def test_a_booked_call_shows_in_the_table_and_leaves_the_to_contact_number(store
 
 
 def test_the_slot_state_says_when_a_free_slot_is_too_close_to_be_offered():
-    from sazon.recruiter_view import slot_state
+    from sazon.sazon_recruiter_view import slot_state
     from sazon.store import Slot
     soon = Slot(1, "ES", datetime(2026, 10, 26, 10, 30), None, None, False)
     later = Slot(2, "ES", datetime(2026, 11, 3, 10, 0), None, None, False)
@@ -117,7 +119,7 @@ def test_the_review_queue_holds_agent_rejections_nobody_has_looked_at(store):
 
 def test_the_review_only_filter_keeps_just_the_queue(store):
     records = store.list_candidates()
-    assert ids(filter_records(records, outcomes=[], statuses=[], search="", review_only=True)) == ["c3"]
+    assert ids(filter_records(records, outcomes=[], statuses=[], search="", spec=SAZON, review_only=True)) == ["c3"]
 
 
 def test_markdown_in_a_name_is_shown_as_text():
@@ -131,7 +133,7 @@ def test_markdown_in_a_name_is_shown_as_text():
 
 def test_the_notice_period_shown_to_recruiters_comes_from_the_one_rule():
     from sazon.sazon_client import SAZON_CALENDAR
-    from sazon.recruiter_view import slot_state
+    from sazon.sazon_recruiter_view import slot_state
     from sazon.store import Slot
     soon = Slot(1, "ES", datetime(2026, 10, 26, 10, 30), None, None, False)
     now = datetime(2026, 10, 26, 8, 0, tzinfo=timezone.utc)

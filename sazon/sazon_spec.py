@@ -2,9 +2,10 @@
 from datetime import date
 from typing import Literal
 
-from sazon import validators
+from sazon import sazon_validators as checks, validators
 from sazon.extraction import StartDate, build_system_prompt
-from sazon.model import Field, Language, Outcome, Reason
+from sazon.model import Language, Outcome
+from sazon.sazon_fields import Field, Reason
 from sazon.phrasing import echo
 from sazon.sazon_pack import PACK, bi
 from sazon.spec import MISSING, FieldSpec, RecruiterTexts, Rule, ScreeningSpec, read_attribute
@@ -15,7 +16,7 @@ ES, EN = Language.ES, Language.EN
 def _experience(value):
     if not isinstance(value, (tuple, list)) or len(value) != 2:
         return validators.Validation(False, reason="need years and platform")
-    return validators.validate_experience(*value)
+    return checks.validate_experience(*value)
 
 
 def _read_experience(reply, today, base):
@@ -131,7 +132,7 @@ SAZON = ScreeningSpec(
                   what=bi("tu disponibilidad (tiempo completo, medio tiempo o fines de semana)",
                           "your availability (full-time, part-time or weekends)"),
                   label="disponibilidad", not_provided="su disponibilidad",
-                  validate=lambda value, today: validators.validate_availability(value),
+                  validate=lambda value, today: checks.validate_availability(value),
                   same=lambda old, new: set(old) == set(new),
                   read=read_attribute("availability", empty_is_missing=True), describe=_describe_availability,
                   card=lambda value: "Disponibilidad: " + ", ".join(_CARD_AVAILABILITY[a] for a in value),
@@ -143,7 +144,7 @@ SAZON = ScreeningSpec(
                   what=bi("tu horario preferido (mañana, tarde, noche o flexible)",
                           "your preferred schedule (morning, afternoon, evening or flexible)"),
                   label="horario preferido", not_provided="su horario preferido",
-                  validate=lambda value, today: validators.validate_schedule(value),
+                  validate=lambda value, today: checks.validate_schedule(value),
                   read=read_attribute("schedule"), describe=_describe_schedule,
                   card=lambda value: "Horario preferido: " + _CARD_SCHEDULE[value],
                   schema={"schedule": (Literal["morning", "afternoon", "evening", "flexible"] | None, None)},
@@ -151,7 +152,7 @@ SAZON = ScreeningSpec(
         FieldSpec(Field.START_DATE, ask=bi("¿Cuándo podrías empezar?", "When could you start?"),
                   what=bi("cuándo puedes empezar", "when you can start"),
                   label="fecha de inicio", not_provided="su fecha de inicio",
-                  validate=validators.validate_start_date, read=_read_start_date,
+                  validate=checks.validate_start_date, read=_read_start_date,
                   decode_value=_date_from_json, decode_candidate=_date_from_json,
                   card=lambda value: "Inicio: " + value,
                   schema={"start_date": (StartDate | None, None)},
@@ -168,7 +169,7 @@ SAZON = ScreeningSpec(
         FieldSpec(Field.LICENSE, ask=bi("¿Tienes licencia de conducir?", "Do you have a driver's license?"),
                   what=bi("si tienes licencia de conducir (sí o no)", "whether you have a driver's license (yes or no)"),
                   label="licencia", not_provided="si tiene licencia de conducir",
-                  validate=lambda value, today: validators.validate_license(value),
+                  validate=lambda value, today: checks.validate_license(value),
                   rejects=lambda value: value is False, read=read_attribute("has_license"),
                   confirm_rejection=bi("Solo para confirmar: ¿es correcto que no tienes licencia de conducir?",
                                        "Just to confirm: is it right that you don't have a driver's license?"),

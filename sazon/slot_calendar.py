@@ -17,7 +17,7 @@ class SlotCalendar:
         return ZoneInfo(self.timezones[country])
 
     def wall_time_exists(self, country: str, wall: datetime) -> bool:
-        """False for a time skipped when the clocks spring forward (02:30 does not exist in Madrid that night)."""
+        """False for a time skipped when the clocks spring forward (a time inside the spring-forward gap)."""
         aware = wall.replace(tzinfo=self.zone(country))
         return aware.astimezone(timezone.utc).astimezone(self.zone(country)).replace(tzinfo=None) == wall
 

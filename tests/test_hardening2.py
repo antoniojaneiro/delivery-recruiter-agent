@@ -5,7 +5,8 @@ from pathlib import Path
 
 import pytest
 
-from sazon import accounts, config
+from sazon.sazon_spec import SAZON
+from sazon import accounts, config, sazon_accounts
 from sazon.screening import Screening
 from sazon.validators import validate_name
 
@@ -74,7 +75,7 @@ def test_paths_do_not_depend_on_the_working_directory(monkeypatch, tmp_path):
     monkeypatch.delenv("SAZON_ACCOUNTS", raising=False)
     monkeypatch.chdir(tmp_path)
     assert config.db_path().is_absolute() and config.db_path().is_relative_to(ROOT)
-    assert accounts.accounts_path().is_absolute() and accounts.accounts_path().is_relative_to(ROOT)
+    assert sazon_accounts.accounts_path().is_absolute() and sazon_accounts.accounts_path().is_relative_to(ROOT)
 
 
 def test_a_very_long_name_is_refused():
@@ -82,7 +83,7 @@ def test_a_very_long_name_is_refused():
 
 
 def test_a_very_long_outside_city_is_stored_cut_short():
-    s = Screening(config.AREAS)
+    s = Screening(config.AREAS, SAZON)
     s.record_consent(True)
     s.submit("city", "Springfield " * 100, date(2026, 10, 25))
     s.confirm_rejection(True)

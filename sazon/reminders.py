@@ -1,7 +1,7 @@
 """The 24-hour reminder job (D35, D38, D58). Run it every few minutes:
 
-    python -m sazon.reminders                  # one pass
-    python -m sazon.reminders --every 600      # keep running, one pass every 10 minutes
+    python -m <client>.reminders                  # one pass
+    python -m <client>.reminders --every 600      # keep running, one pass every 10 minutes
 
 After 24 hours of silence a candidate gets one reminder; after 24 more hours without a reply they are marked
 STALLED. A qualified candidate who ignores the slot offer gets one reminder with the free slots, then the 48-hour
@@ -14,10 +14,10 @@ import argparse
 import time
 from dataclasses import dataclass
 from datetime import datetime
+from pathlib import Path
 
-from sazon import config, session, slot_flow
+from sazon import session, slot_flow
 from sazon.client import Client
-from sazon.sazon_client import SAZON_CLIENT
 from sazon.llm import NO_MODEL
 from sazon.model import Outcome
 from sazon.phrasing import phrase
@@ -78,20 +78,16 @@ def _remind(store: Store, client: Client, candidate_id: str, now: datetime) -> A
     return Action(candidate_id, kind)
 
 
-def main(argv: list[str] | None = None) -> None:
-    parser = argparse.ArgumentParser(prog="python -m sazon.reminders", description=__doc__.split("\n\n")[0])
+def main(client: Client, db_path: Path, prog: str, argv: list[str] | None = None) -> None:
+    parser = argparse.ArgumentParser(prog=prog, description=__doc__.split("\n\n")[0])
     parser.add_argument("--every", type=int, help="keep running, one pass every N seconds")
     parser.add_argument("--now", help="the moment to act at (ISO format; for tests)")
     args = parser.parse_args(argv)
-    store = Store(config.db_path(), calendar=SAZON_CLIENT.calendar)
+    store = Store(db_path, calendar=client.calendar)
     while True:
         now = datetime.fromisoformat(args.now) if args.now else datetime.now()
-        for action in run_once(store, SAZON_CLIENT, now):
+        for action in run_once(store, client, now):
             print(f"{now:%Y-%m-%d %H:%M}  {action.candidate_id}  {action.kind}")
         if not args.every:
             return
         time.sleep(args.every)
-
-
-if __name__ == "__main__":
-    main()

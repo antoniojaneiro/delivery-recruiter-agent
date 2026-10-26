@@ -2,11 +2,12 @@ from datetime import datetime, time
 
 import streamlit as st
 
-from sazon import slot_flow, ui
+from sazon import slot_flow, sazon_ui as ui
 from sazon.sazon_client import SAZON_CLIENT
 from sazon.model import Language
 from sazon.phrasing import slot_label
-from sazon.recruiter_view import COUNTRY_LABEL, escape_markdown, explain_error, name_of, slot_state
+from sazon.recruiter_view import escape_markdown
+from sazon.sazon_recruiter_view import COUNTRY_LABEL, explain_error, name_of, slot_state
 
 store = ui.store()
 recruiter = ui.recruiter_name()

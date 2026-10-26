@@ -1,10 +1,10 @@
 """Recruiter accounts for the dashboard (D57): one per recruiter, passwords only as salted scrypt hashes.
 
-    python -m sazon.accounts add Ana       # asks for the password twice
-    python -m sazon.accounts list
-    python -m sazon.accounts remove Ana
+    python -m <client>.accounts add Ana       # asks for the password twice
+    python -m <client>.accounts list
+    python -m <client>.accounts remove Ana
 
-The file (data/recruiters.json, or the path in SAZON_ACCOUNTS) is never committed. This is a prototype measure; a
+The client's entry point says where the file is. The file is never committed. This is a prototype measure; a
 real deployment should use the company's single sign-on. A missing or damaged file means nobody can sign in."""
 import argparse
 import getpass
@@ -17,8 +17,6 @@ import sys
 import tempfile
 import time
 from pathlib import Path
-
-from sazon.config import PROJECT_ROOT
 
 MIN_PASSWORD_LENGTH = 8
 SCRYPT = {"n": 2 ** 16, "r": 8, "p": 1, "dklen": 32}
@@ -38,10 +36,6 @@ class TooManyAttempts(Exception):
 def reset_throttle() -> None:
     _failures.clear()
 _DUMMY_SALT = bytes(16)
-
-
-def accounts_path() -> Path:
-    return Path(os.environ.get("SAZON_ACCOUNTS") or PROJECT_ROOT / "data" / "recruiters.json")
 
 
 def _key(name: str) -> str:
@@ -146,12 +140,11 @@ def verify(path: Path, name: str, password: str, now: float | None = None) -> st
     return verified
 
 
-def main(argv: list[str] | None = None) -> None:
-    parser = argparse.ArgumentParser(prog="python -m sazon.accounts", description=__doc__.split("\n\n")[0])
+def cli(path: Path, prog: str, argv: list[str] | None = None) -> None:
+    parser = argparse.ArgumentParser(prog=prog, description=__doc__.split("\n\n")[0])
     parser.add_argument("action", choices=["add", "list", "remove"])
     parser.add_argument("name", nargs="?")
     args = parser.parse_args(argv)
-    path = accounts_path()
     if args.action == "list":
         print("\n".join(list_names(path)) or "(no accounts)")
         return
@@ -171,7 +164,3 @@ def main(argv: list[str] | None = None) -> None:
     except (ValueError, DamagedAccounts) as error:
         sys.exit(str(error))
     print(f"Account created for {args.name}.")
-
-
-if __name__ == "__main__":
-    main()

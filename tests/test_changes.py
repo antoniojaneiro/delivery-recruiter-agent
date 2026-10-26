@@ -8,7 +8,7 @@ from sazon.sazon_client import SAZON_CLIENT
 from sazon import config, turn
 from sazon.extraction import StartDate
 from sazon.sazon_spec import SAZON, Extraction
-from sazon.model import Field
+from sazon.sazon_fields import Field
 from sazon.phrasing import Kind, phrase
 from sazon.screening import Screening
 from sazon.store import Store
@@ -19,7 +19,7 @@ NOW = datetime(2026, 10, 25, 10, 0)
 
 
 def accepted(**overrides):
-    s = Screening(config.AREAS)
+    s = Screening(config.AREAS, SAZON)
     s.record_consent(True)
     values = {"name": "Juan Pérez", "experience": (2, ["Glovo"]), "availability": ["full_time"], "schedule": "morning",
               "start_date": date(2026, 11, 1), "city": "Madrid"}
@@ -141,7 +141,7 @@ def test_the_question_is_in_english_with_english_labels():
     s.language = "en"
     directive = ask(s, "I work weekends", availability=["weekends"])
     assert text_of(directive, "en") == "Earlier you told me full-time. Shall I change it to weekends?"
-    partly = Screening(config.AREAS)
+    partly = Screening(config.AREAS, SAZON)
     partly.record_consent(True)
     partly.language = "en"
     partly.submit("license", True, TODAY)
@@ -151,7 +151,7 @@ def test_the_question_is_in_english_with_english_labels():
 def test_the_pending_change_survives_a_save_and_reload():
     s = accepted()
     ask(s, "en realidad empiezo el 15 de noviembre", start_date=StartDate(iso=date(2026, 11, 15)))
-    restored = Screening.from_state(config.AREAS, json.loads(json.dumps(s.to_state())))
+    restored = Screening.from_state(config.AREAS, json.loads(json.dumps(s.to_state())), SAZON)
     assert restored.awaiting_change
     restored.resolve_change(True, TODAY)
     assert restored.values["start_date"] == date(2026, 11, 15)

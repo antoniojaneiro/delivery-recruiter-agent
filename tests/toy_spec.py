@@ -108,7 +108,7 @@ TOY_CLIENT = Client(spec=TOY, areas={})
 from dataclasses import replace  # noqa: E402
 from datetime import timedelta  # noqa: E402
 
-from sazon.model import Reason  # noqa: E402
+
 from sazon.pack import SlotTexts  # noqa: E402
 from sazon.slot_calendar import SlotCalendar  # noqa: E402
 
@@ -130,7 +130,7 @@ TOY_UK_SPEC = replace(
     area_field="town",
     place_qualifiers=("england", "united kingdom"),
     card_order=("can_lift",),
-    rules=(*TOY.rules, Rule(Reason.OUT_OF_AREA, applies=lambda screening: screening.out_of_area,
+    rules=(*TOY.rules, Rule("OUT_OF_AREA", applies=lambda screening: screening.out_of_area,
                             close=say("We do not hire in your town yet."), summary="outside the hiring towns")),
 )
 UK_CALENDAR = SlotCalendar(timezones={"GB": "Europe/London"}, country_of={"Leeds": "GB", "London": "GB"},

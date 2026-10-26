@@ -11,10 +11,11 @@ from sazon.extraction import StartDate
 from sazon.sazon_spec import SAZON, Extraction
 from sazon.llm import LLMError
 from sazon.phrasing import Directive, Kind, consent_message, phrase
-from sazon.model import Field
+from sazon.sazon_fields import Field
 from sazon.screening import Screening
 from sazon.store import Store
-from sazon.validators import match_city, validate_experience, validate_name
+from sazon.validators import match_city, validate_name
+from sazon.sazon_validators import validate_experience
 from tests.fakes import FakeLLM, ScriptedLLM
 
 TODAY = date(2026, 10, 25)  # a Sunday
@@ -111,7 +112,7 @@ def test_an_ordinary_question_with_a_number_in_it_is_kept():
 # --- consent evidence and failure traces ---------------------------------------------------------
 
 def test_the_consent_event_records_which_wording_was_accepted():
-    s = Screening(config.AREAS)
+    s = Screening(config.AREAS, SAZON)
     s.record_consent(True)
     kind, detail = s.events[0]
     assert kind == "consent_given"
@@ -119,7 +120,7 @@ def test_the_consent_event_records_which_wording_was_accepted():
 
 
 def test_declining_also_records_the_wording_that_was_shown():
-    s = Screening(config.AREAS)
+    s = Screening(config.AREAS, SAZON)
     s.record_consent(False)
     assert s.events[0][1].startswith("text_sha256=")
 
@@ -173,7 +174,7 @@ def test_ids_are_long_enough_to_make_collisions_negligible():
 
 
 def test_the_chat_and_the_dashboard_use_the_same_database_file(tmp_path, monkeypatch):
-    from sazon import chat
+    from sazon import chat, sazon_chat
 
     target = tmp_path / "shared" / "sazon.db"
     monkeypatch.setenv("SAZON_DB", str(target))
@@ -181,7 +182,7 @@ def test_the_chat_and_the_dashboard_use_the_same_database_file(tmp_path, monkeyp
     monkeypatch.setattr("sazon.gemini.from_env", lambda: type("L", (), {"model": "m"})())
     monkeypatch.setattr(chat, "run", lambda llm, store, areas, **kw: seen.update(path=store._path))
     monkeypatch.setattr("sys.argv", ["sazon.chat"])
-    chat.main()
+    sazon_chat.main()
     assert seen["path"] == str(target)
 
 
@@ -200,12 +201,12 @@ def test_the_database_uses_wal_and_has_indexes_for_the_dashboard_queries(tmp_pat
 
 def test_a_state_saved_by_an_older_version_still_loads_with_safe_defaults():
     old = {"consent": True, "values": {"name": "Juan Pérez"}}
-    s = Screening.from_state(config.AREAS, old)
+    s = Screening.from_state(config.AREAS, old, SAZON)
     assert s.consent is True and s.values["name"] == "Juan Pérez"
     assert s.decide().outcome == "IN_PROGRESS" and s.next_field() == "experience"
-    assert Screening.from_state(config.AREAS, {}).consent is None
+    assert Screening.from_state(config.AREAS, {}, SAZON).consent is None
 
 
 def test_a_state_with_unknown_extra_keys_from_a_newer_version_is_tolerated():
-    s = Screening.from_state(config.AREAS, {"consent": True, "values": {}, "something_new": [1, 2, 3]})
+    s = Screening.from_state(config.AREAS, {"consent": True, "values": {}, "something_new": [1, 2, 3]}, SAZON)
     assert s.consent is True

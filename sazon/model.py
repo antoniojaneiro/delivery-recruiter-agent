@@ -1,15 +1,8 @@
 from enum import StrEnum
 
 
-class Field(StrEnum):
-    NAME = "name"
-    EXPERIENCE = "experience"
-    AVAILABILITY = "availability"
-    SCHEDULE = "schedule"
-    START_DATE = "start_date"
-    CITY = "city"
-    LICENSE = "license"
-    CONSENT = "consent"
+CONSENT = "consent"  # the question every screening starts with, before any field of the client's
+NO_CONSENT = "NO_CONSENT"  # the one disqualifying reason the engine owns
 
 
 class Outcome(StrEnum):
@@ -60,12 +53,6 @@ class RecruiterStatus(StrEnum):
     HIRED = "hired"
     REJECTED = "rejected"
     UNREACHABLE = "unreachable"
-
-
-class Reason(StrEnum):
-    NO_CONSENT = "NO_CONSENT"
-    NO_LICENSE = "NO_LICENSE"
-    OUT_OF_AREA = "OUT_OF_AREA"
 
 
 class Language(StrEnum):

@@ -41,7 +41,7 @@ _ENGLISH_ONLY = {
 }
 
 
-# "sí, soy Juan de Madrid": a clear agreement word, then punctuation, then anything without a condition.
+# "sí, soy Juan": a clear agreement word, then punctuation, then anything without a condition.
 _LEADING_YES = re.compile(r"^[^a-z0-9]*(?:sii?|yes|yeah|yep|claro|vale|ok|okay|dale|sure|de acuerdo|por supuesto|of course)\s*[,.;:!]")
 _CONDITIONS = {"no", "pero", "but", "not", "nunca", "never", "sin", "don", "dont", "t", "aunque", "unless", "solo", "only"}
 MAX_TRAILING_WORDS = 25
