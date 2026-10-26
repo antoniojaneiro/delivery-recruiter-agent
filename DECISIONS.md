@@ -584,3 +584,10 @@ Four reviewers (security and compliance, conversation robustness, data and opera
 - **Declined, with reason:** a `Store` interface (one adapter, SQLite is part of the design); `models()` on the model protocol (it is only called by the command that builds the Gemini client).
 - **Still client-specific or open:** the dashboard page text in `app_pages/` is Spanish; the yes, stop and numbered-choice word lists, the weekday and month names and the `"es" or "en"` line of the extraction prompt are Spanish and English only, so a third language needs engine edits; the filler examples in the extraction prompt are Spanish; "48 horas" is three literals in Sazón's pack (one number would help the lawyers); `confirms_city` is the name of the area-confirmation flag in the model's reply.
 - **Decided by:** user (scope D63); agent (details).
+
+## D65: The four known leftovers (D61, D62), closed
+
+- **Chosen:** (user, "item 4 leftovers only") (1) The login lockout is kept in a `.failures` file beside the accounts file, so a restart or a second process does not clear it; a damaged file counts as empty. (2) The funnel and the key numbers are counted by SQL (`Store.funnel_counts`, `Store.kpi_counts`) and no longer load every candidate; the candidate table still loads the cached list to filter and search it. (3) Every stored time is naive local time: `stamp()` converts what it is given and `parse_stamp()` converts old rows written with a zone. (4) What the agent says first when several things wait is a plain function with its own table test (`screening_precedence.py`); the order of the checks inside `apply` (stop, facts, notices) still lives in `Screening`.
+- **Options considered:** a database for the lockout (heavier than a file for a prototype); keeping the Python funnel on a cached list (still reads everything when data changes); storing aware UTC times (needs a migration of old rows).
+- **Cons / still open:** the lockout file is per accounts file, not shared between machines; the table still reads every candidate for search; the legal wording items and the voice agent, CV upload and presentation are not done.
+- **Decided by:** user, 2026-10-26.

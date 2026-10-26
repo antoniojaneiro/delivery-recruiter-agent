@@ -8,6 +8,7 @@ from screener.extraction import ControlFlags
 from screener.model import CONSENT, NO_CONSENT, CityMatchStatus, EventType, Language, Outcome, Status
 from screener.phrasing import Directive, Kind, consent_text_hash
 from screener.screening_changes import propose_change
+from screener.screening_precedence import Waiting, directive_for
 from screener.screening_state import STATE_FIELDS, jsonable_values
 from screener.spec import MISSING as _MISSING, ScreeningSpec
 
@@ -254,21 +255,9 @@ class Screening:
         return self._directive_now(unclear)
 
     def _directive_now(self, unclear: tuple[str, str] | None) -> Directive:
-        if not self.is_open:
-            return self.close_directive()
-        if self.awaiting_rejection:
-            return Directive(Kind.CONFIRM_REJECTION, field=self.awaiting_rejection,
-                             suggestion=self.rejection_subject)
-        if self.awaiting_confirmation:
-            return Directive(Kind.CONFIRM_CITY, suggestion=self.awaiting_confirmation)
-        if self._pending_change:
-            field, _, old_text, new_text = self._pending_change
-            return Directive(Kind.CONFIRM_CHANGE, field=field, options=[old_text, new_text])
-        if self.blocked_on:
-            return Directive(Kind.BLOCKED, field=self.blocked_on)
-        if unclear:
-            return Directive(Kind.FOLLOW_UP, field=unclear[0], reason=unclear[1])
-        return Directive(Kind.ASK, field=self.next_field())
+        waiting = Waiting(self.is_open, self.awaiting_rejection, self.rejection_subject, self.awaiting_confirmation,
+                          self._pending_change, self.blocked_on, self.next_field())
+        return directive_for(waiting, unclear, self.close_directive())
 
     def _apply_facts(self, ex: ControlFlags, message: str, asking: str | None,
                      today: date) -> tuple[str, str] | None:
