@@ -113,3 +113,11 @@ def test_a_failure_while_answering_is_shown_without_internals_and_written_to_the
     at.chat_input[0].set_value("sí").run()
     assert not at.exception and at.error and "secret detail" not in at.error[0].value
     assert "secret detail" in (tmp_path / "chat.log").read_text(encoding="utf-8")
+
+
+def test_the_candidates_side_of_the_screen_follows_the_language_the_candidate_writes(demo):
+    at = start()  # the screen is in Spanish, the default
+    assert at.chat_input[0].placeholder == "Escribe un mensaje"
+    at = say(at, "yes")
+    assert at.chat_input[0].placeholder == "Write a message"  # the candidate writes English, so their side is English
+    assert at.sidebar.button(key="new_candidate").label == "Nuevo candidato"  # the operator's side stays as chosen

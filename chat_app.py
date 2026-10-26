@@ -12,12 +12,14 @@ from screener import gemini, turn
 from screener.chat import log_error
 from screener.inspector import inspect
 from screener.llm import LLMError
+from screener.model import Language
 from screener.store import Store
 
 from sazon import config, ui
 from sazon.client import SAZON_CLIENT
 from sazon.recruiter_view import OUTCOME_COLOR, call_label, outcome_label
 from sazon.ui import t
+from sazon.ui_pack import PACK
 
 st.set_page_config(page_title=t("chat.page_title"), page_icon=":material/chat:", layout="wide")
 
@@ -79,6 +81,15 @@ st.info(t("chat.notice"))
 if st.session_state.get("flash"):
     st.warning(t(st.session_state["flash"]))
 
+record = store.get(candidate_id)
+chat_language = Language((record.state or {}).get("language") or language) if record else language
+
+
+def tc(key: str, **values) -> str:
+    """A text for the candidate's side of the screen: it follows the language the candidate writes in."""
+    return PACK.get(key, chat_language, **values)
+
+
 chat_side, inspector_side = st.columns([3, 2], gap="medium")
 
 with chat_side:
@@ -86,15 +97,15 @@ with chat_side:
         for message in store.messages(candidate_id):
             with st.chat_message("assistant" if message.role == "agent" else "user"):
                 st.text(message.text)  # candidate and model text is never rendered as Markdown or HTML
-        prompt = st.chat_input(t("chat.input"), key="chat_message", submit_mode="disable")
+        prompt = st.chat_input(tc("chat.input"), key="chat_message", submit_mode="disable")
     if prompt:
         with st.chat_message("user"):
             st.text(prompt)
-        with st.spinner(t("chat.thinking")):
+        with st.spinner(tc("chat.thinking")):
             try:
                 turn.handle_message(llm, store, SAZON_CLIENT, candidate_id, prompt, datetime.now())
             except Exception as error:  # a database or network failure: say so, log it, never show internals
-                st.error(t("chat.failed"))
+                st.error(tc("chat.failed"))
                 st.caption(log_error(error, datetime.now(), config.LOG_PATH))
                 st.stop()
         st.rerun()

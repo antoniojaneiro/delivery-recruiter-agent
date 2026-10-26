@@ -137,3 +137,15 @@ def test_start_date_missing_or_past_is_invalid(value):
 @pytest.mark.parametrize("value", [0, 1, "no", "yes"])
 def test_license_rejects_values_that_are_not_a_real_boolean(value):
     assert not validate_license(value).ok
+
+
+@pytest.mark.parametrize("written,known", [
+    ("Uber", "uber eats"), ("uber eats", "uber eats"), ("UberEats", "uber eats"), ("Uber-Eats", "uber eats"),
+    ("justeat", "just eat"), ("Just Eat", "just eat"), ("Glovo", "glovo"), ("glovoapp", "glovo"),
+    ("didi", "didi food"), ("DiDi Food", "didi food"), ("Rappi", "rappi")])
+def test_a_platform_written_in_a_common_way_is_recognised(written, known):
+    assert validate_experience(2, [written]).value["platforms"] == [known]
+
+
+def test_two_spellings_of_one_platform_count_once():
+    assert validate_experience(2, ["uber", "Uber Eats"]).value["platforms"] == ["uber eats"]

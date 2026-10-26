@@ -66,7 +66,7 @@ def test_every_key_the_pages_ask_for_exists_in_the_pack():
     asked = set()
     for path in PAGES:
         for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
-            if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == "t" \
+            if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id in ("t", "tc") \
                     and node.args and isinstance(node.args[0], ast.Constant):
                 asked.add(node.args[0].value)
     asked |= DYNAMIC_KEYS

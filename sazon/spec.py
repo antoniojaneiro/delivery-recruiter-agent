@@ -22,10 +22,14 @@ def _experience(value):
 
 
 def _read_experience(reply, today, base):
-    if reply.experience_years is None and not reply.platforms:
+    """Zero years is something the candidate says (`no_experience`); a zero the model wrote for a plain yes is ignored."""
+    if reply.no_experience:
+        return (0, [])
+    stated = reply.experience_years if reply.experience_years else None  # 0.0 without the flag is not an answer
+    if stated is None and not reply.platforms:
         return MISSING
     base = base or {}
-    years = reply.experience_years if reply.experience_years is not None else base.get("years")
+    years = stated if stated is not None else base.get("years")
     return (years, reply.platforms or base.get("platforms", []))
 
 
@@ -163,8 +167,11 @@ SAZON = ScreeningSpec(
                   same=lambda old, new: old["years"] == new["years"] and set(old["platforms"]) == set(new["platforms"]),
                   read=_read_experience, partial=lambda value: {"years": value[0], "platforms": value[1]},
                   decode_candidate=tuple, describe=_describe_experience, card=_card_experience,
-                  schema={"experience_years": (float | None, None), "platforms": (list[str], [])},
-                  prompt="- experience_years: number of years of delivery experience (0 if none)\n"
+                  schema={"experience_years": (float | None, None), "no_experience": (bool | None, None),
+                          "platforms": (list[str], [])},
+                  prompt="- experience_years: the number of years of delivery experience they state; null when they give "
+                         "no number (a plain yes is not a number)\n"
+                         "- no_experience: true only if they say they have no delivery experience; never for a plain yes\n"
                          "- platforms: delivery platforms mentioned, as written (e.g. Glovo, Uber Eats)"),
         FieldSpec(Field.AVAILABILITY,
                   ask=bi("¿Qué disponibilidad tienes: tiempo completo, medio tiempo o fines de semana?",

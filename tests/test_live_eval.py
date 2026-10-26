@@ -76,3 +76,20 @@ def test_a_bare_name_or_place_does_not_claim_a_language(llm, message):
     from screener.model import Language
     claimed = ask(llm, message, Field.CITY).language
     assert language_of(message, claimed, Language.EN) == Language.EN  # whatever the model says, the chat stays
+
+
+@pytest.mark.parametrize("message", ["yes", "Yes!", "yeah I do", "sí"])
+def test_a_plain_yes_to_the_experience_question_gives_no_years(llm, message):
+    from screener.spec import MISSING
+    assert SAZON.field("experience").read(ask(llm, message, Field.EXPERIENCE), TODAY, None) is MISSING
+
+
+@pytest.mark.parametrize("message", ["no, none", "I have no experience", "no tengo experiencia"])
+def test_saying_there_is_no_experience_is_zero_years(llm, message):
+    assert SAZON.field("experience").read(ask(llm, message, Field.EXPERIENCE), TODAY, None) == (0, [])
+
+
+def test_two_years_with_uber_is_recognised_as_uber_eats(llm):
+    from sazon.validators import validate_experience
+    reading = SAZON.field("experience").read(ask(llm, "2 years uber", Field.EXPERIENCE), TODAY, None)
+    assert validate_experience(*reading).value == {"years": 2.0, "platforms": ["uber eats"]}
