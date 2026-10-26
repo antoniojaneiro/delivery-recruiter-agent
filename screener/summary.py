@@ -1,13 +1,14 @@
 """The recruiter's summary card (D46). Built by code from the saved, validated data: it never repeats
-the candidate's own words and never says anything about the person beyond the facts they gave."""
-from screener.model import NO_CONSENT, EventType, Outcome
+the candidate's own words and never says anything about the person beyond the facts they gave.
+The card is in the language the recruiter reads (D66); the one saved with the candidate is in the pack's default."""
+from screener.model import EventType, Language, Outcome
 from screener.screening import Screening
-from screener.spec import ScreeningSpec
 
 
-def summarise(screening: Screening) -> str:
+def summarise(screening: Screening, language: Language | None = None) -> str:
     spec = screening.spec
-    texts = spec.recruiter
+    language = language or spec.pack.default_language
+    texts = spec.recruiter_texts(language)
     decision = screening.decide()
     data = screening.extracted()
     consented = screening.consent is True
@@ -16,34 +17,22 @@ def summarise(screening: Screening) -> str:
         head.append(data[spec.area_field])
     head.append(texts.outcome_labels[decision.outcome])
     lines = [" · ".join(head)]
-    reasons = [_reason(spec, code) for code in decision.reasons]
+    reasons = [spec.reason_text(code, language) for code in decision.reasons]
     if reasons:
         lines.append(texts.reason_prefix + "; ".join(reasons))
     if consented:
-        lines += [spec.field(key).card(data[key]) for key in spec.card_order if key in data]
-        missing = [spec.field(f).label for f in screening.missing_fields()]
+        lines += [spec.field(key).card(data[key], language) for key in spec.card_order if key in data]
+        missing = [spec.say(spec.field(f).label, language) for f in screening.missing_fields()]
         if missing and decision.outcome not in (Outcome.DISQUALIFIED, Outcome.WITHDRAWN):
             lines.append(texts.missing_prefix + ", ".join(missing))
     lines += [texts.flags[flag] for flag in decision.flags if flag in texts.flags]
-    lines.append(_chat_line(screening))
+    lines.append(_chat_line(screening, language))
     lines.append(texts.footer)
     return "\n".join(lines)
 
 
-def _reason(spec: ScreeningSpec, code: str) -> str:
-    if code == NO_CONSENT:
-        return spec.recruiter.no_consent
-    if code.startswith("BLOCKED_ON_"):
-        field = spec.field(code.removeprefix("BLOCKED_ON_").lower())
-        return spec.recruiter.blocked_on + (field.not_provided or field.label)
-    try:
-        return spec.rule(code).summary
-    except ValueError:
-        return code
-
-
-def _chat_line(screening: Screening) -> str:
-    texts = screening.spec.recruiter
+def _chat_line(screening: Screening, language: Language) -> str:
+    texts = screening.spec.recruiter_texts(language)
     kinds = [kind for kind, _ in screening.events]
     parts = [f"{texts.language_word} {texts.language_names[screening.language]}"]
     clarifications = kinds.count(EventType.FOLLOW_UP)

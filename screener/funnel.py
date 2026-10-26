@@ -2,6 +2,7 @@
 It only counts what the chat already stores, so it needs no extra tracking."""
 from dataclasses import dataclass
 
+from screener.model import Language
 from screener.spec import ScreeningSpec
 from screener.store import Store
 
@@ -23,14 +24,18 @@ def _share(part: int, whole: int) -> float:
     return part / whole if whole else 0.0
 
 
-def build_funnel(store: Store, spec: ScreeningSpec) -> Funnel:
-    texts = spec.recruiter
+def build_funnel(store: Store, spec: ScreeningSpec, language: Language | None = None) -> Funnel:
+    texts = spec.recruiter_texts(language)
+
+    def label(key: str) -> str:
+        return spec.say(spec.field(key).label, language)
+
     counts = store.funnel_counts(spec.keys)
     total, consented, qualified, booked = counts["total"], counts["consented"], counts["qualified"], counts["booked"]
     stages = [(texts.started, total), (texts.consented, consented)]
-    stages += [(texts.answered.format(label=spec.field(key).label), counts["answered"][key]) for key in spec.keys]
+    stages += [(texts.answered.format(label=label(key)), counts["answered"][key]) for key in spec.keys]
     stages += [(texts.qualified, qualified), (texts.booked, booked)]
-    stopped = {(texts.consent_stage if key == "" else spec.field(key).label): n for key, n in counts["stopped"].items()}
+    stopped = {(texts.consent_stage if key == "" else label(key)): n for key, n in counts["stopped"].items()}
     rates = {
         "consent": _share(consented, total),
         "qualified": _share(qualified, total),

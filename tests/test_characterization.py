@@ -113,8 +113,8 @@ def _cards() -> dict:
         blocked.submit("name", "x", TODAY)
     return {"full": summary.summarise(full), "partial": summary.summarise(partial),
             "declined": summary.summarise(declined), "blocked": summary.summarise(blocked),
-            "outcome_labels": {str(k): v for k, v in SAZON.recruiter.outcome_labels.items()},
-            "field_labels": {f.key: f.label for f in SAZON.fields}}
+            "outcome_labels": {str(k): v for k, v in SAZON.recruiter[Language.ES].outcome_labels.items()},
+            "field_labels": {f.key: f.label[Language.ES] for f in SAZON.fields}}
 
 
 def _funnel_stages() -> list:

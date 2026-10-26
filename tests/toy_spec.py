@@ -78,27 +78,27 @@ RECRUITER = RecruiterTexts(
 TOY = ScreeningSpec(
     role="warehouse-picker",
     pack=PACK,
-    recruiter=RECRUITER,
+    recruiter={EN: RECRUITER},
     title_field="name",
     card_order=("shift", "can_lift"),
     fields=(
-        FieldSpec("name", ask=say("What's your full name?"), what=say("your full name"), label="name",
+        FieldSpec("name", ask=say("What's your full name?"), what=say("your full name"), label=say("name"),
                   validate=lambda value, today: validate_name(value), read=read_attribute("name"),
                   schema={"name": (str | None, None)}, prompt="- name: full name as written"),
         FieldSpec("shift", ask=say("Do you prefer day or night shifts?"), what=say("your preferred shift"),
-                  label="shift", validate=_validate_shift, read=read_attribute("shift"),
-                  card=lambda value: f"Shift: {value}",
+                  label=say("shift"), validate=_validate_shift, read=read_attribute("shift"),
+                  card=lambda value, language: f"Shift: {value}",
                   schema={"shift": (Literal["day", "night"] | None, None)}, prompt='- shift: "day" or "night"'),
         FieldSpec("can_lift", ask=say("Can you lift 20 kg?"), what=say("whether you can lift 20 kg"),
-                  label="lifting", validate=_validate_can_lift, rejects=lambda value: value is False,
+                  label=say("lifting"), validate=_validate_can_lift, rejects=lambda value: value is False,
                   read=read_attribute("can_lift"), schema={"can_lift": (bool | None, None)},
-                  card=lambda value: "Can lift 20 kg: " + ("yes" if value else "no"),
+                  card=lambda value, language: "Can lift 20 kg: " + ("yes" if value else "no"),
                   confirm_rejection=say("Just to confirm: you cannot lift 20 kg?"),
                   prompt="- can_lift: true/false only if they clearly state they can lift 20 kg"),
     ),
     rules=(Rule("CANNOT_LIFT", applies=lambda screening: screening.values.get("can_lift") is False,
                 close=say("We need someone who can lift 20 kg, so I can't go on. A recruiter can review your case."),
-                summary="cannot lift 20 kg"),),
+                summary=say("cannot lift 20 kg")),),
 )
 
 TOY_CLIENT = Client(spec=TOY, areas={})
@@ -119,7 +119,7 @@ SLOTS = SlotTexts(
     booked=say("Booked: {label}."), already_booked=say("Already booked: {label}."),
     cancelled=say("Your call was cancelled."),
 )
-_TOWN = FieldSpec("town", ask=say("Which town do you live in?"), what=say("your town"), label="town",
+_TOWN = FieldSpec("town", ask=say("Which town do you live in?"), what=say("your town"), label=say("town"),
                   read=read_attribute("town"), schema={"town": (str | None, None)},
                   prompt="- town: the town as written, never corrected",
                   confirm_rejection=say("Just to confirm: you live in {city}?"))
@@ -131,7 +131,7 @@ TOY_UK_SPEC = replace(
     place_qualifiers=("england", "united kingdom"),
     card_order=("can_lift",),
     rules=(*TOY.rules, Rule("OUT_OF_AREA", applies=lambda screening: screening.out_of_area,
-                            close=say("We do not hire in your town yet."), summary="outside the hiring towns")),
+                            close=say("We do not hire in your town yet."), summary=say("outside the hiring towns"))),
 )
 UK_CALENDAR = SlotCalendar(timezones={"GB": "Europe/London"}, country_of={"Leeds": "GB", "London": "GB"},
                            min_notice=timedelta(hours=4), offer_size=2)

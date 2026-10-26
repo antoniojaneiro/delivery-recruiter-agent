@@ -12,7 +12,7 @@ STATUS_LABEL = {
     RecruiterStatus.REJECTED: "Rechazado",
     RecruiterStatus.UNREACHABLE: "No localizable",
 }
-OUTCOME_LABEL = RECRUITER.outcome_labels
+OUTCOME_LABEL = RECRUITER[Language.ES].outcome_labels
 NO_NAME = "(sin nombre)"
 COUNTRY_LABEL = {"ES": "España", "MX": "México"}
 
