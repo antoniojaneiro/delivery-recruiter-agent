@@ -111,3 +111,11 @@ def test_a_spanish_chat_keeps_its_spanish_punctuation():
 def test_every_outcome_has_a_polite_close_so_none_can_crash_the_chat(outcome):
     out = phrase(FakeLLM(), SAZON, Directive(Kind.CLOSE, outcome=outcome, reasons=["NO_CONSENT"]), "es")
     assert out and "\n" not in out
+
+
+def test_without_a_model_a_question_falls_back_to_its_fixed_text_instead_of_crashing():
+    from sazon.llm import NO_MODEL
+    directive = Directive(Kind.ASK, field=Field.NAME)
+    assert phrase(NO_MODEL, SAZON, directive, "es") == SAZON.field(Field.NAME).ask["es"]
+    follow_up = Directive(Kind.FOLLOW_UP, field=Field.NAME, reason="need last name")
+    assert phrase(NO_MODEL, SAZON, follow_up, "en").endswith(SAZON.field(Field.NAME).ask["en"])

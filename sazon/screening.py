@@ -7,11 +7,10 @@ from sazon.consent import ConsentReading, is_hesitation, is_resume_request, read
 from sazon.extraction import ControlFlags
 from sazon.model import CityMatchStatus, EventType, Field, Language, Outcome, Reason, Status
 from sazon.phrasing import Directive, Kind, consent_text_hash
-from sazon.screening_changes import ChangeConfirmation
-from sazon.screening_slots import SlotOffer
+from sazon.screening_changes import propose_change
+from sazon.screening_state import STATE_FIELDS, jsonable_values
 from sazon.sazon_spec import SAZON
 from sazon.spec import MISSING as _MISSING, ScreeningSpec
-from sazon.screening_values import dump_change as _dump_change, load_change as _load_change, load_value as _decoded
 
 MAX_FOLLOW_UPS = 5
 MAX_OFF_TOPIC = 3  # in total, not in a row (D55)
@@ -48,32 +47,13 @@ class Decision:
     flags: list[str]
 
 
-class Screening(ChangeConfirmation, SlotOffer):
+class Screening:
     def __init__(self, areas: dict[str, list[str]], spec: ScreeningSpec = SAZON):
         self.areas = areas
         self.spec = spec
-        self.consent: bool | None = None
-        self.values: dict[str, object] = {}
-        self.blocked_on: Field | None = None
-        self._slot_offer: list[int] = []
-        self._slots_done = False
-        self._unclear_picks = 0
-        self.out_of_area = False
-        self.withdrawn = False
-        self.stalled = False
-        self.reminder_sent = False
-        self.language = spec.pack.default_language
+        for f in STATE_FIELDS:
+            setattr(self, f.attribute, f.default(spec))
         self.version: int | None = None  # the stored version this copy was loaded at (None: a new candidate)
-        self.events: list[tuple[str, str]] = []
-        self._events_synced = 0
-        self._off_topic = 0
-        self.validation_flags: dict[str, list[str]] = {}
-        self._partial: dict[str, dict] = {}
-        self._previous: dict[str, str] = {}
-        self._follow_ups: dict[str, int] = {}
-        self._pending_city: tuple[str, str] | None = None
-        self._pending_reject: tuple[Field, object] | None = None
-        self._pending_change: tuple[Field, object, str, str] | None = None  # field, input, old text, new text
 
     @property
     def awaiting_confirmation(self) -> str | None:
@@ -112,6 +92,60 @@ class Screening(ChangeConfirmation, SlotOffer):
         self.values[field] = raw
         self.events.append((EventType.FIELD_ACCEPTED, str(field)))
         return SubmitResult(Status.OK)
+
+    # -- a changed answer is confirmed first (D54) ---------------------------
+
+    @property
+    def awaiting_change(self) -> bool:
+        return self._pending_change is not None
+
+    def drop_change(self) -> None:
+        self._pending_change = None
+
+    def resolve_change(self, yes: bool, today: date) -> Directive:
+        """The candidate's yes or no to "Antes me dijiste X. ¿Lo cambio a Y?" (D54)."""
+        field, candidate, _, _ = self._pending_change
+        self._pending_change = None
+        notice = "kept"
+        if yes:
+            self.events.append((EventType.FIELD_CHANGED, str(field)))
+            result = self.submit(field, candidate, today)  # the usual flows (typo, outside the area, no license) still apply
+            notice = "changed" if result.status == Status.OK else None  # else another question follows
+        directive = self._directive_now(None)
+        return replace(directive, notice=notice) if directive.kind != Kind.CLOSE else directive
+
+    def _consider_change(self, field: str, candidate: object, today: date) -> None:
+        if self._pending_change is None:  # one question at a time
+            self._pending_change = propose_change(self.spec, self.areas, self.language, field, self.values[field],
+                                                  candidate, today)
+
+    # -- the offer of call slots (D48) ---------------------------------------
+
+    @property
+    def slot_offer(self) -> list[int]:
+        return list(self._slot_offer)
+
+    @property
+    def slots_resolved(self) -> bool:
+        return self._slots_done
+
+    @property
+    def awaiting_slot_choice(self) -> bool:
+        return bool(self._slot_offer) and not self._slots_done and self.decide().outcome == Outcome.QUALIFIED
+
+    def offer_slots(self, slot_ids: list[int]) -> None:
+        self._slot_offer = list(slot_ids)
+        self.events.append((EventType.SLOTS_OFFERED, ",".join(str(i) for i in slot_ids)))
+
+    def note_unclear_pick(self) -> int:
+        """Counts a reply to the slot list that could not be read; returns how many so far."""
+        self._unclear_picks += 1
+        return self._unclear_picks
+
+    def resolve_slots(self) -> None:
+        """The offer is over: booked, declined, or nothing to offer."""
+        self._slot_offer = []
+        self._slots_done = True
 
     def previous_answer(self, field: Field | None) -> str | None:
         return self._previous.get(field)
@@ -274,62 +308,17 @@ class Screening(ChangeConfirmation, SlotOffer):
         return unclear
 
     def extracted(self) -> dict:
-        return {
-            k: v.isoformat() if isinstance(v, date) else v for k, v in self.values.items()
-        }
+        return jsonable_values(self.values)
 
     def to_state(self) -> dict:
-        return {
-            "consent": self.consent,
-            "values": self.extracted(),
-            "blocked_on": str(self.blocked_on) if self.blocked_on else None,
-            "slot_offer": self._slot_offer,
-            "slots_done": self._slots_done,
-            "unclear_picks": self._unclear_picks,
-            "out_of_area": self.out_of_area,
-            "withdrawn": self.withdrawn,
-            "stalled": self.stalled,
-            "reminder_sent": self.reminder_sent,
-            "language": self.language,
-            "validation_flags": self.validation_flags,
-            "partial": self._partial,
-            "pending_reject": list(self._pending_reject) if self._pending_reject else None,
-            "pending_change": _dump_change(self._pending_change),
-            "previous": self._previous,
-            "events": [list(e) for e in self.events],
-            "events_synced": self._events_synced,
-            "off_topic": self._off_topic,
-            "follow_ups": self._follow_ups,
-            "pending_city": list(self._pending_city) if self._pending_city else None,
-        }
+        return {f.key: f.dump(getattr(self, f.attribute)) for f in STATE_FIELDS}
 
     @classmethod
     def from_state(cls, areas: dict[str, list[str]], state: dict, spec: ScreeningSpec = SAZON) -> "Screening":
         s = cls(areas, spec)
-        # Every key is optional: a state saved by an older or newer version must still load.
-        s.consent = state.get("consent")
-        s.values = {k: _decoded(spec, k, v) for k, v in state.get("values", {}).items()}
-        s.blocked_on = state["blocked_on"] if state.get("blocked_on") else None
-        s._slot_offer = list(state.get("slot_offer", []))
-        s._slots_done = state.get("slots_done", False)
-        s._unclear_picks = state.get("unclear_picks", 0)
-        s.out_of_area = state.get("out_of_area", False)
-        s.withdrawn = state.get("withdrawn", False)
-        s.stalled = state.get("stalled", False)
-        s.reminder_sent = state.get("reminder_sent", False)
-        s.language = Language(state.get("language", spec.pack.default_language))
-        s.validation_flags = {k: list(v) for k, v in state.get("validation_flags", {}).items()}
-        s._partial = dict(state.get("partial", {}))
-        s._pending_change = _load_change(spec, state.get("pending_change"))
-        pending = state.get("pending_reject")
-        s._pending_reject = (pending[0], pending[1]) if pending else None
-        s._previous = dict(state.get("previous", {}))
-        s.events = [tuple(e) for e in state.get("events", [])]
-        s._events_synced = state.get("events_synced", 0)
-        s._off_topic = state.get("off_topic", 0)
-        s._follow_ups = dict(state.get("follow_ups", {}))
-        pending_city = state.get("pending_city")
-        s._pending_city = tuple(pending_city) if pending_city else None
+        for f in STATE_FIELDS:  # every key is optional: a state saved by an older or newer version must still load
+            if f.key in state:
+                setattr(s, f.attribute, f.load(state[f.key], spec))
         return s
 
     def off_topic(self) -> None:

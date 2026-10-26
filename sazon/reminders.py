@@ -18,6 +18,7 @@ from datetime import datetime
 from sazon import config, session, slot_flow
 from sazon.client import Client
 from sazon.sazon_client import SAZON_CALENDAR, SAZON_CLIENT
+from sazon.llm import NO_MODEL
 from sazon.model import Outcome
 from sazon.phrasing import phrase
 from sazon.store import ConflictError, Store
@@ -68,7 +69,7 @@ def _remind(store: Store, client: Client, candidate_id: str, now: datetime) -> A
         kind = "reminder" if directive else "stalled"
     else:
         return None
-    text = phrase(None, client.spec, directive, screening.language) if directive else None  # fixed texts: no model needed
+    text = phrase(NO_MODEL, client.spec, directive, screening.language) if directive else None  # fixed texts: no model needed
     try:
         session.commit(store, candidate_id, screening, now,
                        messages=[("agent", text)] if text else [], outbox=[text] if text else [])
