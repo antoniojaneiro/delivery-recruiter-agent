@@ -569,3 +569,10 @@ Four reviewers (security and compliance, conversation robustness, data and opera
 - **Options considered:** split only (no speed-up); skip the refactor.
 - **Cons:** the pieces of `Screening` are mixins that share its attributes, so they are not independent classes; the precedence rules still live in `Screening`. The cache is per dashboard process; the funnel and KPIs still read every candidate when the data changes.
 - **Decided by:** user, 2026-10-26.
+
+## D63: Make the product reusable for another client (review of 2026-10-26)
+
+- **Chosen:** (user) Build review candidates 1-5: one screening spec per client written as Python dataclasses (fields, questions, labels, limits, qualification rules with their texts), copy and language packs plus one region config passed down (no global config reads), screening state with one owner instead of mixins, and guards against silent failures. Candidate 6 (a Store interface) is left out. Proof of reuse: a small second spec in the tests, run through the real engine. The package split into a generic engine and a client folder comes last, as a mechanical commit. Pure refactor first: Sazón's texts, the extraction prompt and schema, the consent hash and saved state keep their exact values, guarded by characterization tests.
+- **Options considered:** YAML/JSON spec (two places per client because rules need code); split the package first (big diff up front); keep one package (less reusable); a real second example client (more to maintain); all six candidates.
+- **Cons:** reopens part of D62 (the mixins); a spec adds a layer to read; behaviour that only Sazón needs (city and area matching, licence parsing) stays as hook functions rather than becoming spec features.
+- **Decided by:** user, 2026-10-26.
