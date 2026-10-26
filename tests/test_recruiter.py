@@ -5,11 +5,11 @@ from datetime import date, datetime
 import pytest
 
 from tests.clients import client_for
-from sazon.sazon_client import SAZON_CALENDAR
-from sazon import session
-from sazon.model import RecruiterStatus
-from sazon.screening import Screening
-from sazon.store import Store
+from sazon.client import SAZON_CALENDAR
+from screener import session
+from screener.model import RecruiterStatus
+from screener.screening import Screening
+from screener.store import Store
 
 AREAS = {"Madrid": []}
 T1 = datetime(2026, 10, 25, 10, 0)

@@ -2,11 +2,11 @@
 import json
 from datetime import date
 
-from sazon.model import Language
-from sazon.sazon_spec import SAZON
-from sazon.screening import Screening
-from sazon.screening_changes import propose_change
-from sazon.screening_state import STATE_FIELDS
+from screener.model import Language
+from sazon.spec import SAZON
+from screener.screening import Screening
+from screener.screening_changes import propose_change
+from screener.screening_state import STATE_FIELDS
 
 AREAS = {"Madrid": ["Getafe"], "Guadalajara": []}
 TODAY = date(2026, 10, 25)

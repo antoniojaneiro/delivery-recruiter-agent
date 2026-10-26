@@ -4,9 +4,9 @@ from dataclasses import dataclass
 from datetime import date
 from typing import Any, Callable
 
-from sazon.model import Language
-from sazon.screening_changes import dump_change, load_change
-from sazon.spec import ScreeningSpec
+from screener.model import Language
+from screener.screening_changes import dump_change, load_change
+from screener.spec import ScreeningSpec
 
 
 def _same(value):

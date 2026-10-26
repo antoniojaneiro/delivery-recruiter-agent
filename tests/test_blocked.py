@@ -5,13 +5,13 @@ from datetime import date, datetime
 import pytest
 
 from tests.clients import client_for
-from sazon.sazon_spec import SAZON
-from sazon import session, turn
-from sazon.llm import LLMError
-from sazon.phrasing import Directive, Kind, phrase
-from sazon.sazon_fields import Field
-from sazon.screening import Screening
-from sazon.store import Store
+from sazon.spec import SAZON
+from screener import session, turn
+from screener.llm import LLMError
+from screener.phrasing import Directive, Kind, phrase
+from sazon.fields import Field
+from screener.screening import Screening
+from screener.store import Store
 from tests.fakes import FakeLLM, ScriptedLLM
 
 AREAS = {"Madrid": [], "Guadalajara": []}

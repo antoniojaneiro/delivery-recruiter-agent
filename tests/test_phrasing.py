@@ -1,10 +1,10 @@
 import pytest
 
-from sazon.sazon_spec import SAZON
-from sazon.llm import LLMError
-from sazon.model import Outcome
-from sazon.sazon_fields import Field
-from sazon.phrasing import Directive, Kind, consent_message, phrase
+from sazon.spec import SAZON
+from screener.llm import LLMError
+from screener.model import Outcome
+from sazon.fields import Field
+from screener.phrasing import Directive, Kind, consent_message, phrase
 from tests.fakes import FakeLLM
 
 
@@ -108,14 +108,14 @@ def test_a_spanish_chat_keeps_its_spanish_punctuation():
     assert out == "¿Cuál es tu disponibilidad?"  # the greeting goes; the Spanish punctuation stays
 
 
-@pytest.mark.parametrize("outcome", list(__import__("sazon.model", fromlist=["Outcome"]).Outcome))
+@pytest.mark.parametrize("outcome", list(__import__("screener.model", fromlist=["Outcome"]).Outcome))
 def test_every_outcome_has_a_polite_close_so_none_can_crash_the_chat(outcome):
     out = phrase(FakeLLM(), SAZON, Directive(Kind.CLOSE, outcome=outcome, reasons=["NO_CONSENT"]), "es")
     assert out and "\n" not in out
 
 
 def test_without_a_model_a_question_falls_back_to_its_fixed_text_instead_of_crashing():
-    from sazon.llm import NO_MODEL
+    from screener.llm import NO_MODEL
     directive = Directive(Kind.ASK, field=Field.NAME)
     assert phrase(NO_MODEL, SAZON, directive, "es") == SAZON.field(Field.NAME).ask["es"]
     follow_up = Directive(Kind.FOLLOW_UP, field=Field.NAME, reason="need last name")

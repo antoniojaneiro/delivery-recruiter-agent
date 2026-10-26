@@ -2,11 +2,11 @@
 If a Sazón detail leaks back into the engine, the tests built on this spec fail."""
 from typing import Literal
 
-from sazon.client import Client
-from sazon.model import Language, Outcome
-from sazon.pack import Pack
-from sazon.spec import FieldSpec, RecruiterTexts, Rule, ScreeningSpec, read_attribute
-from sazon.validators import Validation, validate_name
+from screener.client import Client
+from screener.model import Language, Outcome
+from screener.pack import Pack
+from screener.spec import FieldSpec, RecruiterTexts, Rule, ScreeningSpec, read_attribute
+from screener.validators import Validation, validate_name
 
 EN = Language.EN
 SHIFTS = ("day", "night")
@@ -109,8 +109,8 @@ from dataclasses import replace  # noqa: E402
 from datetime import timedelta  # noqa: E402
 
 
-from sazon.pack import SlotTexts  # noqa: E402
-from sazon.slot_calendar import SlotCalendar  # noqa: E402
+from screener.pack import SlotTexts  # noqa: E402
+from screener.slot_calendar import SlotCalendar  # noqa: E402
 
 SLOTS = SlotTexts(
     offer={"first": say("You are through! Pick a time for a call:"), "taken": say("That time went. Pick another:"),

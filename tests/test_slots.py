@@ -3,9 +3,9 @@ from datetime import datetime, timezone
 
 import pytest
 
-from sazon.sazon_client import SAZON_CALENDAR
+from sazon.client import SAZON_CALENDAR
 from sazon import config
-from sazon.store import Store
+from screener.store import Store
 
 # An aware "now" keeps these tests independent of the machine's time zone.
 NOW = datetime(2026, 10, 26, 8, 0, tzinfo=timezone.utc)

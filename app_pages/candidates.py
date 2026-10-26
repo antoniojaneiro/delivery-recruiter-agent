@@ -2,11 +2,11 @@ from datetime import datetime
 
 import streamlit as st
 
-from sazon import sazon_ui as ui
-from sazon.model import Outcome, RecruiterStatus
-from sazon.recruiter_view import PAGE_SIZE, escape_markdown, filter_records, kpis, page_of
-from sazon.sazon_client import SAZON_CLIENT
-from sazon.sazon_recruiter_view import (OUTCOME_LABEL, STATUS_LABEL, call_label, explain_error, name_of,
+from sazon import ui
+from screener.model import Outcome, RecruiterStatus
+from screener.recruiter_view import PAGE_SIZE, escape_markdown, filter_records, kpis, page_of
+from sazon.client import SAZON_CLIENT
+from sazon.recruiter_view import (OUTCOME_LABEL, STATUS_LABEL, call_label, explain_error, name_of,
                                         table_rows)
 
 store = ui.store()

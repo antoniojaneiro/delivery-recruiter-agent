@@ -3,9 +3,9 @@ from dataclasses import replace
 
 import pytest
 
-from sazon.model import Outcome
-from sazon.sazon_spec import SAZON
-from sazon.spec import SpecError, check_spec
+from screener.model import Outcome
+from sazon.spec import SAZON
+from screener.spec import SpecError, check_spec
 from tests.toy_spec import EN, TOY, say
 
 
@@ -81,7 +81,7 @@ def test_every_problem_is_listed_at_once():
 
 
 def test_a_spec_that_is_incomplete_cannot_even_be_built():
-    from sazon.spec import ScreeningSpec
+    from screener.spec import ScreeningSpec
     with pytest.raises(SpecError):
         ScreeningSpec(fields=(), pack=TOY.pack, recruiter=TOY.recruiter, area_field="city")
     assert say("x") == {EN: "x"}

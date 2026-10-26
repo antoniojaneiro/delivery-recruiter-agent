@@ -37,6 +37,9 @@ All settled design and tech choices are logged in [DECISIONS.md](DECISIONS.md), 
 - **Channel:** terminal chat first, real channel later (D1).
 - **LLM:** Gemini free tier, through the course wrapper at `C:/Users/AJ/agent_engineering/Agentic-AI-Course/00-setup/course_llm.py` (D2).
 - **Storage:** SQLite (D3).
+- **Code layout (D63):** `screener/` is the engine and must never import or name a client; `sazon/` is Grupo Sazón as a
+  client (spec, wording, areas, Spanish dashboard labels, the commands). `tests/toy_spec.py` is a second client used by
+  the tests, and `tests/test_engine_boundary.py` fails if the engine leaks. Put anything reusable in the engine.
 - **Voice:** ElevenLabs is the suggested option (see the `agents` skill).
 - **Recruiter UI:** Streamlit dashboard, run locally (D4). The course capstone uses Streamlit too, and the `developing-with-streamlit` skill covers it.
 

@@ -14,9 +14,9 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from sazon import turn
-from sazon.sazon_client import SAZON_CLIENT
-from sazon.store import Store
+from screener import turn
+from sazon.client import SAZON_CLIENT
+from screener.store import Store
 
 TECHNICAL_PROBLEM = ("problema técnico", "technical problem")
 PAUSE_SECONDS = 4  # the free tier allows only a handful of requests per minute
@@ -222,8 +222,8 @@ def main(argv: list[str] | None = None) -> None:
     if unknown:
         sys.exit(f"Unknown scenario: {', '.join(unknown)}. Use --list to see the names.")
 
-    from sazon import gemini
-    from sazon.llm import LLMError
+    from screener import gemini
+    from screener.llm import LLMError
 
     try:
         llm = gemini.from_env()

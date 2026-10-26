@@ -3,9 +3,9 @@ It only counts what the chat already stores, so it needs no extra tracking."""
 from collections import Counter
 from dataclasses import dataclass
 
-from sazon.model import NO_CONSENT, Outcome
-from sazon.spec import ScreeningSpec
-from sazon.store import Record
+from screener.model import NO_CONSENT, Outcome
+from screener.spec import ScreeningSpec
+from screener.store import Record
 
 OPEN_OUTCOMES = (Outcome.IN_PROGRESS, Outcome.STALLED, Outcome.BLOCKED)
 

@@ -4,14 +4,15 @@ from datetime import date, datetime
 
 import pytest
 
-from sazon.sazon_client import SAZON_CLIENT
-from sazon import config, turn
-from sazon.extraction import StartDate
-from sazon.sazon_spec import SAZON, Extraction
-from sazon.sazon_fields import Field
-from sazon.phrasing import Kind, phrase
-from sazon.screening import Screening
-from sazon.store import Store
+from sazon.client import SAZON_CLIENT
+from screener import turn
+from sazon import config
+from screener.extraction import StartDate
+from sazon.spec import SAZON, Extraction
+from sazon.fields import Field
+from screener.phrasing import Kind, phrase
+from screener.screening import Screening
+from screener.store import Store
 from tests.fakes import FakeLLM, ScriptedLLM
 
 TODAY = date(2026, 10, 25)
@@ -246,7 +247,7 @@ def test_another_spelling_of_the_saved_city_is_not_a_change():
 
 
 def test_a_withdrawal_forgets_a_change_question_that_was_waiting():
-    from sazon.consent import is_stop_request
+    from screener.consent import is_stop_request
     s = accepted()
     ask(s, "soy Carlos López", name="Carlos López")
     assert s.awaiting_change

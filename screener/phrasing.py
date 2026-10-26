@@ -6,11 +6,11 @@ from dataclasses import dataclass, field as dc_field
 from enum import StrEnum
 from typing import TYPE_CHECKING
 
-from sazon.llm import LLM, LLMError
-from sazon.model import NO_CONSENT, Language, Outcome
+from screener.llm import LLM, LLMError
+from screener.model import NO_CONSENT, Language, Outcome
 
 if TYPE_CHECKING:
-    from sazon.spec import ScreeningSpec
+    from screener.spec import ScreeningSpec
 
 MAX_REPLY_CHARS = 280
 MAX_ECHO_CHARS = 40

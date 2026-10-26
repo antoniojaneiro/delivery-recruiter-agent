@@ -7,9 +7,9 @@ from datetime import datetime, timedelta
 import pytest
 from dotenv import load_dotenv
 
-from sazon.sazon_client import SAZON_CALENDAR, SAZON_CLIENT
-from sazon import turn
-from sazon.store import Store
+from sazon.client import SAZON_CALENDAR, SAZON_CLIENT
+from screener import turn
+from screener.store import Store
 
 load_dotenv()
 pytestmark = [
@@ -28,7 +28,7 @@ def show(transcript):
 
 @pytest.fixture(scope="module")
 def llm():
-    from sazon import gemini
+    from screener import gemini
 
     return gemini.from_env()
 

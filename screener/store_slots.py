@@ -2,7 +2,7 @@
 import sqlite3
 from datetime import datetime
 
-from sazon.store_types import AGENT, Booking, InputError, Slot, stamp as _stamp
+from screener.store_types import AGENT, Booking, InputError, Slot, stamp as _stamp
 
 _SLOT_SELECT = "SELECT id, country, starts_at, recruiter, candidate_id, cancelled_at FROM slots"
 _BOOKING_SELECT = "SELECT id, country, starts_at, recruiter FROM slots"

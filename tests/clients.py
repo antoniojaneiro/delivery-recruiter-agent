@@ -1,6 +1,6 @@
-from sazon.client import Client
-from sazon.sazon_client import SAZON_CALENDAR
-from sazon.sazon_spec import SAZON
+from screener.client import Client
+from sazon.client import SAZON_CALENDAR
+from sazon.spec import SAZON
 
 
 def client_for(areas) -> Client:

@@ -3,12 +3,12 @@ from datetime import datetime
 
 import pytest
 
-from sazon.sazon_spec import SAZON
-from sazon.sazon_client import SAZON_CALENDAR, SAZON_CLIENT
-from sazon import turn
-from sazon.consent import is_resume_request
-from sazon.phrasing import closed_message, consent_message
-from sazon.store import Store
+from sazon.spec import SAZON
+from sazon.client import SAZON_CALENDAR, SAZON_CLIENT
+from screener import turn
+from screener.consent import is_resume_request
+from screener.phrasing import closed_message, consent_message
+from screener.store import Store
 from tests.fakes import ScriptedLLM
 
 NOW = datetime(2026, 10, 25, 10, 0)

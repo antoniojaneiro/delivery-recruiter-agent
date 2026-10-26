@@ -6,9 +6,9 @@ from datetime import date
 import pytest
 from dotenv import load_dotenv
 
-from sazon.extraction import extract
-from sazon.sazon_spec import SAZON
-from sazon.sazon_fields import Field
+from screener.extraction import extract
+from sazon.spec import SAZON
+from sazon.fields import Field
 
 load_dotenv()
 pytestmark = [
@@ -20,7 +20,7 @@ TODAY = date(2026, 10, 25)
 
 @pytest.fixture(scope="module")
 def llm():
-    from sazon import gemini
+    from screener import gemini
 
     return gemini.from_env()
 

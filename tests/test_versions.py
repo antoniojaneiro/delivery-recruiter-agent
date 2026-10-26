@@ -4,9 +4,9 @@ from datetime import datetime
 
 import pytest
 
-from sazon.sazon_client import SAZON_CALENDAR, SAZON_CLIENT
-from sazon import session, turn
-from sazon.store import ConflictError, Store
+from sazon.client import SAZON_CALENDAR, SAZON_CLIENT
+from screener import session, turn
+from screener.store import ConflictError, Store
 from tests.fakes import ScriptedLLM
 
 NOW = datetime(2026, 10, 25, 10, 0)

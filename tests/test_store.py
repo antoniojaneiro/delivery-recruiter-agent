@@ -3,8 +3,8 @@ from datetime import datetime
 
 import pytest
 
-from sazon.sazon_client import SAZON_CALENDAR
-from sazon.store import Store
+from sazon.client import SAZON_CALENDAR
+from screener.store import Store
 
 T1 = datetime(2026, 10, 25, 10, 0)
 T2 = datetime(2026, 10, 25, 10, 5)

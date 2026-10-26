@@ -2,14 +2,14 @@ from contextlib import contextmanager
 from dataclasses import dataclass, replace
 from datetime import date
 
-from sazon import validators
-from sazon.consent import ConsentReading, is_hesitation, is_resume_request, read_consent
-from sazon.extraction import ControlFlags
-from sazon.model import CONSENT, NO_CONSENT, CityMatchStatus, EventType, Language, Outcome, Status
-from sazon.phrasing import Directive, Kind, consent_text_hash
-from sazon.screening_changes import propose_change
-from sazon.screening_state import STATE_FIELDS, jsonable_values
-from sazon.spec import MISSING as _MISSING, ScreeningSpec
+from screener import validators
+from screener.consent import ConsentReading, is_hesitation, is_resume_request, read_consent
+from screener.extraction import ControlFlags
+from screener.model import CONSENT, NO_CONSENT, CityMatchStatus, EventType, Language, Outcome, Status
+from screener.phrasing import Directive, Kind, consent_text_hash
+from screener.screening_changes import propose_change
+from screener.screening_state import STATE_FIELDS, jsonable_values
+from screener.spec import MISSING as _MISSING, ScreeningSpec
 
 MAX_FOLLOW_UPS = 5
 MAX_OFF_TOPIC = 3  # in total, not in a row (D55)

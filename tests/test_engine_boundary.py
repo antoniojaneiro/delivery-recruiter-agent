@@ -1,38 +1,27 @@
-"""D63: the engine knows nothing about a client. A client is a package of its own that the engine never imports,
-and the engine's code and comments carry none of a client's words."""
+"""D63: the engine (package `screener`) knows nothing about a client (package `sazon` is Grupo Sazón's). The engine
+never imports a client, and its code and comments carry none of a client's words."""
 import ast
 import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-PACKAGE = ROOT / "sazon"
-
-# What belongs to Grupo Sazón. Everything else in the package is the engine.
-CLIENT_FILES = {
-    "sazon_spec.py", "sazon_pack.py", "sazon_client.py", "sazon_fields.py", "sazon_validators.py",
-    "sazon_chat.py", "sazon_reminders.py", "sazon_ui.py", "sazon_recruiter_view.py", "sazon_accounts.py", "config.py",
-    "demo.py",
-    "__init__.py",
-}
-CLIENT_MODULES = {Path(name).stem for name in CLIENT_FILES}
+ENGINE = ROOT / "screener"
+CLIENT_PACKAGES = {"sazon"}
 FORBIDDEN_WORDS = re.compile(r"saz[oó]n|grupo|repartidor|licen[cs]|madrid|guadalajara|glovo|uber eats|rappi|delivery|driver"
                              r"|mexico|méxico|españa|spain", re.IGNORECASE)
 
 
 def engine_files() -> list[Path]:
-    return sorted(p for p in PACKAGE.glob("*.py") if p.name not in CLIENT_FILES)
+    return sorted(ENGINE.glob("*.py"))
 
 
-def imported_modules(path: Path) -> set[str]:
+def imported_packages(path: Path) -> set[str]:
     found = set()
     for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
         if isinstance(node, ast.ImportFrom) and node.module:
-            if node.module == "sazon":
-                found.update(alias.name for alias in node.names)
-            elif node.module.startswith("sazon."):
-                found.add(node.module.split(".")[1])
+            found.add(node.module.split(".")[0])
         elif isinstance(node, ast.Import):
-            found.update(alias.name.split(".")[1] for alias in node.names if alias.name.startswith("sazon."))
+            found.update(alias.name.split(".")[0] for alias in node.names)
     return found
 
 
@@ -40,24 +29,24 @@ def test_the_engine_is_not_empty():
     assert {p.name for p in engine_files()} >= {"screening.py", "turn.py", "store.py", "phrasing.py", "spec.py"}
 
 
-def test_the_engine_never_imports_a_client_module():
-    leaks = {p.name: sorted(imported_modules(p) & CLIENT_MODULES) for p in engine_files()}
-    assert {name: modules for name, modules in leaks.items() if modules} == {}
-
-
-PACKAGE_NAME = re.compile(r"\bsazon\b(?=\.| import)")  # the engine's own package name, until D63 renames it
+def test_the_engine_never_imports_a_client():
+    leaks = {p.name: sorted(imported_packages(p) & CLIENT_PACKAGES) for p in engine_files()}
+    assert {name: packages for name, packages in leaks.items() if packages} == {}
 
 
 def test_the_engine_carries_no_clients_words():
     leaks = {}
     for path in engine_files():
-        text = PACKAGE_NAME.sub("", path.read_text(encoding="utf-8"))
-        hits = sorted({m.group(0).lower() for m in FORBIDDEN_WORDS.finditer(text)})
+        hits = sorted({m.group(0).lower() for m in FORBIDDEN_WORDS.finditer(path.read_text(encoding="utf-8"))})
         if hits:
             leaks[path.name] = hits
     assert leaks == {}
 
 
 def test_the_second_client_in_the_tests_uses_only_the_engine():
-    toy = ROOT / "tests" / "toy_spec.py"
-    assert imported_modules(toy) & CLIENT_MODULES == set()
+    assert imported_packages(ROOT / "tests" / "toy_spec.py") & CLIENT_PACKAGES == set()
+
+
+def test_a_client_package_holds_only_what_is_the_clients():
+    client_files = {p.name for p in (ROOT / "sazon").glob("*.py")}
+    assert not client_files & {"screening.py", "turn.py", "store.py", "phrasing.py", "session.py", "funnel.py"}

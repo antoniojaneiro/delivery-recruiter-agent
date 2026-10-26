@@ -4,11 +4,11 @@ from datetime import datetime
 
 import pytest
 
-from sazon.sazon_client import SAZON_CALENDAR
-from sazon.sazon_spec import SAZON
+from sazon.client import SAZON_CALENDAR
+from sazon.spec import SAZON
 from sazon import demo
-from sazon.phrasing import consent_message
-from sazon.store import Store
+from screener.phrasing import consent_message
+from screener.store import Store
 from tests.fakes import ScriptedLLM
 
 NOW = datetime(2026, 10, 25, 10, 0)

@@ -3,11 +3,12 @@ from datetime import datetime, timedelta
 
 import pytest
 
-from sazon.sazon_spec import SAZON
-from sazon.sazon_client import SAZON_CALENDAR, SAZON_CLIENT
-from sazon import reminders, sazon_reminders, session, turn
-from sazon.phrasing import Directive, Kind, phrase
-from sazon.store import ConflictError, Store
+from sazon.spec import SAZON
+from sazon.client import SAZON_CALENDAR, SAZON_CLIENT
+from screener import reminders, session, turn
+from sazon import reminders as sazon_reminders
+from screener.phrasing import Directive, Kind, phrase
+from screener.store import ConflictError, Store
 from tests.fakes import ScriptedLLM
 from tests.test_turn_slots import add_slots, qualify
 

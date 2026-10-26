@@ -5,7 +5,7 @@ import re
 import unicodedata
 from dataclasses import dataclass
 
-from sazon.model import Language
+from screener.model import Language
 
 MAX_YES_WORDS = 5
 

@@ -2,8 +2,8 @@ from datetime import date
 
 import pytest
 
-from sazon.sazon_spec import SAZON
-from sazon.screening import ConsentRequired, Screening
+from sazon.spec import SAZON
+from screener.screening import ConsentRequired, Screening
 
 AREAS = {"Madrid": [], "Ciudad de México": ["CDMX"], "Guadalajara": []}
 TODAY = date(2026, 10, 25)
@@ -298,8 +298,8 @@ def test_garbage_city_is_a_follow_up_never_a_crash(consented):
     assert consented.submit("city", 7, TODAY).status == "follow_up"
 
 
-from sazon.model import EventType, Outcome, Status
-from sazon.sazon_fields import Field
+from screener.model import EventType, Outcome, Status
+from sazon.fields import Field
 
 
 def test_outcomes_statuses_and_events_are_typed_but_stay_plain_strings_in_json(consented):

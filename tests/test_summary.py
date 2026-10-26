@@ -4,12 +4,12 @@ from datetime import date, datetime
 import pytest
 
 from tests.clients import client_for
-from sazon.sazon_spec import SAZON
-from sazon import session
-from sazon.model import Language
-from sazon.screening import Screening
-from sazon.store import Store
-from sazon.summary import summarise
+from sazon.spec import SAZON
+from screener import session
+from screener.model import Language
+from screener.screening import Screening
+from screener.store import Store
+from screener.summary import summarise
 
 AREAS = {"Madrid": [], "Guadalajara": []}
 TODAY = date(2026, 10, 25)

@@ -1,8 +1,8 @@
 """D44: the consent reply is read in plain code, so nothing reaches the model before a yes."""
 import pytest
 
-from sazon.consent import read_consent
-from sazon.model import Language
+from screener.consent import read_consent
+from screener.model import Language
 
 
 @pytest.mark.parametrize("text", [
@@ -63,7 +63,7 @@ def test_a_yes_with_a_condition_a_question_or_a_no_is_unclear(text):
     assert read_consent(text).answer is None
 
 
-from sazon.consent import is_stop_request
+from screener.consent import is_stop_request
 
 
 @pytest.mark.parametrize("text", [

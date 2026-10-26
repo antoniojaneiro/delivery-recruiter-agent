@@ -3,8 +3,8 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from sazon import turn
-from sazon.store import InputError, Store
+from screener import turn
+from screener.store import InputError, Store
 from tests.fakes import ScriptedLLM
 from tests.toy_spec import TOY, TOY_UK, UK_CALENDAR
 
@@ -70,7 +70,7 @@ def test_a_town_next_door_counts_and_a_stranger_is_confirmed_first(store):
 
 
 def test_the_cancel_message_uses_the_clients_wording_and_areas(store):
-    from sazon import slot_flow
+    from screener import slot_flow
     store.add_slot("GB", datetime(2026, 10, 28, 10, 0), None, "Ana", NOW)
     qualify(store)
     talk(store, ScriptedLLM(), "1")
@@ -82,7 +82,7 @@ def test_the_cancel_message_uses_the_clients_wording_and_areas(store):
 def test_the_reminder_clock_is_the_clients(store):
     from dataclasses import replace
 
-    from sazon import reminders
+    from screener import reminders
     client = replace(TOY_UK, remind_after=timedelta(hours=6))
     turn.start(store, client, "c1", NOW)
     talk(store, ScriptedLLM(), "yes")
@@ -108,7 +108,7 @@ def test_the_client_carries_its_calendar_and_a_store_for_it_is_built_from_it(tmp
 def test_a_client_with_call_texts_but_no_calendar_is_refused():
     from dataclasses import replace
 
-    from sazon.client import Client, ClientError
+    from screener.client import Client, ClientError
     with pytest.raises(ClientError) as error:
         replace(TOY_UK, calendar=None)
     assert "calendar" in str(error.value)
@@ -119,8 +119,8 @@ def test_a_client_with_call_texts_but_no_calendar_is_refused():
 def test_an_area_without_a_country_or_a_country_without_a_zone_is_refused():
     from dataclasses import replace
 
-    from sazon.client import ClientError
-    from sazon.slot_calendar import SlotCalendar
+    from screener.client import ClientError
+    from screener.slot_calendar import SlotCalendar
     with pytest.raises(ClientError) as error:
         replace(TOY_UK, areas={**TOY_UK.areas, "Bristol": []})
     assert "Bristol" in str(error.value)

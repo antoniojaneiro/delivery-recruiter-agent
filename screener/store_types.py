@@ -2,7 +2,7 @@
 from dataclasses import dataclass
 from datetime import datetime
 
-from sazon.model import RecruiterStatus
+from screener.model import RecruiterStatus
 
 AGENT = "agent"
 NO_CHECK = object()  # commit_turn without a version check (tests and tools that own the whole record)

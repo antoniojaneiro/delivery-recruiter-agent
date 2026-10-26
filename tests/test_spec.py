@@ -1,8 +1,8 @@
 """D63: the engine takes its fields and rules from a spec, so a second client needs no engine change."""
 from datetime import date
 
-from sazon.model import Outcome, Status
-from sazon.screening import Screening
+from screener.model import Outcome, Status
+from screener.screening import Screening
 from tests.toy_spec import TOY
 
 TODAY = date(2026, 10, 25)
@@ -52,7 +52,7 @@ def test_a_field_the_spec_does_not_have_is_refused():
 
 
 def test_the_reply_shape_and_the_model_prompt_come_from_the_spec():
-    from sazon.extraction import build_system_prompt
+    from screener.extraction import build_system_prompt
     model = TOY.extraction_model
     assert {"shift", "can_lift", "off_topic", "language"} <= set(model.model_fields)
     assert not {"city", "has_license", "experience_years"} & set(model.model_fields)
@@ -79,8 +79,8 @@ def test_an_unclear_answer_is_followed_up_for_the_field_it_belongs_to():
 def _conversation(tmp_path, lift):
     from datetime import datetime
 
-    from sazon import turn
-    from sazon.store import Store
+    from screener import turn
+    from screener.store import Store
     from tests.fakes import ScriptedLLM
     from tests.toy_spec import TOY_CLIENT
 
@@ -108,7 +108,7 @@ def test_a_second_client_runs_a_whole_conversation_in_its_own_words(tmp_path):
 def test_a_second_client_disqualifies_by_its_own_rule_and_says_so_in_its_own_words(tmp_path):
     store, replies = _conversation(tmp_path, lift=False)
     assert replies[-1] == "Just to confirm: you cannot lift 20 kg?"
-    from sazon import turn
+    from screener import turn
     from tests.fakes import ScriptedLLM
     from tests.toy_spec import TOY_CLIENT
     from datetime import datetime

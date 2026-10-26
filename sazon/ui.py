@@ -2,8 +2,8 @@
 import streamlit as st
 
 from sazon import config
-from sazon.sazon_client import SAZON_CLIENT
-from sazon.store import Store
+from sazon.client import SAZON_CLIENT
+from screener.store import Store
 
 
 @st.cache_resource

@@ -8,8 +8,10 @@ from datetime import datetime
 
 import streamlit as st
 
-from sazon import accounts, sazon_accounts
-from sazon import sazon_ui as ui
+from screener import accounts
+
+from sazon import accounts as sazon_accounts
+from sazon import ui
 
 st.set_page_config(page_title="Candidatos · Grupo Sazón", page_icon=":material/groups:", layout="wide")
 

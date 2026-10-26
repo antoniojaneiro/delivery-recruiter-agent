@@ -4,10 +4,11 @@ from datetime import datetime
 import pytest
 
 from tests.clients import client_for
-from sazon.sazon_client import SAZON_CALENDAR
-from sazon import config, turn
-from sazon.phrasing import consent_message
-from sazon.store import Store
+from sazon.client import SAZON_CALENDAR
+from screener import turn
+from sazon import config
+from screener.phrasing import consent_message
+from screener.store import Store
 from tests.fakes import ScriptedLLM
 
 AREAS = config.AREAS

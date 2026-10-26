@@ -1,6 +1,6 @@
 import pytest
 
-from sazon import accounts
+from screener import accounts
 
 
 @pytest.fixture(autouse=True)

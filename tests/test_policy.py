@@ -3,14 +3,15 @@ from datetime import date, datetime
 
 import pytest
 
-from sazon.sazon_client import SAZON_CLIENT
-from sazon import config, turn
-from sazon.sazon_spec import SAZON, Extraction
-from sazon.model import Outcome
-from sazon.sazon_fields import Reason
-from sazon.phrasing import Directive, Kind, consent_message, phrase
-from sazon.screening import Screening
-from sazon.store import Store
+from sazon.client import SAZON_CLIENT
+from screener import turn
+from sazon import config
+from sazon.spec import SAZON, Extraction
+from screener.model import Outcome
+from sazon.fields import Reason
+from screener.phrasing import Directive, Kind, consent_message, phrase
+from screener.screening import Screening
+from screener.store import Store
 from tests.fakes import FakeLLM, ScriptedLLM
 
 TODAY = date(2026, 10, 25)

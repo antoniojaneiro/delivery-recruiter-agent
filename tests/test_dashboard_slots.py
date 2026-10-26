@@ -5,8 +5,8 @@ from pathlib import Path
 import pytest
 from streamlit.testing.v1 import AppTest
 
-from sazon.sazon_client import SAZON_CALENDAR
-from sazon.store import Store
+from sazon.client import SAZON_CALENDAR
+from screener.store import Store
 from tests.dash import login, logout, seed_accounts
 
 APP = str(Path(__file__).resolve().parent.parent / "dashboard.py")

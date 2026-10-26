@@ -5,9 +5,9 @@ from pathlib import Path
 import pytest
 from streamlit.testing.v1 import AppTest
 
-from sazon.sazon_client import SAZON_CALENDAR
-from sazon.model import RecruiterStatus
-from sazon.store import Store
+from sazon.client import SAZON_CALENDAR
+from screener.model import RecruiterStatus
+from screener.store import Store
 from tests.dash import login, logout, seed_accounts
 
 T1 = datetime(2026, 10, 25, 10, 0)

@@ -3,11 +3,11 @@ from datetime import datetime
 import pytest
 
 from tests.clients import client_for
-from sazon.sazon_spec import SAZON
-from sazon import turn
-from sazon.llm import LLMError
-from sazon.phrasing import consent_message
-from sazon.store import Store
+from sazon.spec import SAZON
+from screener import turn
+from screener.llm import LLMError
+from screener.phrasing import consent_message
+from screener.store import Store
 from tests.fakes import ScriptedLLM
 
 AREAS = {"Madrid": [], "Guadalajara": [], "Ciudad de México": ["CDMX"]}

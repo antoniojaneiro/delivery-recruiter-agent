@@ -1,8 +1,8 @@
 """The recruiter's summary card (D46). Built by code from the saved, validated data: it never repeats
 the candidate's own words and never says anything about the person beyond the facts they gave."""
-from sazon.model import NO_CONSENT, EventType, Outcome
-from sazon.screening import Screening
-from sazon.spec import ScreeningSpec
+from screener.model import NO_CONSENT, EventType, Outcome
+from screener.screening import Screening
+from screener.spec import ScreeningSpec
 
 
 def summarise(screening: Screening) -> str:

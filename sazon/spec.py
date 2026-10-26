@@ -1,195 +1,205 @@
-"""What a client defines to use the screening engine (D63): its fields, the rules that end a screening and its
-wording. Everything here is data and small functions; the engine owns the flow."""
-from dataclasses import dataclass, field
+"""Grupo Sazón's screening: delivery drivers in Spain and Mexico (D63)."""
 from datetime import date
-from functools import cached_property
-from operator import eq
-from typing import Any, Callable
+from typing import Literal
 
-from sazon.extraction import ControlFlags, build_model
-from sazon.model import NO_CONSENT, Language, Outcome
-from sazon.pack import Pack, Text
-from sazon.validators import Validation
+from screener import validators
 
-MISSING = object()  # what a field's reader returns when the message says nothing about it
+from sazon import validators as checks
+from screener.extraction import StartDate, build_system_prompt
+from screener.model import Language, Outcome
+from sazon.fields import Field, Reason
+from screener.phrasing import echo
+from sazon.pack import PACK, bi
+from screener.spec import MISSING, FieldSpec, RecruiterTexts, Rule, ScreeningSpec, read_attribute
 
-
-def read_attribute(name: str, empty_is_missing: bool = False) -> Callable[[Any, date, Any], object]:
-    """A reader for a field that is one attribute of the model's reply."""
-    def read(reply, today, base):
-        value = getattr(reply, name)
-        return MISSING if value is None or (empty_is_missing and not value) else value
-    return read
+ES, EN = Language.ES, Language.EN
 
 
-@dataclass(frozen=True)
-class FieldSpec:
-    key: str
-    ask: Text  # the question; also what the model is told to keep the meaning of when it rephrases
-    what: Text  # "your first and last name": completes "I can't continue until you tell me ..."
-    label: str  # the recruiter's name for the field
-    validate: Callable[[Any, date], Validation] | None = None  # None: the engine's area matching decides
-    same: Callable[[Any, Any], bool] = eq  # compares validated values, so the same answer is never a change
-    rejects: Callable[[Any], bool] | None = None  # an answer that ends the screening once the candidate confirms it
-    confirm_rejection: Text | None = None  # asked before a rejecting answer counts; {city} is the candidate's text
-    read: Callable[[Any, date, Any], object] | None = None  # (reply, today, base) -> a value or MISSING
-    # base: what was kept of an earlier unclear answer, or the saved value when a change is being read
-    partial: Callable[[Any], dict] | None = None  # what to keep of an unclear answer to combine with the next
-    schema: dict[str, tuple] = field(default_factory=dict)  # the attributes this field adds to the model's reply
-    prompt: str = ""  # the lines describing those attributes to the model
-    decode_value: Callable[[Any], Any] | None = None  # a saved value read back from JSON
-    decode_candidate: Callable[[Any], Any] | None = None  # a pending change read back from JSON
-    describe: Callable[[Any, Language], str] | None = None  # a value in the candidate's words, for a change question
-    card: Callable[[Any], str] | None = None  # the line for the recruiter's summary card
-    not_provided: str = ""  # recruiter text for "has not said ..."; the label when empty
+def _experience(value):
+    if not isinstance(value, (tuple, list)) or len(value) != 2:
+        return validators.Validation(False, reason="need years and platform")
+    return checks.validate_experience(*value)
 
 
-@dataclass(frozen=True)
-class Rule:
-    """A reason that disqualifies a candidate. `applies` reads the screening's saved answers."""
-    reason: str
-    applies: Callable[[Any], bool]
-    close: Text  # what the candidate is told
-    summary: str  # what the recruiter reads
+def _read_experience(reply, today, base):
+    if reply.experience_years is None and not reply.platforms:
+        return MISSING
+    base = base or {}
+    years = reply.experience_years if reply.experience_years is not None else base.get("years")
+    return (years, reply.platforms or base.get("platforms", []))
 
 
-@dataclass(frozen=True)
-class RecruiterTexts:
-    """The recruiter's side: the summary card and the funnel, in the one language the recruiters read."""
-    outcome_labels: dict[Outcome, str]
-    no_name: str
-    reason_prefix: str
-    missing_prefix: str
-    no_consent: str  # the reason when consent was declined
-    blocked_on: str  # "has not said " + the field's not_provided text
-    flags: dict[str, str]  # validation flag -> warning line
-    footer: str
-    chat_prefix: str
-    language_word: str
-    language_names: dict[Language, str]
-    clarification: tuple[str, str]  # singular, plural
-    asked_for_person: str
-    reminder_sent: str
-    started: str
-    consented: str
-    answered: str  # {label}
-    qualified: str
-    booked: str
-    consent_stage: str
+def _read_start_date(reply, today, base):
+    return reply.start_date.resolve(today) if reply.start_date is not None else MISSING
 
 
-@dataclass(frozen=True)
-class ScreeningSpec:
-    fields: tuple[FieldSpec, ...]
-    pack: Pack
-    recruiter: RecruiterTexts
-    rules: tuple[Rule, ...] = ()
-    role: str = "job"  # "warehouse-picker" in "a warehouse-picker screening chat"
-    area_field: str | None = None  # the field matched against the client's service areas
-    place_qualifiers: tuple[str, ...] = ()  # words that may follow a place ("Leeds, England") and are dropped
-    title_field: str | None = None  # the answer that heads the summary card
-    card_order: tuple[str, ...] = ()  # the fields that get a line on the card, in order
-
-    def __post_init__(self):
-        check_spec(self)
-
-    @cached_property
-    def extraction_model(self):
-        return build_model(self)
-
-    @property
-    def keys(self) -> tuple[str, ...]:
-        return tuple(f.key for f in self.fields)
-
-    def field(self, key: str) -> FieldSpec:
-        for spec in self.fields:
-            if spec.key == key:
-                return spec
-        raise ValueError(f"unknown field: {key}")
-
-    def rule(self, reason: str) -> Rule:
-        for rule in self.rules:
-            if rule.reason == reason:
-                return rule
-        raise ValueError(f"unknown reason: {reason}")
-
-    def close_text(self, reason: str) -> Text:
-        return self.pack.close_no_consent if reason == NO_CONSENT else self.rule(reason).close
+def _date_from_json(value):
+    return date.fromisoformat(value) if isinstance(value, str) else value
 
 
-class SpecError(ValueError):
-    """A spec that cannot run. The message lists every problem found."""
+_AVAILABILITY = {"full_time": bi("tiempo completo", "full-time"), "part_time": bi("medio tiempo", "part-time"),
+                 "weekends": bi("fines de semana", "weekends")}
+_SCHEDULE = {"morning": bi("mañana", "morning"), "afternoon": bi("tarde", "afternoon"),
+             "evening": bi("noche", "evening"), "flexible": bi("flexible", "flexible")}
 
 
-_NOTICES = ("human", "pay", "changed", "kept", "offtopic")
-_CLOSES = (Outcome.QUALIFIED, Outcome.ENDED_OFF_TOPIC, Outcome.WITHDRAWN)
-_OFFERS = ("first", "taken", "unclear", "reminder")
+def _word(words: dict, value, language: Language) -> str:
+    return words[value][language] if value in words else echo(value)
 
 
-def check_spec(spec: "ScreeningSpec") -> None:
-    """Raises SpecError naming everything the engine would otherwise only discover in the middle of a chat."""
-    problems: list[str] = []
-    default = spec.pack.default_language
+def _describe_license(value, language: Language) -> str:
+    return {ES: "sí", EN: "yes"}[language] if value else "no"
 
-    def need_text(where: str, text) -> None:
-        if not text or not text.get(default):
-            problems.append(f"{where} has no text in {default}")
 
-    keys = spec.keys
-    for key in dict.fromkeys(keys):
-        if keys.count(key) > 1:
-            problems.append(f"field '{key}' is listed twice")
-    attributes: dict[str, str] = {}
-    for f in spec.fields:
-        if f.read is None:
-            problems.append(f"field '{f.key}' has no read function")
-        if f.validate is None and f.key != spec.area_field:
-            problems.append(f"field '{f.key}' has no validate function")
-        need_text(f"field '{f.key}': ask", f.ask)
-        need_text(f"field '{f.key}': what", f.what)
-        if f.rejects is not None:
-            need_text(f"field '{f.key}': confirm_rejection", f.confirm_rejection)
-        for name in f.schema:
-            if name in ControlFlags.model_fields or name in attributes:
-                problems.append(f"reply attribute '{name}' of field '{f.key}' is already taken")
-            attributes[name] = f.key
-    if spec.area_field is not None and spec.area_field not in keys:
-        problems.append(f"area_field '{spec.area_field}' is not a field")
-    if spec.title_field is not None and spec.title_field not in keys:
-        problems.append(f"title_field '{spec.title_field}' is not a field")
-    for key in spec.card_order:
-        if key not in keys:
-            problems.append(f"card_order names '{key}', which is not a field")
-        elif spec.field(key).card is None:
-            problems.append(f"field '{key}' is in card_order but has no card function")
-    reasons = [rule.reason for rule in spec.rules]
-    for reason in dict.fromkeys(reasons):
-        if reasons.count(reason) > 1:
-            problems.append(f"reason {reason} is used by two rules")
-    for rule in spec.rules:
-        if rule.reason == NO_CONSENT:
-            problems.append("NO_CONSENT is the engine's own reason")
-        need_text(f"rule {rule.reason}: close", rule.close)
-        if not rule.summary:
-            problems.append(f"rule {rule.reason} has no summary for the recruiter")
-    pack = spec.pack
-    for name in ("consent", "closed", "error", "reminder", "unclear", "confirm_city", "confirm_change", "blocked",
-                 "close_other", "close_no_consent", "close_repeat_withdrawn", "close_repeat_other"):
-        need_text(f"pack.{name}", getattr(pack, name))
-    for outcome in _CLOSES:
-        need_text(f"pack.close[{outcome}]", pack.close.get(outcome))
-    for name in _NOTICES:
-        need_text(f"pack.notices[{name}]", pack.notices.get(name))
-    if pack.slots is not None:
-        for name in _OFFERS:
-            need_text(f"pack.slots.offer[{name}]", pack.slots.offer.get(name))
-        for name in ("offer_end", "booked", "already_booked", "cancelled"):
-            need_text(f"pack.slots.{name}", getattr(pack.slots, name))
-    for outcome in Outcome:
-        if outcome not in spec.recruiter.outcome_labels:
-            problems.append(f"recruiter.outcome_labels has no label for {outcome}")
-    for language in pack.consent:
-        if language not in spec.recruiter.language_names:
-            problems.append(f"recruiter.language_names has no name for {language}")
-    if problems:
-        raise SpecError("; ".join(problems))
+def _describe_availability(value, language: Language) -> str:
+    return ", ".join(_word(_AVAILABILITY, v, language) for v in value)
+
+
+def _describe_schedule(value, language: Language) -> str:
+    return _word(_SCHEDULE, value, language)
+
+
+def _describe_experience(value, language: Language) -> str:
+    years, platforms = (value["years"], value["platforms"]) if isinstance(value, dict) else value
+    if not years:
+        return {ES: "sin experiencia", EN: "no experience"}[language]
+    unit = {ES: "año" if years == 1 else "años", EN: "year" if years == 1 else "years"}[language]
+    shown = f"{years:g} {unit}"
+    return f"{shown} ({', '.join(echo(p) for p in platforms)})" if platforms else shown
+
+
+def _card_experience(value) -> str:
+    years, platforms = value["years"], value["platforms"]
+    if not years:
+        return "Experiencia: sin experiencia"
+    shown = f"{years:g} {'año' if years == 1 else 'años'}"
+    return "Experiencia: " + (f"{shown} ({', '.join(platforms)})" if platforms else shown)
+
+
+_CARD_AVAILABILITY = {"full_time": "tiempo completo", "part_time": "medio tiempo", "weekends": "fines de semana"}
+_CARD_SCHEDULE = {"morning": "mañana", "afternoon": "tarde", "evening": "noche", "flexible": "flexible"}
+
+RECRUITER = RecruiterTexts(
+    outcome_labels={
+        Outcome.IN_PROGRESS: "En curso",
+        Outcome.QUALIFIED: "Cualificado",
+        Outcome.DISQUALIFIED: "Descartado por el agente",
+        Outcome.BLOCKED: "Bloqueado",
+        Outcome.STALLED: "Sin respuesta",
+        Outcome.ENDED_OFF_TOPIC: "Terminó fuera de tema",
+        Outcome.WITHDRAWN: "Se retiró",
+    },
+    no_name="Candidato sin nombre", reason_prefix="Motivo: ", missing_prefix="Falta: ",
+    no_consent="no dio su consentimiento", blocked_on="no ha indicado ",
+    flags={"START_DATE_FAR": "Aviso: la fecha de inicio está a más de 12 semanas"},
+    footer="Resumen automático: la decisión final es del reclutador.",
+    chat_prefix="Chat: ", language_word="idioma", language_names={ES: "español", EN: "inglés"},
+    clarification=("aclaración", "aclaraciones"), asked_for_person="pidió hablar con una persona",
+    reminder_sent="recordatorio enviado",
+    started="Empezaron", consented="Dieron su consentimiento", answered="Respondieron: {label}",
+    qualified="Cualificaron", booked="Reservaron una llamada", consent_stage="consentimiento",
+)
+
+SAZON = ScreeningSpec(
+    role="delivery-driver",
+    pack=PACK,
+    recruiter=RECRUITER,
+    title_field=Field.NAME,
+    card_order=(Field.LICENSE, Field.EXPERIENCE, Field.AVAILABILITY, Field.SCHEDULE, Field.START_DATE),
+    fields=(
+        FieldSpec(Field.NAME, ask=bi("¿Cómo te llamas? Necesito tu nombre y apellido.",
+                                     "What's your full name, first and last?"),
+                  what=bi("tu nombre y apellido", "your first and last name"),
+                  label="nombre", not_provided="su nombre",
+                  validate=lambda value, today: validators.validate_name(value),
+                  same=lambda old, new: validators.fold(old) == validators.fold(new),
+                  read=read_attribute("name"), schema={"name": (str | None, None)},
+                  prompt="- name: full name as written"),
+        FieldSpec(Field.EXPERIENCE,
+                  ask=bi("¿Tienes experiencia repartiendo? Dime cuántos años y en qué plataforma.",
+                         "Do you have delivery experience? Tell me how many years and on which platform."),
+                  what=bi("tus años de experiencia repartiendo (puede ser 0) y la plataforma",
+                          "your years of delivery experience (0 is fine) and the platform"),
+                  label="experiencia", not_provided="su experiencia",
+                  validate=lambda value, today: _experience(value),
+                  same=lambda old, new: old["years"] == new["years"] and set(old["platforms"]) == set(new["platforms"]),
+                  read=_read_experience, partial=lambda value: {"years": value[0], "platforms": value[1]},
+                  decode_candidate=tuple, describe=_describe_experience, card=_card_experience,
+                  schema={"experience_years": (float | None, None), "platforms": (list[str], [])},
+                  prompt="- experience_years: number of years of delivery experience (0 if none)\n"
+                         "- platforms: delivery platforms mentioned, as written (e.g. Glovo, Uber Eats)"),
+        FieldSpec(Field.AVAILABILITY,
+                  ask=bi("¿Qué disponibilidad tienes: tiempo completo, medio tiempo o fines de semana?",
+                         "What's your availability: full-time, part-time or weekends?"),
+                  what=bi("tu disponibilidad (tiempo completo, medio tiempo o fines de semana)",
+                          "your availability (full-time, part-time or weekends)"),
+                  label="disponibilidad", not_provided="su disponibilidad",
+                  validate=lambda value, today: checks.validate_availability(value),
+                  same=lambda old, new: set(old) == set(new),
+                  read=read_attribute("availability", empty_is_missing=True), describe=_describe_availability,
+                  card=lambda value: "Disponibilidad: " + ", ".join(_CARD_AVAILABILITY[a] for a in value),
+                  schema={"availability": (list[Literal["full_time", "part_time", "weekends"]], [])},
+                  prompt='- availability: any of "full_time", "part_time", "weekends"'),
+        FieldSpec(Field.SCHEDULE,
+                  ask=bi("¿Qué horario prefieres: mañana, tarde, noche o flexible?",
+                         "Which schedule do you prefer: morning, afternoon, evening or flexible?"),
+                  what=bi("tu horario preferido (mañana, tarde, noche o flexible)",
+                          "your preferred schedule (morning, afternoon, evening or flexible)"),
+                  label="horario preferido", not_provided="su horario preferido",
+                  validate=lambda value, today: checks.validate_schedule(value),
+                  read=read_attribute("schedule"), describe=_describe_schedule,
+                  card=lambda value: "Horario preferido: " + _CARD_SCHEDULE[value],
+                  schema={"schedule": (Literal["morning", "afternoon", "evening", "flexible"] | None, None)},
+                  prompt='- schedule: one of "morning", "afternoon", "evening", "flexible"'),
+        FieldSpec(Field.START_DATE, ask=bi("¿Cuándo podrías empezar?", "When could you start?"),
+                  what=bi("cuándo puedes empezar", "when you can start"),
+                  label="fecha de inicio", not_provided="su fecha de inicio",
+                  validate=checks.validate_start_date, read=_read_start_date,
+                  decode_value=_date_from_json, decode_candidate=_date_from_json,
+                  card=lambda value: "Inicio: " + value,
+                  schema={"start_date": (StartDate | None, None)},
+                  prompt='- start_date: {"iso": "YYYY-MM-DD"} for an exact date, else {"now": true}, {"in_days": n} or '
+                         '{"in_weeks": n}, {"in_months": n}, or {"weekday": 0-6} (Monday=0) for "next Monday" or '
+                         '"el lunes". Never do date arithmetic yourself.'),
+        FieldSpec(Field.CITY, ask=bi("¿En qué ciudad o zona vives?", "Which city or area do you live in?"),
+                  what=bi("la ciudad o zona donde vives", "the city or area where you live"),
+                  label="ciudad", not_provided="su ciudad",
+                  confirm_rejection=bi("Solo para confirmar: ¿es correcto que vives en {city}?",
+                                       "Just to confirm: is it right that you live in {city}?"),
+                  read=read_attribute("city"), schema={"city": (str | None, None)},
+                  prompt="- city: the city or zone exactly as written, never mapped or corrected"),
+        FieldSpec(Field.LICENSE, ask=bi("¿Tienes licencia de conducir?", "Do you have a driver's license?"),
+                  what=bi("si tienes licencia de conducir (sí o no)", "whether you have a driver's license (yes or no)"),
+                  label="licencia", not_provided="si tiene licencia de conducir",
+                  validate=lambda value, today: checks.validate_license(value),
+                  rejects=lambda value: value is False, read=read_attribute("has_license"),
+                  confirm_rejection=bi("Solo para confirmar: ¿es correcto que no tienes licencia de conducir?",
+                                       "Just to confirm: is it right that you don't have a driver's license?"),
+                  describe=_describe_license, card=lambda value: "Licencia: " + ("sí" if value else "no"),
+                  schema={"has_license": (bool | None, None)},
+                  prompt="- has_license: true/false only if they clearly state whether they hold a driver's license. "
+                         "A license is not a car,\n  motorbike, bike or any vehicle: not owning a vehicle says nothing "
+                         "about the license (leave it null)"),
+    ),
+    rules=(
+        Rule(Reason.NO_LICENSE, applies=lambda screening: screening.values.get(Field.LICENSE) is False,
+             close=bi("Para repartir necesitamos licencia de conducir, así que no puedo seguir con el proceso automático. "
+                      "Un reclutador puede revisar tu caso si hay algún error. Gracias por tu interés.",
+                      "We need a driver's license for delivery, so I can't continue with the automated process. "
+                      "A recruiter can review your case if something is wrong. Thanks for your interest."),
+             summary="no tiene licencia de conducir"),
+        Rule(Reason.OUT_OF_AREA, applies=lambda screening: screening.out_of_area,
+             close=bi("Por ahora no operamos en tu zona, así que no puedo seguir con el proceso automático. "
+                      "Un reclutador puede revisar tu caso si hay algún error. Gracias por tu interés.",
+                      "We don't operate in your area yet, so I can't continue with the automated process. "
+                      "A recruiter can review your case if something is wrong. Thanks for your interest."),
+             summary="fuera de la zona de servicio"),
+    ),
+    area_field=Field.CITY,
+    # A country or state written after the place ("Madrid, España") is dropped; any other suffix is kept.
+    place_qualifiers=("espana", "spain", "mexico", "jalisco", "nuevo leon", "comunidad de madrid", "cataluna",
+                      "catalunya", "comunitat valenciana", "estado de mexico", "edomex"),
+)
+
+Extraction = SAZON.extraction_model
+SYSTEM = build_system_prompt(SAZON)

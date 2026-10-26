@@ -3,14 +3,15 @@ from datetime import date, datetime
 
 import pytest
 
-from sazon.sazon_client import SAZON_CLIENT
-from sazon import config, turn
-from sazon.consent import read_consent
-from sazon.sazon_spec import SAZON, Extraction
-from sazon.sazon_fields import Field
-from sazon.phrasing import Directive, Kind, consent_message, phrase
-from sazon.screening import Screening
-from sazon.store import Store
+from sazon.client import SAZON_CLIENT
+from screener import turn
+from sazon import config
+from screener.consent import read_consent
+from sazon.spec import SAZON, Extraction
+from sazon.fields import Field
+from screener.phrasing import Directive, Kind, consent_message, phrase
+from screener.screening import Screening
+from screener.store import Store
 from tests.fakes import FakeLLM, ScriptedLLM
 
 TODAY = date(2026, 10, 25)
@@ -68,7 +69,7 @@ def test_unclear_answers_now_reach_the_block_instead_of_ending_the_chat_early():
 
 
 def test_the_prompt_says_hesitation_is_not_off_topic():
-    from sazon.sazon_spec import SYSTEM
+    from sazon.spec import SYSTEM
     assert "mmm" in SYSTEM and "NOT off_topic" in SYSTEM
 
 
@@ -149,7 +150,7 @@ def test_a_notice_is_not_repeated_on_the_next_turn():
 
 
 def test_the_extraction_schema_and_prompt_know_the_pay_flag():
-    from sazon.sazon_spec import SYSTEM
+    from sazon.spec import SYSTEM
     assert Extraction.model_validate({"asks_pay": True}).asks_pay is True and "asks_pay" in SYSTEM
 
 

@@ -1,10 +1,10 @@
 import json
 from datetime import datetime
 
-from sazon.client import Client
-from sazon.screening import Screening
-from sazon.store import Store
-from sazon.summary import summarise
+from screener.client import Client
+from screener.screening import Screening
+from screener.store import Store
+from screener.summary import summarise
 
 
 def load(store: Store, candidate_id: str, client: Client) -> Screening:

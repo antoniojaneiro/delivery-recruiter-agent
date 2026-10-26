@@ -3,12 +3,12 @@ from datetime import date
 
 import pytest
 
-from sazon.consent import ConsentReading
-from sazon.sazon_spec import SAZON, Extraction
-from sazon.model import Language, Outcome
-from sazon.sazon_fields import Field, Reason
-from sazon.phrasing import Kind
-from sazon.screening import Screening
+from screener.consent import ConsentReading
+from sazon.spec import SAZON, Extraction
+from screener.model import Language, Outcome
+from sazon.fields import Field, Reason
+from screener.phrasing import Kind
+from screener.screening import Screening
 
 AREAS = {"Madrid": [], "Guadalajara": []}
 TODAY = date(2026, 10, 25)

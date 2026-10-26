@@ -3,12 +3,12 @@ from datetime import datetime, timezone
 
 import pytest
 
-from sazon.sazon_client import SAZON_CALENDAR
-from sazon.sazon_spec import SAZON
-from sazon.model import RecruiterStatus
-from sazon.recruiter_view import filter_records, kpis, matches
-from sazon.sazon_recruiter_view import OUTCOME_LABEL, STATUS_LABEL, table_rows
-from sazon.store import Store
+from sazon.client import SAZON_CALENDAR
+from sazon.spec import SAZON
+from screener.model import RecruiterStatus
+from screener.recruiter_view import filter_records, kpis, matches
+from sazon.recruiter_view import OUTCOME_LABEL, STATUS_LABEL, table_rows
+from screener.store import Store
 
 T1 = datetime(2026, 10, 25, 10, 0)
 T2 = datetime(2026, 10, 26, 9, 30)
@@ -36,7 +36,7 @@ def ids(records):
 
 
 def test_every_outcome_and_status_has_a_spanish_label():
-    from sazon.model import Outcome
+    from screener.model import Outcome
     assert set(OUTCOME_LABEL) == set(Outcome) and set(STATUS_LABEL) == set(RecruiterStatus)
     assert OUTCOME_LABEL["QUALIFIED"] == "Cualificado" and STATUS_LABEL["interview_scheduled"] == "Entrevista programada"
 
@@ -77,7 +77,7 @@ def test_the_key_numbers_count_what_a_recruiter_must_act_on(store):
 
 
 def test_a_booked_call_shows_in_the_table_and_leaves_the_to_contact_number(store):
-    from sazon.sazon_recruiter_view import call_label
+    from sazon.recruiter_view import call_label
     store.commit_turn("c1", T1, {}, {"name": "Juan Pérez"}, "QUALIFIED", [], [])
     slot_id = store.add_slot("ES", datetime(2027, 6, 15, 10, 0), "Ana", "Ana", T1.astimezone())
     before = kpis(store.list_candidates())["to_contact"]
@@ -92,8 +92,8 @@ def test_a_booked_call_shows_in_the_table_and_leaves_the_to_contact_number(store
 
 
 def test_the_slot_state_says_when_a_free_slot_is_too_close_to_be_offered():
-    from sazon.sazon_recruiter_view import slot_state
-    from sazon.store import Slot
+    from sazon.recruiter_view import slot_state
+    from screener.store import Slot
     soon = Slot(1, "ES", datetime(2026, 10, 26, 10, 30), None, None, False)
     later = Slot(2, "ES", datetime(2026, 11, 3, 10, 0), None, None, False)
     taken = Slot(3, "ES", datetime(2026, 11, 3, 11, 0), None, "c1", False)
@@ -104,7 +104,7 @@ def test_the_slot_state_says_when_a_free_slot_is_too_close_to_be_offered():
 
 
 def test_the_review_queue_holds_agent_rejections_nobody_has_looked_at(store):
-    from sazon.recruiter_view import needs_review
+    from screener.recruiter_view import needs_review
     records = {r.candidate_id: r for r in store.list_candidates()}
     assert needs_review(records["c3"])          # DISQUALIFIED for OUT_OF_AREA, status new
     assert not needs_review(records["c1"])      # qualified
@@ -123,7 +123,7 @@ def test_the_review_only_filter_keeps_just_the_queue(store):
 
 
 def test_markdown_in_a_name_is_shown_as_text():
-    from sazon.recruiter_view import escape_markdown
+    from screener.recruiter_view import escape_markdown
     nasty = "**Juan** [clic](http://evil.example) ![x](http://evil.example/p.png) <b>#a_b`c`"
     escaped = escape_markdown(nasty)
     for char in "*[]()!<#_`":
@@ -132,9 +132,9 @@ def test_markdown_in_a_name_is_shown_as_text():
 
 
 def test_the_notice_period_shown_to_recruiters_comes_from_the_one_rule():
-    from sazon.sazon_client import SAZON_CALENDAR
-    from sazon.sazon_recruiter_view import slot_state
-    from sazon.store import Slot
+    from sazon.client import SAZON_CALENDAR
+    from sazon.recruiter_view import slot_state
+    from screener.store import Slot
     soon = Slot(1, "ES", datetime(2026, 10, 26, 10, 30), None, None, False)
     now = datetime(2026, 10, 26, 8, 0, tzinfo=timezone.utc)
     hours = int(SAZON_CALENDAR.min_notice.total_seconds() // 3600)

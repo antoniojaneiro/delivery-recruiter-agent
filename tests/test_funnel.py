@@ -5,10 +5,10 @@ from pathlib import Path
 import pytest
 from streamlit.testing.v1 import AppTest
 
-from sazon.sazon_client import SAZON_CALENDAR
-from sazon.sazon_spec import SAZON
-from sazon.funnel import build_funnel
-from sazon.store import Store
+from sazon.client import SAZON_CALENDAR
+from sazon.spec import SAZON
+from screener.funnel import build_funnel
+from screener.store import Store
 from tests.dash import login, seed_accounts
 
 NOW = datetime(2026, 10, 25, 10, 0)

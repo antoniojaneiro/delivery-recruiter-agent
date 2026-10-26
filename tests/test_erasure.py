@@ -5,9 +5,9 @@ from pathlib import Path
 
 import pytest
 
-from sazon.sazon_client import SAZON_CALENDAR
-from sazon.model import RecruiterStatus
-from sazon.store import Store
+from sazon.client import SAZON_CALENDAR
+from screener.model import RecruiterStatus
+from screener.store import Store
 
 NOW = datetime(2026, 10, 25, 10, 0)
 MARK = "Zxqvbnm Unico"

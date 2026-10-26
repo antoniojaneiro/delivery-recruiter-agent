@@ -5,17 +5,18 @@ from datetime import date, datetime
 
 import pytest
 
-from sazon.sazon_client import SAZON_CALENDAR, SAZON_CLIENT
-from sazon import config, turn
-from sazon.extraction import StartDate
-from sazon.sazon_spec import SAZON, Extraction
-from sazon.llm import LLMError
-from sazon.phrasing import Directive, Kind, consent_message, phrase
-from sazon.sazon_fields import Field
-from sazon.screening import Screening
-from sazon.store import Store
-from sazon.validators import match_city, validate_name
-from sazon.sazon_validators import validate_experience
+from sazon.client import SAZON_CALENDAR, SAZON_CLIENT
+from screener import turn
+from sazon import config
+from screener.extraction import StartDate
+from sazon.spec import SAZON, Extraction
+from screener.llm import LLMError
+from screener.phrasing import Directive, Kind, consent_message, phrase
+from sazon.fields import Field
+from screener.screening import Screening
+from screener.store import Store
+from screener.validators import match_city, validate_name
+from sazon.validators import validate_experience
 from tests.fakes import FakeLLM, ScriptedLLM
 
 TODAY = date(2026, 10, 25)  # a Sunday
@@ -46,7 +47,7 @@ def test_the_extraction_accepts_months_and_weekdays():
 
 
 def test_the_prompt_tells_the_model_not_to_compute_these_dates_either():
-    from sazon.sazon_spec import SYSTEM
+    from sazon.spec import SYSTEM
     assert "in_months" in SYSTEM and "weekday" in SYSTEM
 
 
@@ -143,7 +144,7 @@ def test_a_model_failure_event_says_what_kind_of_failure_it_was(tmp_path):
 # --- operations ---------------------------------------------------------------------------------
 
 def run_chat(store, lines):
-    from sazon import chat
+    from screener import chat
 
     out, feed = [], iter(lines)
 
@@ -158,7 +159,7 @@ def run_chat(store, lines):
 
 
 def test_a_new_candidate_never_reuses_an_existing_id(tmp_path, monkeypatch):
-    from sazon import chat
+    from screener import chat
 
     draws = iter(["aaaaaaaaaaaa", "aaaaaaaaaaaa", "aaaaaaaaaaaa", "bbbbbbbbbbbb"])
     monkeypatch.setattr(chat, "_draw_id", lambda: next(draws))
@@ -168,18 +169,19 @@ def test_a_new_candidate_never_reuses_an_existing_id(tmp_path, monkeypatch):
 
 
 def test_ids_are_long_enough_to_make_collisions_negligible():
-    from sazon import chat
+    from screener import chat
 
     assert len(chat._draw_id()) >= 12 and chat._draw_id() != chat._draw_id()
 
 
 def test_the_chat_and_the_dashboard_use_the_same_database_file(tmp_path, monkeypatch):
-    from sazon import chat, sazon_chat
+    from screener import chat
+    from sazon import chat as sazon_chat
 
     target = tmp_path / "shared" / "sazon.db"
     monkeypatch.setenv("SAZON_DB", str(target))
     seen = {}
-    monkeypatch.setattr("sazon.gemini.from_env", lambda: type("L", (), {"model": "m"})())
+    monkeypatch.setattr("screener.gemini.from_env", lambda: type("L", (), {"model": "m"})())
     monkeypatch.setattr(chat, "run", lambda llm, store, areas, **kw: seen.update(path=store._path))
     monkeypatch.setattr("sys.argv", ["sazon.chat"])
     sazon_chat.main()

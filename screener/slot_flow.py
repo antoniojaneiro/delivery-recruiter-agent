@@ -2,14 +2,14 @@
 single source of truth for a booking: the screening only remembers which slots are on offer."""
 from datetime import datetime
 
-from sazon import session
-from sazon.client import Client
-from sazon.consent import is_stop_request
-from sazon.model import Outcome
-from sazon.phrasing import Directive, Kind, slot_cancelled_message, slot_label
-from sazon.screening import Screening
-from sazon.slot_choice import NONE, read_slot_choice
-from sazon.store import ConflictError, Store
+from screener import session
+from screener.client import Client
+from screener.consent import is_stop_request
+from screener.model import Outcome
+from screener.phrasing import Directive, Kind, slot_cancelled_message, slot_label
+from screener.screening import Screening
+from screener.slot_choice import NONE, read_slot_choice
+from screener.store import ConflictError, Store
 
 MAX_UNCLEAR_PICKS = 3  # re-offers of the same list before the 48-hour promise applies
 

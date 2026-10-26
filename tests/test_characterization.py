@@ -6,12 +6,12 @@ import os
 from datetime import date, datetime
 from pathlib import Path
 
-from sazon import extraction, funnel, phrasing, summary
-from sazon.sazon_spec import SAZON, SYSTEM, Extraction
-from sazon.model import Language, Outcome
-from sazon.sazon_fields import Field, Reason
-from sazon.phrasing import Directive, Kind
-from sazon.screening import Screening
+from screener import extraction, funnel, phrasing, summary
+from sazon.spec import SAZON, SYSTEM, Extraction
+from screener.model import Language, Outcome
+from sazon.fields import Field, Reason
+from screener.phrasing import Directive, Kind
+from screener.screening import Screening
 
 GOLDEN = Path(__file__).parent / "golden" / "sazon_texts.json"
 AREAS = {"Madrid": ["Getafe"], "Guadalajara": ["Zapopan"]}
@@ -21,7 +21,7 @@ LANGS = (Language.ES, Language.EN)
 
 class NoModel:
     def complete(self, system, user, json_mode=False):
-        from sazon.llm import LLMError
+        from screener.llm import LLMError
         raise LLMError("offline")
 
 

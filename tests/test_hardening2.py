@@ -5,10 +5,11 @@ from pathlib import Path
 
 import pytest
 
-from sazon.sazon_spec import SAZON
-from sazon import accounts, config, sazon_accounts
-from sazon.screening import Screening
-from sazon.validators import validate_name
+from sazon.spec import SAZON
+from screener import accounts
+from sazon import config, accounts as sazon_accounts
+from screener.screening import Screening
+from screener.validators import validate_name
 
 ROOT = Path(__file__).resolve().parent.parent
 

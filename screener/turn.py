@@ -3,15 +3,15 @@ outside work: calling the model, loading and saving, and writing the reply."""
 from dataclasses import replace
 from datetime import date, datetime
 
-from sazon import session, slot_flow
-from sazon.client import Client
-from sazon.consent import ConsentReading, is_stop_request, read_consent
-from sazon.extraction import ControlFlags, extract
-from sazon.llm import LLM, LLMError
-from sazon.phrasing import Directive, Kind, closed_message, consent_message, phrase, technical_error_message
-from sazon.screening import ExtractionContext, Screening
-from sazon.spec import ScreeningSpec
-from sazon.store import ConflictError
+from screener import session, slot_flow
+from screener.client import Client
+from screener.consent import ConsentReading, is_stop_request, read_consent
+from screener.extraction import ControlFlags, extract
+from screener.llm import LLM, LLMError
+from screener.phrasing import Directive, Kind, closed_message, consent_message, phrase, technical_error_message
+from screener.screening import ExtractionContext, Screening
+from screener.spec import ScreeningSpec
+from screener.store import ConflictError
 
 NOT_STORED = "[message not stored: no consent]"
 

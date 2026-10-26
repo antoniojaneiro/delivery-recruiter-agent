@@ -1,9 +1,9 @@
 import streamlit as st
 
-from sazon import sazon_ui as ui
-from sazon.funnel import build_funnel
-from sazon.sazon_client import SAZON_CLIENT
-from sazon.sazon_recruiter_view import OUTCOME_LABEL
+from sazon import ui
+from screener.funnel import build_funnel
+from sazon.client import SAZON_CLIENT
+from sazon.recruiter_view import OUTCOME_LABEL
 
 store = ui.store()
 funnel = build_funnel(ui.candidates(), SAZON_CLIENT.spec)

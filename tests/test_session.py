@@ -4,8 +4,8 @@ from datetime import date, datetime
 import pytest
 
 from tests.clients import client_for
-from sazon import session
-from sazon.store import Store
+from screener import session
+from screener.store import Store
 
 AREAS = {"Madrid": [], "Guadalajara": []}
 TODAY = date(2026, 10, 25)

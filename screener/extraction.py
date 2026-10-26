@@ -6,11 +6,11 @@ from typing import TYPE_CHECKING, get_origin
 
 from pydantic import BaseModel, ConfigDict, ValidationError, create_model
 
-from sazon.llm import LLM
-from sazon.model import Language
+from screener.llm import LLM
+from screener.model import Language
 
 if TYPE_CHECKING:
-    from sazon.spec import ScreeningSpec
+    from screener.spec import ScreeningSpec
 
 
 def _add_months(day: date, months: int) -> date:

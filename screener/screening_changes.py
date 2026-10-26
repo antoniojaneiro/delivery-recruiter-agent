@@ -2,10 +2,10 @@
 whether an answer is a change, and saves and loads the question that waits for the candidate's yes or no."""
 from datetime import date
 
-from sazon import validators
-from sazon.model import Language
-from sazon.phrasing import describe_value, echo
-from sazon.spec import ScreeningSpec
+from screener import validators
+from screener.model import Language
+from screener.phrasing import describe_value, echo
+from screener.spec import ScreeningSpec
 
 
 def propose_change(spec: ScreeningSpec, areas: dict[str, list[str]], language: Language, field: str, old: object,

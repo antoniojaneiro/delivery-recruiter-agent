@@ -3,7 +3,9 @@ import json
 
 import pytest
 
-from sazon import accounts, sazon_accounts
+from screener import accounts
+
+from sazon import accounts as sazon_accounts
 
 PASSWORD = "contraseña-segura-1"
 
