@@ -2,7 +2,6 @@
 (de)serialising a pending change."""
 from datetime import date
 
-from sazon import validators
 from sazon.extraction import Extraction
 from sazon.model import Field
 
@@ -24,17 +23,6 @@ def value_of(ex: Extraction, field: Field, today: date) -> object:
         case Field.LICENSE:
             return ex.has_license if ex.has_license is not None else MISSING
     return MISSING
-
-
-def same(field: Field, old: object, new: object) -> bool:
-    """Compares validated values, so the same answer in other words is never a change."""
-    if field == Field.NAME:
-        return validators.fold(old) == validators.fold(new)
-    if field == Field.AVAILABILITY:
-        return set(old) == set(new)
-    if field == Field.EXPERIENCE:
-        return old["years"] == new["years"] and set(old["platforms"]) == set(new["platforms"])
-    return old == new
 
 
 def dump_change(pending) -> list | None:

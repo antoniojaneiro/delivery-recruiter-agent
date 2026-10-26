@@ -9,6 +9,8 @@ from sazon.model import CityMatchStatus, EventType, Field, Language, Outcome, Re
 from sazon.phrasing import Directive, Kind, consent_text_hash
 from sazon.screening_changes import ChangeConfirmation
 from sazon.screening_slots import SlotOffer
+from sazon.sazon_spec import SAZON
+from sazon.spec import ScreeningSpec
 from sazon.screening_values import MISSING as _MISSING, dump_change as _dump_change, load_change as _load_change, value_of as _value
 
 FIELD_ORDER = (Field.NAME, Field.EXPERIENCE, Field.AVAILABILITY, Field.SCHEDULE, Field.START_DATE,
@@ -49,8 +51,9 @@ class Decision:
 
 
 class Screening(ChangeConfirmation, SlotOffer):
-    def __init__(self, areas: dict[str, list[str]]):
+    def __init__(self, areas: dict[str, list[str]], spec: ScreeningSpec = SAZON):
         self.areas = areas
+        self.spec = spec
         self.consent: bool | None = None
         self.values: dict[str, object] = {}
         self.blocked_on: Field | None = None
@@ -90,7 +93,7 @@ class Screening(ChangeConfirmation, SlotOffer):
     @property
     def rejection_subject(self) -> str | None:
         """The candidate's own city text when a city rejection awaits confirmation."""
-        if self._pending_reject and self._pending_reject[0] == Field.CITY:
+        if self._pending_reject and self._pending_reject[0] == self.spec.area_field:
             return str(self._pending_reject[1])
         return None
 
@@ -101,11 +104,9 @@ class Screening(ChangeConfirmation, SlotOffer):
         self._pending_reject = None
         if not yes:
             return SubmitResult(Status.OK)
-        if field == Field.CITY:
+        if field == self.spec.area_field:
             self.out_of_area = True
-            self.values[Field.CITY] = raw
-        else:
-            self.values[Field.LICENSE] = False
+        self.values[field] = raw
         self.events.append((EventType.FIELD_ACCEPTED, str(field)))
         return SubmitResult(Status.OK)
 
@@ -121,7 +122,7 @@ class Screening(ChangeConfirmation, SlotOffer):
         return self.consent is None
 
     def missing_fields(self) -> list[Field]:
-        return [f for f in FIELD_ORDER if f not in self.values]
+        return [f for f in self.spec.keys if f not in self.values]
 
     def close_directive(self) -> Directive:
         decision = self.decide()
@@ -248,10 +249,10 @@ class Screening(ChangeConfirmation, SlotOffer):
                 unclear = (field, result.reason)
 
         if self.awaiting_confirmation and ex.confirms_city is not None:
-            note(Field.CITY, self.confirm_city(ex.confirms_city))
+            note(self.spec.area_field, self.confirm_city(ex.confirms_city))
         if self.awaiting_rejection and ex.confirms_rejection is not None:
             note(self.awaiting_rejection, self.confirm_rejection(ex.confirms_rejection))
-        for field in FIELD_ORDER:
+        for field in self.spec.keys:
             if field in self.values:  # already accepted: a different value is a change to confirm (D54)
                 candidate = self._experience_change(ex) if field == Field.EXPERIENCE else _value(ex, field, today)
                 if candidate is not _MISSING and not (self.awaiting_confirmation or self.awaiting_rejection):
@@ -322,14 +323,14 @@ class Screening(ChangeConfirmation, SlotOffer):
         }
 
     @classmethod
-    def from_state(cls, areas: dict[str, list[str]], state: dict) -> "Screening":
-        s = cls(areas)
+    def from_state(cls, areas: dict[str, list[str]], state: dict, spec: ScreeningSpec = SAZON) -> "Screening":
+        s = cls(areas, spec)
         # Every key is optional: a state saved by an older or newer version must still load.
         s.consent = state.get("consent")
         s.values = dict(state.get("values", {}))
         if isinstance(s.values.get("start_date"), str):
             s.values["start_date"] = date.fromisoformat(s.values["start_date"])
-        s.blocked_on = Field(state["blocked_on"]) if state.get("blocked_on") else None
+        s.blocked_on = state["blocked_on"] if state.get("blocked_on") else None
         s._slot_offer = list(state.get("slot_offer", []))
         s._slots_done = state.get("slots_done", False)
         s._unclear_picks = state.get("unclear_picks", 0)
@@ -342,7 +343,7 @@ class Screening(ChangeConfirmation, SlotOffer):
         s._partial = dict(state.get("partial", {}))
         s._pending_change = _load_change(state.get("pending_change"))
         pending = state.get("pending_reject")
-        s._pending_reject = (Field(pending[0]), pending[1]) if pending else None
+        s._pending_reject = (pending[0], pending[1]) if pending else None
         s._previous = dict(state.get("previous", {}))
         s.events = [tuple(e) for e in state.get("events", [])]
         s._events_synced = state.get("events_synced", 0)
@@ -404,11 +405,7 @@ class Screening(ChangeConfirmation, SlotOffer):
             return Decision(Outcome.WITHDRAWN, [], flags)
         if self._off_topic >= MAX_OFF_TOPIC:
             return Decision(Outcome.ENDED_OFF_TOPIC, [], flags)
-        reasons = []
-        if self.values.get(Field.LICENSE) is False:
-            reasons.append(Reason.NO_LICENSE)
-        if self.out_of_area:
-            reasons.append(Reason.OUT_OF_AREA)
+        reasons = [rule.reason for rule in self.spec.rules if rule.applies(self)]
         if reasons:
             return Decision(Outcome.DISQUALIFIED, reasons, flags)
         if self.stalled:
@@ -427,21 +424,22 @@ class Screening(ChangeConfirmation, SlotOffer):
     def _missing_field(self) -> Field | None:
         if self.consent is None:
             return Field.CONSENT
-        return next((f for f in FIELD_ORDER if f not in self.values), None)
+        return next((f for f in self.spec.keys if f not in self.values), None)
 
     def submit(self, field: str, value: object, today: date, raw: object = None) -> SubmitResult:
+        spec = self.spec.field(field)
         if not self.consent:
             raise ConsentRequired
+        rejecting = spec.rejects is not None and spec.rejects(value)
         if self._pending_reject and self._pending_reject[0] == field:
-            if (field == Field.LICENSE and value is False) or (
-                    field == Field.CITY and isinstance(value, str)
-                    and validators.match_city(value, self.areas).status == CityMatchStatus.OUT_OF_AREA):
+            if rejecting or (field == self.spec.area_field and isinstance(value, str)
+                             and validators.match_city(value, self.areas).status == CityMatchStatus.OUT_OF_AREA):
                 return self.confirm_rejection(True)
             self._pending_reject = None
-        if field == Field.LICENSE and value is False:
+        if rejecting:
             self._pending_reject = (field, value)
             return SubmitResult(Status.CONFIRM_REJECT)
-        if field == Field.CITY:
+        if field == self.spec.area_field:
             return self._submit_city(value)
         return self._settle(field, self._validate(field, value, today), value if raw is None else raw)
 
@@ -451,47 +449,32 @@ class Screening(ChangeConfirmation, SlotOffer):
         city, raw = self._pending_city
         self._pending_city = None
         if yes:
-            return self._settle(Field.CITY, validators.Validation(True, city), raw)
-        return self._settle(Field.CITY, validators.Validation(False, reason="city not confirmed"), raw)
+            return self._settle(self.spec.area_field, validators.Validation(True, city), raw)
+        return self._settle(self.spec.area_field, validators.Validation(False, reason="city not confirmed"), raw)
 
     def _submit_city(self, raw: object) -> SubmitResult:
         self._pending_city = None
         if not isinstance(raw, str):
-            return self._settle(Field.CITY, validators.Validation(False, reason="need a city"), raw)
+            return self._settle(self.spec.area_field, validators.Validation(False, reason="need a city"), raw)
         raw = " ".join(raw.split())[:MAX_CITY_LENGTH]  # what is stored of a place outside the area stays short
         match = validators.match_city(raw, self.areas)
         if match.status == CityMatchStatus.CONFIRM:
             self._pending_city = (match.city, raw)
             return SubmitResult(Status.CONFIRM, suggestion=match.city)
         if match.status == CityMatchStatus.OUT_OF_AREA:
-            self._pending_reject = (Field.CITY, raw)
+            self._pending_reject = (self.spec.area_field, raw)
             return SubmitResult(Status.CONFIRM_REJECT)
-        return self._settle(Field.CITY, validators.Validation(True, match.city), raw)
+        return self._settle(self.spec.area_field, validators.Validation(True, match.city), raw)
 
     def _validate(self, field: str, value: object, today: date) -> validators.Validation:
-        match field:
-            case Field.NAME:
-                return validators.validate_name(value)
-            case Field.EXPERIENCE:
-                if not isinstance(value, (tuple, list)) or len(value) != 2:
-                    return validators.Validation(False, reason="need years and platform")
-                return validators.validate_experience(*value)
-            case Field.AVAILABILITY:
-                return validators.validate_availability(value)
-            case Field.SCHEDULE:
-                return validators.validate_schedule(value)
-            case Field.START_DATE:
-                return validators.validate_start_date(value, today)
-            case Field.LICENSE:
-                return validators.validate_license(value)
-        raise ValueError(f"unknown field: {field}")
+        return self.spec.field(field).validate(value, today)
 
     def _settle(self, field: str, result: validators.Validation, raw: object) -> SubmitResult:
         self.validation_flags.pop(field, None)
         if result.ok:
             if result.flags:
                 self.validation_flags[field] = list(result.flags)
-            if field == Field.CITY:
+            if field == self.spec.area_field:
                 self.out_of_area = False
             self.values[field] = result.value
             if self.blocked_on == field:

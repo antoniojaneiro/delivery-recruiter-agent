@@ -5,7 +5,6 @@ from datetime import date
 from sazon import validators
 from sazon.model import EventType, Field, Status
 from sazon.phrasing import Directive, Kind, describe_value
-from sazon.screening_values import same as _same
 
 
 class ChangeConfirmation:
@@ -34,7 +33,7 @@ class ChangeConfirmation:
         if self._pending_change is not None:
             return  # one question at a time
         old = self.values[field]
-        if field == Field.CITY:
+        if field == self.spec.area_field:
             if not isinstance(candidate, str):
                 return
             match = validators.match_city(candidate, self.areas)
@@ -43,7 +42,7 @@ class ChangeConfirmation:
             shown = match.city or " ".join(candidate.split())[:40]
         else:
             result = self._validate(field, candidate, today)
-            if not result.ok or _same(field, old, result.value):
+            if not result.ok or self.spec.field(field).same(old, result.value):
                 return
             shown = result.value
         self._pending_change = (field, candidate, describe_value(field, old, self.language),
