@@ -162,6 +162,40 @@ PACK = UiPack((ES, EN), {
     "funnel.missing": bi("Falta", "Missing"),
     "funnel.nobody": bi("Nadie sin terminar.", "Nobody unfinished."),
 
+    # the chat for trying the agent
+    "chat.page_title": bi("Prueba el asistente · Grupo Sazón", "Try the assistant · Grupo Sazón"),
+    "chat.title": bi("Prueba el asistente", "Try the assistant"),
+    "chat.notice": bi(
+        "Demostración: las conversaciones se guardan en una base de datos de pruebas, no en la que ven los "
+        "reclutadores. Escribe como lo haría un candidato, en español o en inglés.",
+        "Demo: conversations are saved in a test database, not the one recruiters see. Write as a candidate would, "
+        "in Spanish or English."),
+    "chat.input": bi("Escribe un mensaje", "Write a message"),
+    "chat.thinking": bi("El asistente está escribiendo…", "The assistant is typing…"),
+    "chat.new": bi("Nuevo candidato", "New candidate"),
+    "chat.wait": bi("Simular 24 h sin respuesta", "Simulate 24 h of silence"),
+    "chat.wait_help": bi("Como si el candidato no hubiera contestado en un día: el asistente envía el recordatorio.",
+                         "As if the candidate had not answered for a day: the assistant sends the reminder."),
+    "chat.wait_nothing": bi("No hay recordatorio: el candidato ya terminó o ya está sin respuesta.",
+                            "No reminder: the candidate has finished or is already marked as not replying."),
+    "chat.candidate": bi("Candidato de prueba: {id}", "Test candidate: {id}"),
+    "chat.no_key": bi(
+        "Falta GEMINI_API_KEY: copia .env.example a .env y añade tu clave de Gemini. Sin ella el asistente no puede responder.",
+        "GEMINI_API_KEY is missing: copy .env.example to .env and add your Gemini key. Without it the assistant cannot answer."),
+    "chat.failed": bi("No se pudo procesar el mensaje. Inténtalo otra vez.", "The message could not be processed. Try again."),
+    "chat.rate_hint": bi("Si el asistente tarda o dice que tuvo un problema técnico, puede ser el límite de la capa "
+                         "gratuita: espera un minuto y repite el mensaje.",
+                         "If the assistant is slow or reports a technical problem, it may be the free tier's rate limit: "
+                         "wait a minute and send the message again."),
+    "inspector.title": bi("Lo que ha entendido el agente", "What the agent has understood"),
+    "inspector.outcome": bi("Resultado", "Outcome"),
+    "inspector.data": bi("Datos validados", "Validated data"),
+    "inspector.card": bi("Ficha para el reclutador", "Recruiter card"),
+    "inspector.booking": bi("Llamada reservada: {label}", "Call booked: {label}"),
+    "inspector.queued": bi("Mensajes en cola", "Queued messages"),
+    "inspector.queued_none": bi("No hay mensajes en cola.", "No queued messages."),
+    "inspector.deliver": bi("Marcar como entregados", "Mark as delivered"),
+
     # statuses, countries and refused inputs
     "status.new": bi("Nuevo", "New"),
     "status.contacted": bi("Contactado", "Contacted"),

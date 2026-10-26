@@ -21,3 +21,9 @@ LOG_PATH = PROJECT_ROOT / "data" / "sazon.log"
 def db_path() -> Path:
     """The SQLite file. SAZON_DB overrides it (used by tests and to point the dashboard elsewhere)."""
     return Path(os.environ.get("SAZON_DB") or DB_PATH)
+
+
+def demo_db_path() -> Path:
+    """The database of the browser chat for trying the agent. It is never the recruiters' file: SAZON_DB does not
+    move it, only SAZON_DEMO_DB does."""
+    return Path(os.environ.get("SAZON_DEMO_DB") or PROJECT_ROOT / "data" / "demo.db")

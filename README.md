@@ -7,7 +7,7 @@ dashboard. **The agent screens and summarises; a recruiter makes every hiring de
 - **Chat agent** (`python -m sazon.chat`): asks for consent, collects and validates the seven screening fields,
   disqualifies or qualifies, offers a call slot, and stores the conversation, the structured JSON and a Spanish
   summary card in SQLite.
-- **Recruiter dashboard** (`streamlit run dashboard.py`, one login per recruiter): filter and search
+- **Recruiter dashboard** (`streamlit run dashboard.py`, one login per recruiter, in Spanish or English): filter and search
   candidates, read the summary, transcript and audit log, set a hiring status, assign, add notes, work through the
   review queue of agent rejections, erase a candidate's data, manage call slots per country, open or close
   applications, and see the funnel.
@@ -23,7 +23,8 @@ python -m pip install -e ".[dev]"
 copy .env.example .env      # Windows (use cp on macOS/Linux), then add your GEMINI_API_KEY; never commit .env
 python -m sazon.chat        # terminal chat; commands: /new, /resume <id>, /state, /inbox, /wait24h, /help, /quit
 python -m sazon.accounts add Ana     # create a recruiter account (asks for the password); the dashboard needs one
-streamlit run dashboard.py  # recruiter dashboard (local only; sign in with an account)
+streamlit run dashboard.py  # recruiter dashboard (local only; sign in with an account; Spanish or English switch)
+streamlit run chat_app.py   # the chat in the browser, to try the agent: saves to data/demo.db, never the recruiters' database
 python -m sazon.reminders --every 600   # the 24-hour reminder job (queues messages for the real channel; see /inbox)
 python -m sazon.demo --list # fictional scenarios played on the real agent; transcripts go to data/demo_transcripts.md
 python -m pytest -q         # unit tests, no network (the live tests are skipped)

@@ -2,9 +2,8 @@
 Filtering, paging and counting are the engine's; the texts are in `ui_pack`."""
 from screener.model import Language, Outcome, RecruiterStatus
 from screener.phrasing import slot_label
-from screener.screening import Screening
 from screener.store import Booking, Record, Slot
-from screener.summary import summarise
+from screener.summary import card_for
 from sazon.client import SAZON_CLIENT
 from sazon.spec import RECRUITER
 from sazon.ui_pack import PACK
@@ -80,12 +79,8 @@ def table_rows(records: list[Record], language: Language = ES) -> list[dict]:
 
 
 def card_of(record: Record, language: Language = ES) -> str:
-    """The summary card in the recruiter's language, rebuilt from the saved state (a read, never a write). The card
-    saved with the candidate stays the audit snapshot. A record with no state (erased) shows what was saved."""
-    if not record.state:
-        return record.summary or ""
-    screening = Screening.from_state(SAZON_CLIENT.areas, record.state, SAZON_CLIENT.spec)
-    return summarise(screening, language)
+    """The summary card in the recruiter's language, rebuilt from the saved state."""
+    return card_for(record, SAZON_CLIENT, language)
 
 
 # Badge colors follow the meaning: green good, red an agent rejection, orange something stuck, blue open, gray over.

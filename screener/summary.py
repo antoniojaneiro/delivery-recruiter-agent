@@ -43,3 +43,11 @@ def _chat_line(screening: Screening, language: Language) -> str:
     if screening.reminder_sent:
         parts.append(texts.reminder_sent)
     return texts.chat_prefix + " · ".join(parts)
+
+
+def card_for(record, client, language: Language | None = None) -> str:
+    """The card in `language`, rebuilt from the saved state (a read, never a write). The card saved with the
+    candidate stays the audit snapshot. A record with no state (erased) shows what was saved."""
+    if not record.state:
+        return record.summary or ""
+    return summarise(Screening.from_state(client.areas, record.state, client.spec), language)
