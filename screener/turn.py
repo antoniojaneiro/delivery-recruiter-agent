@@ -62,6 +62,7 @@ def handle_message(llm: LLM, store, client: Client, candidate_id: str, message: 
 def _handle(llm: LLM, store, client: Client, candidate_id: str, message: str, now: datetime) -> str:
     screening = session.load(store, candidate_id, client)
     screening.resume()
+    consented_before = screening.consent is True  # the turn that answers the consent question shares nothing
     history = store.messages(candidate_id)
     last_question = history[-1].text if history and history[-1].role == "agent" else None
     if screening.awaiting_slot_choice:
@@ -69,7 +70,10 @@ def _handle(llm: LLM, store, client: Client, candidate_id: str, message: str, no
     else:
         directive = _directive_for(llm, screening, message, now.date(), last_question)
         directive = slot_flow.after_close(store, client, screening, candidate_id, directive, now)
-    reply = consent_message(client.spec) if directive is None else phrase(llm, client.spec, directive, screening.language)
+    # what the model may see when it words a message: the saved conversation and this message, only after consent
+    context = [(m.role, m.text) for m in history] + [("candidate", message)] if consented_before else []
+    reply = (consent_message(client.spec) if directive is None
+             else phrase(llm, client.spec, directive, screening.language, history=context))
     if directive is not None and directive.kind == Kind.CLOSE:
         short = phrase(llm, client.spec, replace(directive, repeat=True), screening.language)
         if last_question in (reply, short):  # already said once: not the same close word for word

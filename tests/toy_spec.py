@@ -77,6 +77,7 @@ RECRUITER = RecruiterTexts(
 
 TOY = ScreeningSpec(
     role="warehouse-picker",
+    persona="Friendly and plain, like a helpful colleague. Short sentences, no emoji.",
     pack=PACK,
     recruiter={EN: RECRUITER},
     title_field="name",

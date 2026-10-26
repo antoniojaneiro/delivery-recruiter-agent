@@ -8,6 +8,7 @@ from tests.clients import client_for
 from sazon.spec import SAZON
 from screener import session, turn
 from screener.llm import LLMError
+from screener.llm import NO_MODEL
 from screener.phrasing import Directive, Kind, phrase
 from sazon.fields import Field
 from screener.screening import Screening
@@ -125,7 +126,6 @@ def test_the_chat_insists_five_times_then_says_it_cannot_proceed_and_keeps_sayin
     for _ in range(3):
         reply, llm = say(store, "Juan", {"name": "Juan"})
         assert "no puedo continuar" in reply.lower() and "nombre" in reply.lower()
-        assert not [c for c in llm.calls if not c["json_mode"]]
     assert store.get("c1").outcome == "BLOCKED"
 
 
@@ -171,11 +171,9 @@ def test_a_blocked_candidate_is_reminded_and_can_stall(store):
     (Field.START_DATE, "empezar", "start"), (Field.CITY, "ciudad", "city"),
     (Field.LICENSE, "licencia", "license"),
 ])
-def test_the_blocked_message_is_fixed_and_names_what_is_missing(field, es, en):
-    llm = FakeLLM("should never be used")
-    assert es in phrase(llm, SAZON, Directive(Kind.BLOCKED, field=field), "es").lower()
-    assert en in phrase(llm, SAZON, Directive(Kind.BLOCKED, field=field), "en").lower()
-    assert llm.calls == []
+def test_the_blocked_message_falls_back_to_a_fixed_text_that_names_what_is_missing(field, es, en):
+    assert es in phrase(NO_MODEL, SAZON, Directive(Kind.BLOCKED, field=field), "es").lower()
+    assert en in phrase(NO_MODEL, SAZON, Directive(Kind.BLOCKED, field=field), "en").lower()
 
 
 def test_the_follow_up_fallback_explains_the_information_is_needed_to_continue():

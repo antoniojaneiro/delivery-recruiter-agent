@@ -144,6 +144,10 @@ RECRUITER = {ES: _RECRUITER_ES, EN: _RECRUITER_EN}
 
 SAZON = ScreeningSpec(
     role="delivery-driver",
+    persona=("Warm, direct and respectful, like a friendly recruiter chatting on a phone. Short messages, one question at "
+             "a time, at most one emoji, no jargon. In Spanish use the informal tú. Acknowledge what the candidate "
+             "just said in a few words before asking the next thing, and vary your wording; never repeat a sentence "
+             "you already wrote."),
     pack=PACK,
     recruiter=RECRUITER,
     title_field=Field.NAME,

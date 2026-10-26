@@ -87,6 +87,7 @@ class ScreeningSpec:
     role: str = "job"  # "warehouse-picker" in "a warehouse-picker screening chat"
     area_field: str | None = None  # the field matched against the client's service areas
     place_qualifiers: tuple[str, ...] = ()  # words that may follow a place ("Leeds, England") and are dropped
+    persona: str = ""  # how the assistant sounds, written for the model (tone, length, form of address)
     title_field: str | None = None  # the answer that heads the summary card
     card_order: tuple[str, ...] = ()  # the fields that get a line on the card, in order
 

@@ -82,7 +82,7 @@ def build_system_prompt(spec: "ScreeningSpec") -> str:
     return _PROMPT_HEAD.format(role=spec.role) + "\n".join(lines) + "\n" + _PROMPT_TAIL
 
 
-_TAGS = re.compile(r"<\s*/?\s*(candidate_message|context_data)\s*>", re.IGNORECASE)
+_TAGS = re.compile(r"<\s*/?\s*(candidate_message|context_data|conversation)\s*>", re.IGNORECASE)
 MAX_MESSAGE_CHARS = 2000
 
 
@@ -92,6 +92,9 @@ def _clean(text: str) -> str:
     while previous != text:  # removing one tag must not assemble another
         previous, text = text, _TAGS.sub("", text)
     return text
+
+
+clean_text = _clean  # the same cleaning for any candidate text a model is shown
 
 
 def _parse(raw: str, model: type[ControlFlags]) -> ControlFlags | None:
