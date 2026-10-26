@@ -192,7 +192,7 @@ def test_a_message_after_a_rejection_gets_a_short_note_not_the_same_close(store)
 def test_a_qualified_candidate_who_writes_again_is_told_once_more_without_the_celebration(store):
     turn.start(store, SAZON_CLIENT, "c1", NOW)
     talk(store, "sí")
-    for message, ex in [("Soy Juan Pérez", {"name": "Juan Pérez"}), ("sin experiencia", {"experience_years": 0}),
+    for message, ex in [("Soy Juan Pérez", {"name": "Juan Pérez"}), ("sin experiencia", {"no_experience": True}),
                         ("tiempo completo", {"availability": ["full_time"]}), ("mañana", {"schedule": "morning"}),
                         ("ya", {"start_date": {"now": True}}), ("Madrid", {"city": "Madrid"})]:
         talk(store, message, ex)
