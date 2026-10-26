@@ -65,10 +65,10 @@ def _handle(llm: LLM, store, client: Client, candidate_id: str, message: str, no
     history = store.messages(candidate_id)
     last_question = history[-1].text if history and history[-1].role == "agent" else None
     if screening.awaiting_slot_choice:
-        directive = slot_flow.handle_pick(store, screening, candidate_id, message, now)
+        directive = slot_flow.handle_pick(store, client, screening, candidate_id, message, now)
     else:
         directive = _directive_for(llm, screening, message, now.date(), last_question)
-        directive = slot_flow.after_close(store, screening, candidate_id, directive, now)
+        directive = slot_flow.after_close(store, client, screening, candidate_id, directive, now)
     reply = consent_message(client.spec) if directive is None else phrase(llm, client.spec, directive, screening.language)
     if directive is not None and directive.kind == Kind.CLOSE:
         short = phrase(llm, client.spec, replace(directive, repeat=True), screening.language)

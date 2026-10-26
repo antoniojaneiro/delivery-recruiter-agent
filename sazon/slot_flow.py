@@ -14,7 +14,7 @@ from sazon.store import ConflictError, Store
 MAX_UNCLEAR_PICKS = 3  # re-offers of the same list before the 48-hour promise applies
 
 
-def after_close(store: Store, screening: Screening, candidate_id: str, directive: Directive | None,
+def after_close(store: Store, client: Client, screening: Screening, candidate_id: str, directive: Directive | None,
                 now: datetime) -> Directive | None:
     """When the chat closes as QUALIFIED: confirm an existing booking, or offer the next free slots."""
     if directive is None or directive.kind != Kind.CLOSE or directive.outcome != Outcome.QUALIFIED:
@@ -26,10 +26,10 @@ def after_close(store: Store, screening: Screening, candidate_id: str, directive
         return Directive(Kind.ALREADY_BOOKED, label=slot_label(booking.starts_at, screening.language))
     if screening.slots_resolved:
         return directive
-    return _offer(store, screening, now, "first") or _give_up(screening)
+    return _offer(store, client, screening, now, "first") or _give_up(screening)
 
 
-def handle_pick(store: Store, screening: Screening, candidate_id: str, message: str,
+def handle_pick(store: Store, client: Client, screening: Screening, candidate_id: str, message: str,
                 now: datetime) -> Directive:
     """The candidate's reply to the numbered list. Read in plain code; nothing is sent to the model."""
     if is_stop_request(message):  # a withdrawal is a withdrawal, whatever question was open
@@ -45,10 +45,10 @@ def handle_pick(store: Store, screening: Screening, candidate_id: str, message: 
     if choice is None:
         if screening.note_unclear_pick() > MAX_UNCLEAR_PICKS:
             return _give_up(screening)
-        return _offer(store, screening, now, "unclear") or _give_up(screening)
+        return _offer(store, client, screening, now, "unclear") or _give_up(screening)
     booking = store.book_slot(offered[choice - 1], candidate_id, now, must_exist=True)
     if booking is None:
-        return _offer(store, screening, now, "taken") or _give_up(screening)
+        return _offer(store, client, screening, now, "taken") or _give_up(screening)
     screening.resolve_slots()
     return Directive(Kind.SLOT_BOOKED, label=slot_label(booking.starts_at, screening.language))
 
@@ -67,16 +67,16 @@ def notify_cancelled(store: Store, client: Client, candidate_id: str, now: datet
     return True
 
 
-def on_idle(store: Store, screening: Screening, now: datetime) -> tuple[str, Directive]:
+def on_idle(store: Store, client: Client, screening: Screening, now: datetime) -> tuple[str, Directive]:
     """24 hours without an answer to the slot list: remind once with the free slots, then give up (D58)."""
     if screening.reminder_sent:
         return "gave_up_offer", _give_up(screening)
     screening.send_reminder()
-    return "reminder", _offer(store, screening, now, "reminder") or _give_up(screening)
+    return "reminder", _offer(store, client, screening, now, "reminder") or _give_up(screening)
 
 
-def _offer(store: Store, screening: Screening, now: datetime, reason: str) -> Directive | None:
-    calendar, area = store.calendar, screening.spec.area_field
+def _offer(store: Store, client: Client, screening: Screening, now: datetime, reason: str) -> Directive | None:
+    calendar, area = client.calendar, screening.spec.area_field
     country = calendar.country_of.get(screening.values.get(area)) if calendar and area else None
     free = store.free_slots(country, now, calendar.offer_size) if country else []
     if not free:

@@ -11,4 +11,4 @@ SAZON_CALENDAR = SlotCalendar(
                 "Ciudad de México": "MX", "Guadalajara": "MX", "Monterrey": "MX"},
 )
 
-SAZON_CLIENT = Client(spec=SAZON, areas=config.AREAS)
+SAZON_CLIENT = Client(spec=SAZON, areas=config.AREAS, calendar=SAZON_CALENDAR)

@@ -6,7 +6,7 @@ import pytest
 from sazon import turn
 from sazon.store import InputError, Store
 from tests.fakes import ScriptedLLM
-from tests.toy_spec import TOY_UK, UK_CALENDAR
+from tests.toy_spec import TOY, TOY_UK, UK_CALENDAR
 
 NOW = datetime(2026, 10, 26, 9, 0)
 
@@ -95,3 +95,35 @@ def test_the_words_that_may_follow_a_place_name_are_the_clients(store):
     replies = qualify(store, town="Leeds, England")
     assert "through" in replies[-1]  # matched at once, no question about the town
     assert store.get("c1").extracted["town"] == "Leeds"
+
+
+# --- a client that promises calls must be able to keep the promise ---------------------------------------------
+
+def test_the_client_carries_its_calendar_and_a_store_for_it_is_built_from_it(tmp_path):
+    from tests.toy_spec import TOY_UK
+    assert TOY_UK.calendar is UK_CALENDAR
+    assert Store(tmp_path / "x.db", calendar=TOY_UK.calendar).calendar is UK_CALENDAR
+
+
+def test_a_client_with_call_texts_but_no_calendar_is_refused():
+    from dataclasses import replace
+
+    from sazon.client import Client, ClientError
+    with pytest.raises(ClientError) as error:
+        replace(TOY_UK, calendar=None)
+    assert "calendar" in str(error.value)
+    with pytest.raises(ClientError):
+        Client(spec=TOY, areas={}, calendar=UK_CALENDAR)  # a calendar for a client that never offers calls
+
+
+def test_an_area_without_a_country_or_a_country_without_a_zone_is_refused():
+    from dataclasses import replace
+
+    from sazon.client import ClientError
+    from sazon.slot_calendar import SlotCalendar
+    with pytest.raises(ClientError) as error:
+        replace(TOY_UK, areas={**TOY_UK.areas, "Bristol": []})
+    assert "Bristol" in str(error.value)
+    with pytest.raises(ClientError) as error:
+        replace(TOY_UK, calendar=SlotCalendar(timezones={}, country_of=UK_CALENDAR.country_of))
+    assert "GB" in str(error.value)

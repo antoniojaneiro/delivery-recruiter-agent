@@ -17,7 +17,7 @@ from datetime import datetime
 
 from sazon import config, session, slot_flow
 from sazon.client import Client
-from sazon.sazon_client import SAZON_CALENDAR, SAZON_CLIENT
+from sazon.sazon_client import SAZON_CLIENT
 from sazon.llm import NO_MODEL
 from sazon.model import Outcome
 from sazon.phrasing import phrase
@@ -63,7 +63,7 @@ def _remind(store: Store, client: Client, candidate_id: str, now: datetime) -> A
     if screening.needs_consent:
         return None  # they have not agreed to anything yet, so they are not contacted again
     if screening.awaiting_slot_choice:
-        kind, directive = slot_flow.on_idle(store, screening, now)
+        kind, directive = slot_flow.on_idle(store, client, screening, now)
     elif screening.is_open:
         directive = screening.on_silence()
         kind = "reminder" if directive else "stalled"
@@ -83,7 +83,7 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("--every", type=int, help="keep running, one pass every N seconds")
     parser.add_argument("--now", help="the moment to act at (ISO format; for tests)")
     args = parser.parse_args(argv)
-    store = Store(config.db_path(), calendar=SAZON_CALENDAR)
+    store = Store(config.db_path(), calendar=SAZON_CLIENT.calendar)
     while True:
         now = datetime.fromisoformat(args.now) if args.now else datetime.now()
         for action in run_once(store, SAZON_CLIENT, now):

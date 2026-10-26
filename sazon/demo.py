@@ -15,7 +15,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 
 from sazon import turn
-from sazon.sazon_client import SAZON_CALENDAR, SAZON_CLIENT
+from sazon.sazon_client import SAZON_CLIENT
 from sazon.store import Store
 
 TECHNICAL_PROBLEM = ("problema técnico", "technical problem")
@@ -232,7 +232,7 @@ def main(argv: list[str] | None = None) -> None:
     now = datetime.now()
     results = []
     with TemporaryDirectory() as folder:
-        store = Store(Path(folder) / "demo.db", calendar=SAZON_CALENDAR)
+        store = Store(Path(folder) / "demo.db", calendar=SAZON_CLIENT.calendar)
         seed_slots(store, now.astimezone())
         for name in names:
             results.append(run_scenario(llm, store, BY_NAME[name], now, args.pause, print, RETRY_WAIT_SECONDS))
