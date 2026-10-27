@@ -38,7 +38,9 @@ The recruiters' database is `data/sazon.db` and the error log `data/sazon.log` (
 ## How the repo is organised
 
 ```
-screener/        the engine: conversation rules, extraction, storage, reminders, summary, funnel. Knows no company.
+screener/        the engine: screening rules (screening.py, directive.py), the save cycle (conversation.py), wording
+                 (phrasing.py, language.py), storage (store*.py), recruiter rules and view, reminders, summary, funnel.
+                 Knows no company.
 sazon/           Grupo Sazón as a client of the engine
   spec.py          its fields, validators, rules, persona and recruiter texts
   pack.py          its fixed texts, Spanish and English
