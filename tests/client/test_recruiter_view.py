@@ -104,7 +104,8 @@ def test_the_slot_state_says_when_a_free_slot_is_too_close_to_be_offered():
 
 
 def test_the_review_queue_holds_agent_rejections_nobody_has_looked_at(store):
-    from screener.recruiter_view import needs_review
+    from screener.recruiter_rules import NEEDS_REVIEW
+    needs_review = NEEDS_REVIEW.matches
     records = {r.candidate_id: r for r in store.list_candidates()}
     assert needs_review(records["c3"])          # DISQUALIFIED for OUT_OF_AREA, status new
     assert not needs_review(records["c1"])      # qualified

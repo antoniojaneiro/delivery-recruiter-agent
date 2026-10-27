@@ -2,7 +2,7 @@
 The words the dashboard shows belong to the client; this module only filters, pages and counts."""
 import re
 
-from screener.model import NO_CONSENT, Outcome, RecruiterStatus
+from screener.recruiter_rules import NEEDS_REVIEW
 from screener.spec import ScreeningSpec
 from screener.store import Record
 from screener.language import plain
@@ -31,18 +31,10 @@ def matches(record: Record, search: str, spec: ScreeningSpec) -> bool:
     return needle in plain(" ".join([record.candidate_id, *shown]))
 
 
-def needs_review(record: Record) -> bool:
-    """An automated close nobody has looked at yet (D52): the agent rejected the candidate, or ended the chat for
-    off-topic messages. Declined consent is the candidate's own choice, so it is not in the queue."""
-    return (record.outcome in (Outcome.DISQUALIFIED, Outcome.ENDED_OFF_TOPIC)
-            and NO_CONSENT not in record.reasons
-            and record.status == RecruiterStatus.NEW)
-
-
 def filter_records(records: list[Record], outcomes: list[str], statuses: list[str], search: str,
                    spec: ScreeningSpec, review_only: bool = False) -> list[Record]:
     return [r for r in records
-            if (not review_only or needs_review(r))
+            if (not review_only or NEEDS_REVIEW.matches(r))
             and (not outcomes or r.outcome in outcomes)
             and (not statuses or r.status in statuses)
             and matches(r, search, spec)]

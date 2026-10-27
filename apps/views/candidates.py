@@ -5,6 +5,7 @@ import streamlit as st
 from sazon import ui
 from sazon.ui import t
 from screener.model import Outcome, RecruiterStatus
+from screener.recruiter_rules import TO_CONTACT
 from screener.recruiter_view import PAGE_SIZE, escape_markdown, filter_records, page_of
 from sazon.client import SAZON_CLIENT
 from sazon.recruiter_view import (OUTCOME_COLOR, STATUS_COLOR, badge_columns, badge_rows, call_label, card_of,
@@ -96,8 +97,7 @@ with detail_side:
             caller = t("detail.caller", name=record.booking.recruiter) if record.booking.recruiter else ""
             st.markdown(t("detail.call_line", label=call_label(record.booking, language), caller=caller))
         else:
-            waiting = record.outcome == Outcome.QUALIFIED and record.status == RecruiterStatus.NEW
-            hint = t("detail.qualified_hint") if waiting else ""
+            hint = t("detail.qualified_hint") if TO_CONTACT.matches(record) else ""
             st.caption(t("detail.no_call") + hint)
 
     with st.container(border=True):

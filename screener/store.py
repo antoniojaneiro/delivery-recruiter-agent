@@ -6,7 +6,8 @@ from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
 
-from screener.model import NO_CONSENT, RecruiterStatus
+from screener.model import RecruiterStatus
+from screener.recruiter_rules import AGENT_CLOSED, BLOCKED, NEEDS_REVIEW, STALLED, TO_CONTACT
 from screener.store_schema import prepare
 from screener.store_slots import SlotsMixin
 from screener.store_types import (AGENT, NO_CHECK, AdminEntry, Booking, ConflictError, Event, InputError, Message,  # noqa: F401
@@ -236,30 +237,27 @@ class Store(SlotsMixin):
 
     # -- counted by the database, so the dashboard's numbers never load every candidate ----------------------------
 
-    def kpi_counts(self) -> dict[str, int]:
-        """What a recruiter must act on: the same rules as `recruiter_view.needs_review`, counted in SQL."""
+    def count(self, rule=None) -> int:
+        """How many candidates a recruiter rule (screener.recruiter_rules) matches; all of them without a rule."""
+        where = f" WHERE {rule.sql()}" if rule is not None else ""
         with self._connect() as db:
-            row = db.execute(
-                "SELECT COUNT(*), "
-                "COALESCE(SUM(c.outcome IN ('DISQUALIFIED', 'ENDED_OFF_TOPIC') "
-                "AND NOT EXISTS (SELECT 1 FROM json_each(c.reasons) WHERE value = ?) "
-                "AND COALESCE(r.status, 'new') = 'new'), 0), "
-                "COALESCE(SUM(c.outcome = 'QUALIFIED' AND COALESCE(r.status, 'new') = 'new' AND s.id IS NULL), 0), "
-                "COALESCE(SUM(c.outcome = 'BLOCKED'), 0), COALESCE(SUM(c.outcome = 'STALLED'), 0) "
-                f"{_CANDIDATE_JOINS}", (NO_CONSENT,)).fetchone()
-        return dict(zip(("total", "to_review", "to_contact", "blocked", "stalled"), row))
+            return db.execute(f"SELECT COUNT(*) {_CANDIDATE_JOINS}{where}").fetchone()[0]
+
+    def kpi_counts(self) -> dict[str, int]:
+        """What a recruiter must act on, each number from its rule."""
+        return {"total": self.count(), "to_review": self.count(NEEDS_REVIEW), "to_contact": self.count(TO_CONTACT),
+                "blocked": self.count(BLOCKED), "stalled": self.count(STALLED)}
 
     def funnel_counts(self, keys: tuple[str, ...]) -> dict:
         """How far candidates got, counted in SQL. `keys` are the screening's fields, in order."""
         paths = [f'$."{key}"' for key in keys]
-        no_consent_reason = "NOT EXISTS (SELECT 1 FROM json_each(c.reasons) WHERE value = ?)"
         with self._connect() as db:
             head = db.execute(
                 "SELECT COUNT(*), COALESCE(SUM(json_extract(c.state, '$.consent') = 1), 0), "
                 "COALESCE(SUM(c.outcome = 'QUALIFIED'), 0), COALESCE(SUM(s.id IS NOT NULL), 0), "
-                f"COALESCE(SUM(c.outcome = 'ENDED_OFF_TOPIC' OR (c.outcome = 'DISQUALIFIED' AND {no_consent_reason})), 0)"
+                f"COALESCE(SUM({AGENT_CLOSED.sql()}), 0)"
                 + "".join(", COALESCE(SUM(json_extract(c.extracted, ?) IS NOT NULL), 0)" for _ in keys)
-                + f" {_CANDIDATE_JOINS}", (NO_CONSENT, *paths)).fetchone()
+                + f" {_CANDIDATE_JOINS}", paths).fetchone()
             outcomes = dict(db.execute("SELECT outcome, COUNT(*) FROM candidates WHERE outcome IS NOT NULL "
                                        "GROUP BY outcome").fetchall())
             reasons = dict(db.execute("SELECT j.value, COUNT(*) FROM candidates c, json_each(c.reasons) j "
