@@ -1,10 +1,10 @@
 import difflib
 import re
-import unicodedata
 from dataclasses import dataclass
 from typing import Any
 
-from screener.model import CityMatchStatus
+from screener.language import plain
+from screener.model import AreaMatchStatus
 
 MAX_NAME_LENGTH = 100
 _NAME_WORD = re.compile(r"^[^\W\d_]+(?:[-'’][^\W\d_]+)*\.?$")  # a trailing dot allows titles and initials
@@ -32,37 +32,27 @@ def validate_name(raw: str) -> Validation:
 
 
 @dataclass(frozen=True)
-class CityMatch:
-    status: CityMatchStatus
+class AreaMatch:
+    status: AreaMatchStatus
     city: str | None = None
 
 
-def fold(text: str) -> str:
-    decomposed = unicodedata.normalize("NFKD", text)
-    stripped = "".join(c for c in decomposed if not unicodedata.combining(c))
-    return " ".join(stripped.casefold().split())
-
-
-def _plain(text: str) -> str:
-    return " ".join(re.sub(r"[^a-z0-9]+", " ", fold(text)).split())
-
-
-def match_city(raw: str, areas: dict[str, list[str]], qualifiers: tuple[str, ...] = ()) -> CityMatch:
+def match_area(raw: str, areas: dict[str, list[str]], qualifiers: tuple[str, ...] = ()) -> AreaMatch:
     """A country or state written after the place (\"Leeds, England\") is dropped if the client lists it as a qualifier."""
     names = {}
     for city, aliases in areas.items():
         for label in [city, *aliases]:
-            names[_plain(label)] = city
-    key = _plain(raw)
+            names[plain(label)] = city
+    key = plain(raw)
     if key in names:
-        return CityMatch(CityMatchStatus.MATCH, names[key])
+        return AreaMatch(AreaMatchStatus.MATCH, names[key])
     for qualifier in sorted(qualifiers, key=len, reverse=True):
         if key.endswith(" " + qualifier):
             key = key[: -len(qualifier) - 1]
             if key in names:
-                return CityMatch(CityMatchStatus.MATCH, names[key])
+                return AreaMatch(AreaMatchStatus.MATCH, names[key])
             break
     close = difflib.get_close_matches(key, names, n=1, cutoff=0.8)
     if close:
-        return CityMatch(CityMatchStatus.CONFIRM, names[close[0]])
-    return CityMatch(CityMatchStatus.OUT_OF_AREA)
+        return AreaMatch(AreaMatchStatus.CONFIRM, names[close[0]])
+    return AreaMatch(AreaMatchStatus.OUT_OF_AREA)

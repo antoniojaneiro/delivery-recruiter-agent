@@ -6,11 +6,11 @@ import uuid
 from datetime import datetime
 from pathlib import Path
 
-from screener import turn
+from screener import dialog, turn
 from screener.client import Client
 from screener.llm import LLM
-from screener.model import Language
-from screener.phrasing import Directive, Kind, phrase
+from screener.directive import Directive, Kind
+from screener.phrasing import phrase
 from screener.store import Store
 
 HELP = "Commands: /new, /resume <id>, /state, /inbox, /wait24h, /help, /quit"
@@ -19,7 +19,7 @@ HELP = "Commands: /new, /resume <id>, /state, /inbox, /wait24h, /help, /quit"
 def run(llm: LLM, store: Store, client: Client, read=input, write=print,
         clock=datetime.now, log_path: Path | None = None) -> None:
     def report(error: Exception) -> None:
-        write(_log_error(error, clock(), log_path))
+        write(log_error(error, clock(), log_path))
 
     candidate_id = None
     try:
@@ -50,10 +50,10 @@ def run(llm: LLM, store: Store, client: Client, read=input, write=print,
             write(f"bot> {turn.handle_message(llm, store, client, candidate_id, line, clock())}")
         except Exception as error:
             report(error)
-            write("bot> " + phrase(llm, client.spec, Directive(Kind.TECHNICAL_ERROR), Language.ES))
+            write("bot> " + phrase(llm, client.spec, Directive(Kind.TECHNICAL_ERROR), client.spec.pack.default_language))
 
 
-def _log_error(error: Exception, now: datetime, log_path: Path | None) -> str:
+def log_error(error: Exception, now: datetime, log_path: Path | None) -> str:
     """Appends the error to the log (never the candidate's text) and returns the line to show the operator."""
     error_id = uuid.uuid4().hex[:6]
     if log_path is None:
@@ -68,15 +68,8 @@ def _log_error(error: Exception, now: datetime, log_path: Path | None) -> str:
     return f"[error {error_id}: see {log_path}]"
 
 
-def _draw_id() -> str:
-    return uuid.uuid4().hex[:12]
-
-
 def _new(store, client, clock, write) -> str:
-    candidate_id = _draw_id()
-    while store.get(candidate_id) is not None:  # never merge two applicants into one record
-        candidate_id = _draw_id()
-    text = turn.start(store, client, candidate_id, clock())
+    candidate_id, text = dialog.new_candidate(store, client, clock())
     write(f"[candidate {candidate_id}]")
     write(f"bot> {text}")
     return candidate_id
@@ -111,12 +104,11 @@ def _command(command, arg, candidate_id, llm, store, client, clock, write) -> st
 
 def _show_inbox(store, candidate_id, clock, write) -> str | None:
     """Messages the reminder job queued for this candidate: the terminal has no way to send them by itself."""
-    pending = store.outbox_pending(candidate_id) if candidate_id else []
-    if not pending:
+    texts = dialog.deliver_queued(store, candidate_id, clock())
+    if not texts:
         write("[no queued messages for this candidate]")
-    for entry in pending:
-        write(f"bot> {entry.text}")
-        store.mark_delivered(entry.id, clock())
+    for text in texts:
+        write(f"bot> {text}")
     return candidate_id
 
 

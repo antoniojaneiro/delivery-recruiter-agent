@@ -5,8 +5,10 @@ from datetime import date
 from screener import validators
 from screener.consent import ConsentReading, is_hesitation, is_resume_request, read_consent
 from screener.extraction import ControlFlags
-from screener.model import CONSENT, NO_CONSENT, CityMatchStatus, EventType, Language, Outcome, Status
-from screener.phrasing import Directive, Kind, consent_text_hash
+from screener.model import CONSENT, NO_CONSENT, AreaMatchStatus, EventType, Language, Outcome, Status
+from screener.language import language_of
+from screener.directive import Directive, Kind
+from screener.phrasing import consent_text_hash
 from screener.screening_changes import propose_change
 from screener.screening_precedence import Waiting, directive_for
 from screener.screening_state import STATE_FIELDS, jsonable_values
@@ -57,7 +59,7 @@ class Screening:
 
     @property
     def awaiting_confirmation(self) -> str | None:
-        return self._pending_city[0] if self._pending_city else None
+        return self._pending_area[0] if self._pending_area else None
 
     def _hear_language(self, language: Language | None) -> None:
         """The candidate's language, when the client has wording for it."""
@@ -106,13 +108,13 @@ class Screening:
         """The candidate's yes or no to "Antes me dijiste X. ¿Lo cambio a Y?" (D54)."""
         field, candidate, _, _ = self._pending_change
         self._pending_change = None
-        notice = "kept"
+        notice: tuple[str, ...] = ("kept",)
         if yes:
             self.events.append((EventType.FIELD_CHANGED, str(field)))
             result = self.submit(field, candidate, today)  # the usual flows (typo, outside the area, a rejecting answer) still apply
-            notice = "changed" if result.status == Status.OK else None  # else another question follows
+            notice = ("changed",) if result.status == Status.OK else ()  # else another question follows
         directive = self._directive_now(None)
-        return replace(directive, notice=notice) if directive.kind != Kind.CLOSE else directive
+        return replace(directive, notices=notice) if directive.kind != Kind.CLOSE else directive
 
     def _consider_change(self, field: str, candidate: object, today: date) -> None:
         if self._pending_change is None:  # one question at a time
@@ -228,10 +230,10 @@ class Screening:
         directive = self._next_directive(ex, message, today)
         notice = self._notice(ex, struck=self._off_topic > strikes)
         if notice and directive.kind != Kind.CLOSE:
-            directive = replace(directive, notice=notice)
+            directive = replace(directive, notices=notice)
         return directive
 
-    def _notice(self, ex: ControlFlags, struck: bool = False) -> str | None:
+    def _notice(self, ex: ControlFlags, struck: bool = False) -> tuple[str, ...]:
         """A request for a person or a question about pay gets a fixed answer before the next question."""
         names = []
         if ex.wants_human:
@@ -241,11 +243,11 @@ class Screening:
             names.append("pay")
         if struck:
             names.append("offtopic")
-        return "+".join(names) or None
+        return tuple(names)
 
     def _next_directive(self, ex: ControlFlags, message: str, today: date) -> Directive:
         asking = self.next_field()
-        self._hear_language(ex.language)
+        self._hear_language(language_of(message, ex.language, self.language))
         if ex.wants_human:
             self.human_requested()
         if ex.withdraw:
@@ -271,7 +273,11 @@ class Screening:
                 unclear = (field, result.reason)
 
         if self.awaiting_confirmation and ex.confirms_city is not None:
-            note(self.spec.area_field, self.confirm_city(ex.confirms_city))
+            area = self.spec.field(self.spec.area_field)
+            if ex.confirms_city is False and area.read(ex, today, None) is not _MISSING:
+                self._pending_area = None  # "no, Barcelona": the new place below replaces the suggestion, no follow-up
+            else:
+                note(self.spec.area_field, self.confirm_area(ex.confirms_city))
         if self.awaiting_rejection and ex.confirms_rejection is not None:
             note(self.awaiting_rejection, self.confirm_rejection(ex.confirms_rejection))
         for field in self.spec.keys:
@@ -347,7 +353,7 @@ class Screening:
         # a question that was waiting for an answer must not swallow the answer after they come back
         self._pending_change = None
         self._pending_reject = None
-        self._pending_city = None
+        self._pending_area = None
         self.events.append((EventType.WITHDRAWN, ""))
 
     def human_requested(self) -> None:
@@ -389,35 +395,35 @@ class Screening:
         rejecting = spec.rejects is not None and spec.rejects(value)
         if self._pending_reject and self._pending_reject[0] == field:
             if rejecting or (field == self.spec.area_field and isinstance(value, str)
-                             and validators.match_city(value, self.areas, self.spec.place_qualifiers).status == CityMatchStatus.OUT_OF_AREA):
+                             and validators.match_area(value, self.areas, self.spec.place_qualifiers).status == AreaMatchStatus.OUT_OF_AREA):
                 return self.confirm_rejection(True)
             self._pending_reject = None
         if rejecting:
             self._pending_reject = (field, value)
             return SubmitResult(Status.CONFIRM_REJECT)
         if field == self.spec.area_field:
-            return self._submit_city(value)
+            return self._submit_area(value)
         return self._settle(field, self._validate(field, value, today), value if raw is None else raw)
 
-    def confirm_city(self, yes: bool) -> SubmitResult:
-        if self._pending_city is None:
+    def confirm_area(self, yes: bool) -> SubmitResult:
+        if self._pending_area is None:
             return SubmitResult(Status.FOLLOW_UP, "no city is waiting for confirmation")
-        city, raw = self._pending_city
-        self._pending_city = None
+        city, raw = self._pending_area
+        self._pending_area = None
         if yes:
             return self._settle(self.spec.area_field, validators.Validation(True, city), raw)
         return self._settle(self.spec.area_field, validators.Validation(False, reason="city not confirmed"), raw)
 
-    def _submit_city(self, raw: object) -> SubmitResult:
-        self._pending_city = None
+    def _submit_area(self, raw: object) -> SubmitResult:
+        self._pending_area = None
         if not isinstance(raw, str):
             return self._settle(self.spec.area_field, validators.Validation(False, reason="need a city"), raw)
         raw = " ".join(raw.split())[:MAX_CITY_LENGTH]  # what is stored of a place outside the area stays short
-        match = validators.match_city(raw, self.areas, self.spec.place_qualifiers)
-        if match.status == CityMatchStatus.CONFIRM:
-            self._pending_city = (match.city, raw)
+        match = validators.match_area(raw, self.areas, self.spec.place_qualifiers)
+        if match.status == AreaMatchStatus.CONFIRM:
+            self._pending_area = (match.city, raw)
             return SubmitResult(Status.CONFIRM, suggestion=match.city)
-        if match.status == CityMatchStatus.OUT_OF_AREA:
+        if match.status == AreaMatchStatus.OUT_OF_AREA:
             self._pending_reject = (self.spec.area_field, raw)
             return SubmitResult(Status.CONFIRM_REJECT)
         return self._settle(self.spec.area_field, validators.Validation(True, match.city), raw)

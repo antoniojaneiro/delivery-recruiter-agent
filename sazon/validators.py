@@ -2,7 +2,8 @@
 import math
 from datetime import date, timedelta
 
-from screener.validators import Validation, fold
+from screener.language import fold
+from screener.validators import Validation
 
 
 def validate_license(value: bool | None) -> Validation:
@@ -28,6 +29,16 @@ def validate_schedule(value: str) -> Validation:
 
 
 KNOWN_PLATFORMS = ("glovo", "uber eats", "just eat", "rappi", "didi food")
+# The ways people write them: letters and digits only, no spaces or hyphens ("Uber-Eats" -> "ubereats").
+_PLATFORM_ALIASES = {
+    "uber": "uber eats", "ubereats": "uber eats", "ubereat": "uber eats", "justeat": "just eat",
+    "justeats": "just eat", "glovoapp": "glovo", "didi": "didi food", "didifood": "didi food",
+    "glovo": "glovo", "rappi": "rappi",
+}
+
+
+def _squash(text: str) -> str:
+    return "".join(c for c in fold(text) if c.isalnum())
 
 
 MAX_YEARS = 60
@@ -41,7 +52,7 @@ def validate_experience(years: float | None, platforms: list[str]) -> Validation
         return Validation(False, reason="need the delivery platform")
     if years > 0 and not platforms:
         return Validation(False, reason="need the delivery platform")
-    cleaned = [fold(p) for p in platforms]
+    cleaned = [_PLATFORM_ALIASES.get(_squash(p), fold(p)) for p in platforms]
     normalised = [p if p in KNOWN_PLATFORMS else "other" for p in cleaned]
     return Validation(True, {"years": years, "platforms": list(dict.fromkeys(normalised))})
 

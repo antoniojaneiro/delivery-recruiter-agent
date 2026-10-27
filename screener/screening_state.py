@@ -73,6 +73,7 @@ STATE_FIELDS = (
     StateField("_events_synced", "events_synced", lambda spec: 0),
     StateField("_off_topic", "off_topic", lambda spec: 0),
     StateField("_follow_ups", "follow_ups", lambda spec: {}, load=lambda raw, spec: dict(raw)),
-    StateField("_pending_city", "pending_city", lambda spec: None,
+    # "pending_city" is the name saved in every candidate's state since the first release: the key stays
+    StateField("_pending_area", "pending_city", lambda spec: None,
                dump=lambda v: list(v) if v else None, load=lambda raw, spec: tuple(raw) if raw else None),
 )

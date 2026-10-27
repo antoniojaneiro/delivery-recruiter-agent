@@ -3,12 +3,14 @@ outside work: calling the model, loading and saving, and writing the reply."""
 from dataclasses import replace
 from datetime import date, datetime
 
-from screener import session, slot_flow
+from screener import conversation, session, slot_flow
+from screener.conversation import RETRY_ONCE, SKIP, Turn
 from screener.client import Client
 from screener.consent import ConsentReading, is_stop_request, read_consent
 from screener.extraction import ControlFlags, extract
 from screener.llm import LLM, LLMError
-from screener.phrasing import Directive, Kind, closed_message, consent_message, phrase, technical_error_message
+from screener.directive import Directive, Kind
+from screener.phrasing import closed_message, consent_message, phrase, technical_error_message
 from screener.screening import ExtractionContext, Screening
 from screener.spec import ScreeningSpec
 from screener.store import ConflictError
@@ -19,29 +21,27 @@ NOT_STORED = "[message not stored: no consent]"
 def start(store, client: Client, candidate_id: str, now: datetime) -> str:
     if not store.accepting_applications():
         return closed_message(client.spec)
-    screening = session.load(store, candidate_id, client)
     text = consent_message(client.spec)
     try:
-        session.commit(store, candidate_id, screening, now, messages=[("agent", text)])
+        return conversation.run(store, client, candidate_id, now,
+                                lambda screening: Turn(text, messages=[("agent", text)]))
     except ConflictError:
-        return technical_error_message(client.spec, screening.language)
-    return text
+        return technical_error_message(client.spec, client.spec.pack.default_language)
 
 
 def wait_24h(llm: LLM, store, client: Client, candidate_id: str, now: datetime) -> str | None:
     """Simulates 24 hours of silence: first a reminder, then STALLED (D35)."""
     if not store.accepting_applications():
         return None
-    screening = session.load(store, candidate_id, client)
-    if not screening.is_open:
-        return None
-    directive = screening.on_silence()
-    reply = phrase(llm, client.spec, directive, screening.language) if directive else None
-    try:
-        session.commit(store, candidate_id, screening, now, messages=[("agent", reply)] if reply else [])
-    except ConflictError:
-        return None  # the record changed under us: skip this candidate for now
-    return reply
+    def work(screening: Screening) -> Turn:
+        if not screening.is_open:
+            return Turn(None, save=False)
+        directive = screening.on_silence()
+        reply = phrase(llm, client.spec, directive, screening.language) if directive else None
+        return Turn(reply, messages=[("agent", reply)] if reply else [])
+
+    # the record changed under us: skip this candidate for now
+    return conversation.run(store, client, candidate_id, now, work, on_conflict=SKIP)
 
 
 def handle_message(llm: LLM, store, client: Client, candidate_id: str, message: str,
@@ -50,18 +50,18 @@ def handle_message(llm: LLM, store, client: Client, candidate_id: str, message: 
         return closed_message(client.spec)  # nothing is read, stored or sent to the model while applications are closed
     if store.get(candidate_id) is None:  # never started, or erased: they see the disclosure before anything else
         return start(store, client, candidate_id, now)
-    for attempt in range(2):
-        try:
-            return _handle(llm, store, client, candidate_id, message, now)
-        except ConflictError:
-            if store.get(candidate_id) is None:  # erased meanwhile: never bring the record back
-                break
-    return technical_error_message(client.spec, session.load(store, candidate_id, client).language)
+    try:  # a lost race is retried once with a fresh copy; an erased candidate is never brought back
+        return conversation.run(store, client, candidate_id, now,
+                                lambda screening: _handle(llm, store, client, candidate_id, message, now, screening),
+                                on_conflict=RETRY_ONCE)
+    except ConflictError:
+        return technical_error_message(client.spec, session.load(store, candidate_id, client).language)
 
 
-def _handle(llm: LLM, store, client: Client, candidate_id: str, message: str, now: datetime) -> str:
-    screening = session.load(store, candidate_id, client)
+def _handle(llm: LLM, store, client: Client, candidate_id: str, message: str, now: datetime,
+            screening: Screening) -> Turn:
     screening.resume()
+    consented_before = screening.consent is True  # the turn that answers the consent question shares nothing
     history = store.messages(candidate_id)
     last_question = history[-1].text if history and history[-1].role == "agent" else None
     if screening.awaiting_slot_choice:
@@ -69,14 +69,16 @@ def _handle(llm: LLM, store, client: Client, candidate_id: str, message: str, no
     else:
         directive = _directive_for(llm, screening, message, now.date(), last_question)
         directive = slot_flow.after_close(store, client, screening, candidate_id, directive, now)
-    reply = consent_message(client.spec) if directive is None else phrase(llm, client.spec, directive, screening.language)
+    # what the model may see when it words a message: the saved conversation and this message, only after consent
+    context = [(m.role, m.text) for m in history] + [("candidate", message)] if consented_before else []
+    reply = (consent_message(client.spec) if directive is None
+             else phrase(llm, client.spec, directive, screening.language, history=context))
     if directive is not None and directive.kind == Kind.CLOSE:
         short = phrase(llm, client.spec, replace(directive, repeat=True), screening.language)
         if last_question in (reply, short):  # already said once: not the same close word for word
             reply = short
     kept = message if screening.consent else NOT_STORED
-    session.commit(store, candidate_id, screening, now, messages=[("candidate", kept), ("agent", reply)])
-    return reply
+    return Turn(reply, messages=[("candidate", kept), ("agent", reply)])
 
 
 def _directive_for(llm: LLM, screening: Screening, message: str, today: date,

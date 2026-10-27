@@ -40,7 +40,7 @@ class EventType(StrEnum):
     FIELD_CHANGED = "field_changed"
 
 
-class CityMatchStatus(StrEnum):
+class AreaMatchStatus(StrEnum):
     MATCH = "match"
     CONFIRM = "confirm"
     OUT_OF_AREA = "out_of_area"

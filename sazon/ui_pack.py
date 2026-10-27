@@ -1,0 +1,223 @@
+"""Every word Grupo Sazón's recruiter dashboard shows, in Spanish and English (D66). Pages ask for a key."""
+from screener.model import Language
+from screener.ui_texts import UiPack
+
+ES, EN = Language.ES, Language.EN
+
+
+def bi(es: str, en: str) -> dict:
+    return {ES: es, EN: en}
+
+
+PACK = UiPack((ES, EN), {
+    # the app and its sign-in
+    "app.page_title": bi("Candidatos · Grupo Sazón", "Candidates · Grupo Sazón"),
+    "login.title": bi("Grupo Sazón · Reclutamiento", "Grupo Sazón · Recruiting"),
+    "login.no_accounts": bi(
+        "No hay cuentas de reclutador, así que nadie puede entrar. Crea una con: python -m sazon.accounts add NOMBRE",
+        "There are no recruiter accounts, so nobody can sign in. Create one with: python -m sazon.accounts add NAME"),
+    "login.name": bi("Nombre", "Name"),
+    "login.password": bi("Contraseña", "Password"),
+    "login.submit": bi("Entrar", "Sign in"),
+    "login.too_many": bi("Demasiados intentos con ese nombre. Espera 10 minutos e inténtalo de nuevo.",
+                         "Too many attempts with that name. Wait 10 minutes and try again."),
+    "login.wrong": bi("Nombre o contraseña incorrectos.", "Wrong name or password."),
+    "sidebar.header": bi("Reclutador", "Recruiter"),
+    "sidebar.session": bi("Sesión: **{name}**", "Signed in: **{name}**"),
+    "sidebar.logout": bi("Cerrar sesión", "Sign out"),
+    "sidebar.open": bi("Candidaturas: abiertas", "Applications: open"),
+    "sidebar.closed": bi("Candidaturas: CERRADAS", "Applications: CLOSED"),
+    "sidebar.close_button": bi("Cerrar candidaturas", "Close applications"),
+    "sidebar.open_button": bi("Abrir candidaturas", "Open applications"),
+    "sidebar.toggle_help": bi("Cerradas, el asistente responde a todos que no se aceptan solicitudes.",
+                              "When closed, the assistant tells everyone that applications are not accepted."),
+    "language.label": bi("Idioma", "Language"),
+    "nav.candidates": bi("Candidatos", "Candidates"),
+    "nav.slots": bi("Horarios", "Call times"),
+    "nav.funnel": bi("Embudo", "Funnel"),
+    "common.need_name": bi("Escribe tu nombre en la barra lateral para registrar acciones.",
+                           "Type your name in the sidebar to record actions."),
+
+    # candidates page
+    "cand.title": bi("Candidatos", "Candidates"),
+    "cand.empty": bi("No hay candidatos todavía. Aparecerán aquí cuando alguien hable con el asistente.",
+                     "There are no candidates yet. They will appear here when someone talks to the assistant."),
+    "kpi.total": bi("Candidatos", "Candidates"),
+    "kpi.to_contact": bi("Cualificados por contactar", "Qualified to contact"),
+    "kpi.to_review": bi("Descartes por revisar", "Rejections to review"),
+    "kpi.to_review_help": bi(
+        "Candidatos que el agente descartó (sin licencia, fuera de zona o fuera de tema) y que ningún reclutador "
+        "ha revisado todavía. Ponles un estado cuando los hayas mirado.",
+        "Candidates the agent rejected (no license, outside the area or off topic) that no recruiter has looked at "
+        "yet. Give them a status once you have."),
+    "kpi.blocked": bi("Bloqueados", "Blocked"),
+    "kpi.stalled": bi("Sin respuesta", "No reply"),
+    "filter.outcome": bi("Estado del agente", "Agent status"),
+    "filter.status": bi("Estado del reclutador", "Recruiter status"),
+    "filter.search": bi("Buscar por nombre, ciudad o id", "Search by name, city or id"),
+    "filter.review": bi("Solo descartes por revisar", "Only rejections to review"),
+    "cand.none_match": bi("Ningún candidato coincide con los filtros.", "No candidate matches the filters."),
+    "cand.page": bi("Página", "Page"),
+    "cand.showing": bi("Mostrando {first}–{last} de {total} (página {page} de {pages}).",
+                       "Showing {first}–{last} of {total} (page {page} of {pages})."),
+    "cand.gone": bi("El candidato que tenías abierto ya no está en la lista (¿lo han borrado?).",
+                    "The candidate you had open is no longer in the list (was it erased?)."),
+    "cand.view": bi("Ver candidato", "View candidate"),
+    "cand.pick": bi("Elige un candidato", "Choose a candidate"),
+    "col.id": bi("Id", "Id"),
+    "col.name": bi("Nombre", "Name"),
+    "col.city": bi("Ciudad", "City"),
+    "col.agent": bi("Agente", "Agent"),
+    "col.recruiter": bi("Reclutador", "Recruiter"),
+    "col.assigned": bi("Asignado a", "Assigned to"),
+    "col.call": bi("Llamada", "Call"),
+    "col.updated": bi("Actualizado", "Updated"),
+    "detail.pick_hint": bi("Elige un candidato en la tabla o en la lista de debajo.",
+                           "Pick a candidate in the table or in the list below it."),
+    "detail.summary": bi("Resumen del agente", "Agent summary"),
+    "detail.no_summary": bi("Sin resumen todavía.", "No summary yet."),
+    "detail.json": bi("Datos validados (JSON)", "Validated data (JSON)"),
+    "detail.call": bi("Llamada", "Call"),
+    "detail.call_line": bi("**Llamada:** {label}{caller}", "**Call:** {label}{caller}"),
+    "detail.caller": bi(" · llama {name}", " · called by {name}"),
+    "detail.no_call": bi("Sin llamada reservada.", "No call booked."),
+    "detail.qualified_hint": bi(" Está cualificado: contáctalo.", " They are qualified: contact them."),
+    "detail.manage": bi("Gestión del reclutador", "Recruiter actions"),
+    "form.status": bi("Estado", "Status"),
+    "form.save_status": bi("Guardar estado", "Save status"),
+    "form.assignee": bi("Asignado a", "Assigned to"),
+    "form.save_assignee": bi("Guardar asignación", "Save assignment"),
+    "form.note": bi("Nota", "Note"),
+    "form.save_note": bi("Añadir nota", "Add note"),
+    "erase.need_check": bi("Marca la casilla de confirmación para borrar.", "Tick the confirmation box to erase."),
+    "erase.done": bi("Datos borrados. Solo queda un registro anónimo de quién los borró.",
+                     "Data erased. Only an anonymous record of who erased them remains."),
+    "erase.title": bi("Borrar los datos de este candidato", "Erase this candidate's data"),
+    "erase.caption": bi(
+        "Derecho de supresión: elimina sus respuestas, la conversación, las notas y la reserva. No se puede deshacer.",
+        "Right to erasure: removes their answers, the conversation, the notes and the booking. This cannot be undone."),
+    "erase.confirm": bi("Confirmo que quiero borrar todos los datos de este candidato",
+                        "I confirm I want to erase all of this candidate's data"),
+    "erase.button": bi("Borrar datos", "Erase data"),
+    "tab.conversation": bi("Conversación", "Conversation"),
+    "tab.audit": bi("Auditoría", "Audit log"),
+    "detail.no_messages": bi("Sin mensajes.", "No messages."),
+    "audit.when": bi("Cuándo", "When"),
+    "audit.type": bi("Tipo", "Type"),
+    "audit.detail": bi("Detalle", "Detail"),
+    "audit.actor": bi("Actor", "Actor"),
+
+    # slots page
+    "slots.title": bi("Horarios para llamadas", "Call times"),
+    "slots.caption": bi(
+        "El agente ofrece a cada candidato cualificado los tres próximos horarios libres de su país. La hora es la "
+        "del reloj del país: un candidato en México ve la hora de México.",
+        "The agent offers each qualified candidate the next free times in their country. The time is the country's "
+        "own clock: a candidate in Mexico sees Mexico's time."),
+    "slots.country": bi("País", "Country"),
+    "slots.day": bi("Día", "Day"),
+    "slots.hour": bi("Hora", "Time"),
+    "slots.caller": bi("Quién llama (opcional)", "Who calls (optional)"),
+    "slots.add": bi("Añadir horario", "Add time"),
+    "slots.added": bi("Horario añadido.", "Time added."),
+    "slots.cancel_pick": bi("Cancelar un horario", "Cancel a time"),
+    "slots.cancel_button": bi("Cancelar horario", "Cancel time"),
+    "slots.cancelled": bi("Horario cancelado.", "Time cancelled."),
+    "slots.booked_warning": bi("Ese horario estaba reservado por {who}. {notice}Se quedó sin llamada reservada.",
+                               "That time was booked by {who}. {notice}They no longer have a call booked."),
+    "slots.notice_left": bi("El asistente le dejará un aviso en su chat. ", "The assistant will leave a notice in their chat. "),
+    "slots.notice_failed": bi("No se pudo dejar el aviso: escríbele tú. ", "The notice could not be left: write to them yourself. "),
+    "slots.none": bi("No hay horarios próximos. Añade alguno para que el asistente pueda ofrecerlos.",
+                     "There are no upcoming times. Add some so the assistant can offer them."),
+    "slots.col_when": bi("Día y hora", "Day and time"),
+    "slots.col_caller": bi("Llama", "Caller"),
+    "slots.col_state": bi("Estado", "State"),
+    "slot.booked": bi("Reservado: {name} ({id})", "Booked: {name} ({id})"),
+    "slot.too_close": bi("Ya no se ofrece (faltan menos de {hours} horas)",
+                         "No longer offered (less than {hours} hours away)"),
+    "slot.free": bi("Libre", "Free"),
+    "slot.no_name": bi("(sin nombre)", "(no name)"),
+
+    # funnel page
+    "funnel.title": bi("Embudo de candidatos", "Candidate funnel"),
+    "funnel.caption": bi(
+        "Cuenta lo que el asistente ya guarda: hasta dónde llega cada persona y cuántas llegan a un reclutador.",
+        "Counts what the assistant already stores: how far each person gets and how many reach a recruiter."),
+    "funnel.none": bi("Todavía no hay candidatos.", "There are no candidates yet."),
+    "funnel.booked_rate": bi("{rate} de los cualificados", "{rate} of those qualified"),
+    "funnel.closed_by_agent": bi(
+        "El agente cerró por su cuenta (sin licencia, fuera de zona o fuera de tema) al {rate} de los candidatos. "
+        "Los que ningún reclutador ha revisado siguen en «Descartes por revisar».",
+        "The agent closed {rate} of candidates on its own (no license, outside the area or off topic). Those no "
+        "recruiter has reviewed stay under “Rejections to review”."),
+    "funnel.how_far": bi("Hasta dónde llegan", "How far they get"),
+    "funnel.table": bi("Ver como tabla", "View as a table"),
+    "funnel.stage": bi("Etapa", "Stage"),
+    "funnel.candidates": bi("Candidatos", "Candidates"),
+    "funnel.ends": bi("Cómo terminan", "How they end"),
+    "funnel.result": bi("Resultado", "Result"),
+    "funnel.reasons": bi("Motivos", "Reasons"),
+    "funnel.reason": bi("Motivo", "Reason"),
+    "funnel.stopped": bi("Dónde se quedaron los que siguen abiertos", "Where those still open stopped"),
+    "funnel.missing": bi("Falta", "Missing"),
+    "funnel.nobody": bi("Nadie sin terminar.", "Nobody unfinished."),
+
+    # the chat for trying the agent
+    "chat.page_title": bi("Prueba el asistente · Grupo Sazón", "Try the assistant · Grupo Sazón"),
+    "chat.title": bi("Prueba el asistente", "Try the assistant"),
+    "chat.notice": bi(
+        "Demostración: las conversaciones se guardan en una base de datos de pruebas, no en la que ven los "
+        "reclutadores. Escribe como lo haría un candidato, en español o en inglés.",
+        "Demo: conversations are saved in a test database, not the one recruiters see. Write as a candidate would, "
+        "in Spanish or English."),
+    "chat.input": bi("Escribe un mensaje", "Write a message"),
+    "chat.thinking": bi("El asistente está escribiendo…", "The assistant is typing…"),
+    "chat.new": bi("Nuevo candidato", "New candidate"),
+    "chat.wait": bi("Simular 24 h sin respuesta", "Simulate 24 h of silence"),
+    "chat.wait_help": bi("Como si el candidato no hubiera contestado en un día: el asistente envía el recordatorio.",
+                         "As if the candidate had not answered for a day: the assistant sends the reminder."),
+    "chat.wait_nothing": bi("No hay recordatorio: el candidato ya terminó o ya está sin respuesta.",
+                            "No reminder: the candidate has finished or is already marked as not replying."),
+    "chat.candidate": bi("Candidato de prueba: {id}", "Test candidate: {id}"),
+    "chat.no_key": bi(
+        "Falta GEMINI_API_KEY: copia .env.example a .env y añade tu clave de Gemini. Sin ella el asistente no puede responder.",
+        "GEMINI_API_KEY is missing: copy .env.example to .env and add your Gemini key. Without it the assistant cannot answer."),
+    "chat.failed": bi("No se pudo procesar el mensaje. Inténtalo otra vez.", "The message could not be processed. Try again."),
+    "chat.rate_hint": bi("Si el asistente tarda o dice que tuvo un problema técnico, puede ser el límite de la capa "
+                         "gratuita: espera un minuto y repite el mensaje.",
+                         "If the assistant is slow or reports a technical problem, it may be the free tier's rate limit: "
+                         "wait a minute and send the message again."),
+    "inspector.title": bi("Lo que ha entendido el agente", "What the agent has understood"),
+    "inspector.outcome": bi("Resultado", "Outcome"),
+    "inspector.data": bi("Datos validados", "Validated data"),
+    "inspector.card": bi("Ficha para el reclutador", "Recruiter card"),
+    "inspector.booking": bi("Llamada reservada: {label}", "Call booked: {label}"),
+    "inspector.queued": bi("Mensajes en cola", "Queued messages"),
+    "inspector.queued_none": bi("No hay mensajes en cola.", "No queued messages."),
+    "inspector.deliver": bi("Marcar como entregados", "Mark as delivered"),
+
+    # statuses, countries and refused inputs
+    "status.new": bi("Nuevo", "New"),
+    "status.contacted": bi("Contactado", "Contacted"),
+    "status.interview_scheduled": bi("Entrevista programada", "Interview scheduled"),
+    "status.hired": bi("Contratado", "Hired"),
+    "status.rejected": bi("Rechazado", "Rejected"),
+    "status.unreachable": bi("No localizable", "Unreachable"),
+    "country.ES": bi("España", "Spain"),
+    "country.MX": bi("México", "Mexico"),
+    "error.name_required": bi("Inicia sesión con tu cuenta para registrar acciones.",
+                              "Sign in with your account to record actions."),
+    "error.unknown_status": bi("Ese estado no existe.", "That status does not exist."),
+    "error.assignee_required": bi("Escribe a quién se asigna.", "Type who it is assigned to."),
+    "error.note_empty": bi("La nota no puede estar vacía.", "The note cannot be empty."),
+    "error.unknown_country": bi("Ese país no existe.", "That country does not exist."),
+    "error.clock_change": bi(
+        "Esa hora no existe: ese día cambia la hora y se salta de las 02:00 a las 03:00. Elige otra.",
+        "That time does not exist: the clocks change that day and 02:00 jumps to 03:00. Pick another."),
+    "error.too_soon": bi("Ese horario ya ha pasado o falta muy poco. Elige uno más adelante.",
+                         "That time has passed or is too soon. Pick a later one."),
+    "error.no_calendar": bi("Este cliente no reserva llamadas.", "This client does not book calls."),
+    "error.gone": bi("Eso ya no existe: puede que lo hayan borrado o cancelado mientras tanto.",
+                     "That no longer exists: it may have been erased or cancelled meanwhile."),
+    "error.generic": bi("No se pudo guardar. Revisa lo que has escrito.", "It could not be saved. Check what you typed."),
+})

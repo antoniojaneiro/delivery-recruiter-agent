@@ -3,6 +3,10 @@ import streamlit as st
 
 from sazon import config
 from sazon.client import SAZON_CLIENT
+from sazon.recruiter_view import view_for
+from sazon.ui_pack import PACK
+from screener.model import Language
+from screener.recruiter_view import RecruiterView
 from screener.store import Store
 
 
@@ -28,3 +32,24 @@ def candidates() -> list:
 def recruiter_name() -> str:
     """The name typed in the sidebar; every recruiter action is saved with it."""
     return str(st.session_state.get("recruiter", "")).strip()
+
+
+def language() -> Language:
+    """The language the recruiter picked for the screens (Spanish until they pick another)."""
+    return Language(st.session_state.get("ui_language") or Language.ES)
+
+
+def t(key: str, **values) -> str:
+    return PACK.get(key, language(), **values)
+
+
+def language_switch() -> None:
+    """The Spanish/English switch. It keeps its value when the recruiter signs out."""
+    st.segmented_control(t("language.label"), [Language.ES, Language.EN], default=Language.ES,
+                         format_func=lambda value: {Language.ES: "Español", Language.EN: "English"}[value],
+                         key="ui_language", label_visibility="collapsed")
+
+
+def view() -> RecruiterView:
+    """The recruiter screens' labels, cards and rows in the language the recruiter picked."""
+    return view_for(language())

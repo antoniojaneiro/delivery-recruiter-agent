@@ -16,12 +16,14 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
-from screener import session, slot_flow
+from screener import conversation, slot_flow
+from screener.conversation import SKIP, Turn
 from screener.client import Client
 from screener.llm import NO_MODEL
 from screener.model import Outcome
 from screener.phrasing import phrase
-from screener.store import ConflictError, Store
+from screener.screening import Screening
+from screener.store import Store
 from screener.store_types import local_naive
 
 WATCHED = (Outcome.IN_PROGRESS, Outcome.BLOCKED, Outcome.QUALIFIED)
@@ -56,23 +58,23 @@ def _remind(store: Store, client: Client, candidate_id: str, now: datetime) -> A
     last = store.last_activity_of(candidate_id)  # fresh: they may have written since the pass started
     if last is None or now - local_naive(last) < client.remind_after:
         return None
-    screening = session.load(store, candidate_id, client)
-    if screening.needs_consent:
-        return None  # they have not agreed to anything yet, so they are not contacted again
-    if screening.awaiting_slot_choice:
-        kind, directive = slot_flow.on_idle(store, client, screening, now)
-    elif screening.is_open:
-        directive = screening.on_silence()
-        kind = "reminder" if directive else "stalled"
-    else:
-        return None
-    text = phrase(NO_MODEL, client.spec, directive, screening.language) if directive else None  # fixed texts: no model needed
-    try:
-        session.commit(store, candidate_id, screening, now,
-                       messages=[("agent", text)] if text else [], outbox=[text] if text else [])
-    except ConflictError:
-        return None  # the candidate wrote (or was erased) while we worked: leave them for the next pass
-    return Action(candidate_id, kind)
+
+    def work(screening: Screening) -> Turn:
+        if screening.needs_consent:
+            return Turn(None, save=False)  # they have not agreed to anything yet, so they are not contacted again
+        if screening.awaiting_slot_choice:
+            kind, directive = slot_flow.on_idle(store, client, screening, now)
+        elif screening.is_open:
+            directive = screening.on_silence()
+            kind = "reminder" if directive else "stalled"
+        else:
+            return Turn(None, save=False)
+        text = phrase(NO_MODEL, client.spec, directive, screening.language) if directive else None  # fixed: no model
+        return Turn(Action(candidate_id, kind), messages=[("agent", text)] if text else [],
+                    outbox=[text] if text else [])
+
+    # the candidate wrote (or was erased) while we worked: leave them for the next pass
+    return conversation.run(store, client, candidate_id, now, work, on_conflict=SKIP)
 
 
 def main(client: Client, db_path: Path, prog: str, argv: list[str] | None = None) -> None:

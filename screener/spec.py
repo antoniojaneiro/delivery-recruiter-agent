@@ -7,6 +7,7 @@ from operator import eq
 from typing import Any, Callable
 
 from screener.extraction import ControlFlags, build_model
+from screener.language import pick
 from screener.model import NO_CONSENT, Language, Outcome
 from screener.pack import Pack, Text
 from screener.validators import Validation
@@ -27,11 +28,11 @@ class FieldSpec:
     key: str
     ask: Text  # the question; also what the model is told to keep the meaning of when it rephrases
     what: Text  # "your first and last name": completes "I can't continue until you tell me ..."
-    label: str  # the recruiter's name for the field
+    label: Text  # the recruiter's name for the field, in each recruiter language
     validate: Callable[[Any, date], Validation] | None = None  # None: the engine's area matching decides
     same: Callable[[Any, Any], bool] = eq  # compares validated values, so the same answer is never a change
     rejects: Callable[[Any], bool] | None = None  # an answer that ends the screening once the candidate confirms it
-    confirm_rejection: Text | None = None  # asked before a rejecting answer counts; {city} is the candidate's text
+    confirm_rejection: Text | None = None  # asked before a rejecting answer counts; {area} is the candidate's text
     read: Callable[[Any, date, Any], object] | None = None  # (reply, today, base) -> a value or MISSING
     # base: what was kept of an earlier unclear answer, or the saved value when a change is being read
     partial: Callable[[Any], dict] | None = None  # what to keep of an unclear answer to combine with the next
@@ -40,8 +41,8 @@ class FieldSpec:
     decode_value: Callable[[Any], Any] | None = None  # a saved value read back from JSON
     decode_candidate: Callable[[Any], Any] | None = None  # a pending change read back from JSON
     describe: Callable[[Any, Language], str] | None = None  # a value in the candidate's words, for a change question
-    card: Callable[[Any], str] | None = None  # the line for the recruiter's summary card
-    not_provided: str = ""  # recruiter text for "has not said ..."; the label when empty
+    card: Callable[[Any, Language], str] | None = None  # the line for the recruiter's summary card
+    not_provided: Text | None = None  # recruiter text for "has not said ..."; the label when None
 
 
 @dataclass(frozen=True)
@@ -50,7 +51,7 @@ class Rule:
     reason: str
     applies: Callable[[Any], bool]
     close: Text  # what the candidate is told
-    summary: str  # what the recruiter reads
+    summary: Text  # what the recruiter reads, in each recruiter language
 
 
 @dataclass(frozen=True)
@@ -82,11 +83,12 @@ class RecruiterTexts:
 class ScreeningSpec:
     fields: tuple[FieldSpec, ...]
     pack: Pack
-    recruiter: RecruiterTexts
+    recruiter: dict[Language, RecruiterTexts]  # one per language the recruiters read; includes the default one
     rules: tuple[Rule, ...] = ()
     role: str = "job"  # "warehouse-picker" in "a warehouse-picker screening chat"
     area_field: str | None = None  # the field matched against the client's service areas
     place_qualifiers: tuple[str, ...] = ()  # words that may follow a place ("Leeds, England") and are dropped
+    persona: str = ""  # how the assistant sounds, written for the model (tone, length, form of address)
     title_field: str | None = None  # the answer that heads the summary card
     card_order: tuple[str, ...] = ()  # the fields that get a line on the card, in order
 
@@ -113,6 +115,27 @@ class ScreeningSpec:
                 return rule
         raise ValueError(f"unknown reason: {reason}")
 
+    def recruiter_texts(self, language: Language | None = None) -> RecruiterTexts:
+        """The recruiter words in `language`, or in the pack's default language when that one is not listed."""
+        return pick(self.recruiter, language, self.pack.default_language)
+
+    def say(self, text: Text, language: Language | None = None) -> str:
+        """A recruiter-facing text in `language`, or in the default language."""
+        return pick(text, language, self.pack.default_language)
+
+    def reason_text(self, code: str, language: Language | None = None) -> str:
+        """A disqualifying or blocking reason in the recruiter's words."""
+        texts = self.recruiter_texts(language)
+        if code == NO_CONSENT:
+            return texts.no_consent
+        if code.startswith("BLOCKED_ON_"):
+            field = self.field(code.removeprefix("BLOCKED_ON_").lower())
+            return texts.blocked_on + self.say(field.not_provided or field.label, language)
+        try:
+            return self.say(self.rule(code).summary, language)
+        except ValueError:
+            return code
+
     def close_text(self, reason: str) -> Text:
         return self.pack.close_no_consent if reason == NO_CONSENT else self.rule(reason).close
 
@@ -135,6 +158,13 @@ def check_spec(spec: "ScreeningSpec") -> None:
         if not text or not text.get(default):
             problems.append(f"{where} has no text in {default}")
 
+    def need_recruiter_text(where: str, text) -> None:
+        missing = [str(language) for language in spec.recruiter if not text or not text.get(language)]
+        if missing:
+            problems.append(f"{where} has no text in the recruiter language {', '.join(missing)}")
+
+    if default not in spec.recruiter:
+        problems.append(f"recruiter has no texts in the default language {default}")
     keys = spec.keys
     for key in dict.fromkeys(keys):
         if keys.count(key) > 1:
@@ -147,6 +177,9 @@ def check_spec(spec: "ScreeningSpec") -> None:
             problems.append(f"field '{f.key}' has no validate function")
         need_text(f"field '{f.key}': ask", f.ask)
         need_text(f"field '{f.key}': what", f.what)
+        need_recruiter_text(f"field '{f.key}': label", f.label)
+        if f.not_provided is not None:
+            need_recruiter_text(f"field '{f.key}': not_provided", f.not_provided)
         if f.rejects is not None:
             need_text(f"field '{f.key}': confirm_rejection", f.confirm_rejection)
         for name in f.schema:
@@ -170,10 +203,9 @@ def check_spec(spec: "ScreeningSpec") -> None:
         if rule.reason == NO_CONSENT:
             problems.append("NO_CONSENT is the engine's own reason")
         need_text(f"rule {rule.reason}: close", rule.close)
-        if not rule.summary:
-            problems.append(f"rule {rule.reason} has no summary for the recruiter")
+        need_recruiter_text(f"rule {rule.reason}: summary", rule.summary)
     pack = spec.pack
-    for name in ("consent", "closed", "error", "reminder", "unclear", "confirm_city", "confirm_change", "blocked",
+    for name in ("consent", "closed", "error", "reminder", "unclear", "confirm_area", "confirm_change", "blocked",
                  "close_other", "close_no_consent", "close_repeat_withdrawn", "close_repeat_other"):
         need_text(f"pack.{name}", getattr(pack, name))
     for outcome in _CLOSES:
@@ -185,11 +217,12 @@ def check_spec(spec: "ScreeningSpec") -> None:
             need_text(f"pack.slots.offer[{name}]", pack.slots.offer.get(name))
         for name in ("offer_end", "booked", "already_booked", "cancelled"):
             need_text(f"pack.slots.{name}", getattr(pack.slots, name))
-    for outcome in Outcome:
-        if outcome not in spec.recruiter.outcome_labels:
-            problems.append(f"recruiter.outcome_labels has no label for {outcome}")
-    for language in pack.consent:
-        if language not in spec.recruiter.language_names:
-            problems.append(f"recruiter.language_names has no name for {language}")
+    for language, texts in spec.recruiter.items():
+        for outcome in Outcome:
+            if outcome not in texts.outcome_labels:
+                problems.append(f"recruiter[{language}].outcome_labels has no label for {outcome}")
+        for candidate_language in pack.consent:
+            if candidate_language not in texts.language_names:
+                problems.append(f"recruiter[{language}].language_names has no name for {candidate_language}")
     if problems:
         raise SpecError("; ".join(problems))

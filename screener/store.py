@@ -6,7 +6,8 @@ from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
 
-from screener.model import NO_CONSENT, RecruiterStatus
+from screener.model import RecruiterStatus
+from screener.recruiter_rules import AGENT_CLOSED, BLOCKED, NEEDS_REVIEW, STALLED, TO_CONTACT
 from screener.store_schema import prepare
 from screener.store_slots import SlotsMixin
 from screener.store_types import (AGENT, NO_CHECK, AdminEntry, Booking, ConflictError, Event, InputError, Message,  # noqa: F401
@@ -54,12 +55,17 @@ class Store(SlotsMixin):
                     outcome: str, events: list[tuple[str, str]],
                     messages: list[tuple[str, str]], reasons: list[str] = (),
                     flags: list[str] = (), summary: str | None = None,
-                    expected_version: object = NO_CHECK, outbox: list[str] = ()) -> int:
+                    expected_version: object = NO_CHECK, outbox: list[str] = (),
+                    decision: str | None = None) -> int:
         """Saves one turn atomically. With `expected_version` (the version this copy was loaded at, or None for a
-        candidate that did not exist) the save is refused with ConflictError if the record changed or vanished."""
+        candidate that did not exist) the save is refused with ConflictError if the record changed or vanished.
+        With `decision` (the text of the decision event) it is logged when the outcome differs from the saved one,
+        which is read here, under the same write lock."""
         with self._connect() as db:
             db.execute("BEGIN IMMEDIATE")  # the version is read while holding the write lock, so nobody slips in
-            row = db.execute("SELECT version FROM candidates WHERE candidate_id = ?", (candidate_id,)).fetchone()
+            row = db.execute("SELECT version, outcome FROM candidates WHERE candidate_id = ?", (candidate_id,)).fetchone()
+            if decision is not None and (row is None or row[1] != outcome):
+                events = [*events, ("decision", decision)]
             if expected_version is not NO_CHECK:
                 if (expected_version is None and row is not None) or (
                         expected_version is not None and (row is None or row[0] != expected_version)):
@@ -231,30 +237,27 @@ class Store(SlotsMixin):
 
     # -- counted by the database, so the dashboard's numbers never load every candidate ----------------------------
 
-    def kpi_counts(self) -> dict[str, int]:
-        """What a recruiter must act on: the same rules as `recruiter_view.needs_review`, counted in SQL."""
+    def count(self, rule=None) -> int:
+        """How many candidates a recruiter rule (screener.recruiter_rules) matches; all of them without a rule."""
+        where = f" WHERE {rule.sql()}" if rule is not None else ""
         with self._connect() as db:
-            row = db.execute(
-                "SELECT COUNT(*), "
-                "COALESCE(SUM(c.outcome IN ('DISQUALIFIED', 'ENDED_OFF_TOPIC') "
-                "AND NOT EXISTS (SELECT 1 FROM json_each(c.reasons) WHERE value = ?) "
-                "AND COALESCE(r.status, 'new') = 'new'), 0), "
-                "COALESCE(SUM(c.outcome = 'QUALIFIED' AND COALESCE(r.status, 'new') = 'new' AND s.id IS NULL), 0), "
-                "COALESCE(SUM(c.outcome = 'BLOCKED'), 0), COALESCE(SUM(c.outcome = 'STALLED'), 0) "
-                f"{_CANDIDATE_JOINS}", (NO_CONSENT,)).fetchone()
-        return dict(zip(("total", "to_review", "to_contact", "blocked", "stalled"), row))
+            return db.execute(f"SELECT COUNT(*) {_CANDIDATE_JOINS}{where}").fetchone()[0]
+
+    def kpi_counts(self) -> dict[str, int]:
+        """What a recruiter must act on, each number from its rule."""
+        return {"total": self.count(), "to_review": self.count(NEEDS_REVIEW), "to_contact": self.count(TO_CONTACT),
+                "blocked": self.count(BLOCKED), "stalled": self.count(STALLED)}
 
     def funnel_counts(self, keys: tuple[str, ...]) -> dict:
         """How far candidates got, counted in SQL. `keys` are the screening's fields, in order."""
         paths = [f'$."{key}"' for key in keys]
-        no_consent_reason = "NOT EXISTS (SELECT 1 FROM json_each(c.reasons) WHERE value = ?)"
         with self._connect() as db:
             head = db.execute(
                 "SELECT COUNT(*), COALESCE(SUM(json_extract(c.state, '$.consent') = 1), 0), "
                 "COALESCE(SUM(c.outcome = 'QUALIFIED'), 0), COALESCE(SUM(s.id IS NOT NULL), 0), "
-                f"COALESCE(SUM(c.outcome = 'ENDED_OFF_TOPIC' OR (c.outcome = 'DISQUALIFIED' AND {no_consent_reason})), 0)"
+                f"COALESCE(SUM({AGENT_CLOSED.sql()}), 0)"
                 + "".join(", COALESCE(SUM(json_extract(c.extracted, ?) IS NOT NULL), 0)" for _ in keys)
-                + f" {_CANDIDATE_JOINS}", (NO_CONSENT, *paths)).fetchone()
+                + f" {_CANDIDATE_JOINS}", paths).fetchone()
             outcomes = dict(db.execute("SELECT outcome, COUNT(*) FROM candidates WHERE outcome IS NOT NULL "
                                        "GROUP BY outcome").fetchall())
             reasons = dict(db.execute("SELECT j.value, COUNT(*) FROM candidates c, json_each(c.reasons) j "
