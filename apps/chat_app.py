@@ -1,7 +1,7 @@
 """A browser chat for trying Grupo Sazón's agent (D66). Run with: streamlit run apps/chat_app.py
 
 It runs the same turn code as the terminal chat and the real model, but saves into a demo database (SAZON_DEMO_DB,
-data/demo.db by default), never the recruiters' one. There is no login: it is meant to run on your own computer.
+data/demo/chat.db by default), never the recruiters' one. There is no login: it is meant to run on your own computer.
 On the right, an inspector shows what the agent has understood, read from that database."""
 import uuid
 from datetime import datetime

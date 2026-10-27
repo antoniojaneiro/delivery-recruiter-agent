@@ -1,622 +1,83 @@
 # DECISIONS
 
-Log of design and tech decisions for the Grupo Sazón screening agent. Each entry records the choice, the options that were considered, and the trade-offs. Decisions can be changed. Before acting against an entry, say so and confirm with the user.
-
-## D1: Channel (where candidates talk to the agent)
-
-- **Chosen:** Terminal chat first. Move to a real channel later.
-- **Options considered:**
-  - WhatsApp Business API: highest candidate reply rate in Spain and Mexico. Needs a provider account, Meta approval and per-message cost.
-  - Browser web chat: simple to demo. Candidates must open a link, so replies are likely lower.
-  - SMS: works on any phone. Costly per message and has weaker reply rates.
-  - Terminal chat: free, zero setup, fastest to build. Does not look like a product to candidates.
-- **Pros of chosen:** free, no accounts, fastest path to a working agent. Keeps the channel decision separate from the core logic.
-- **Cons of chosen:** candidates cannot use it, so it is a prototype. The channel adapter must be built later.
-- **Decided by:** user, 2026-10-25.
-
-## D2: LLM provider
-
-- **Chosen:** Gemini free tier, via the course wrapper `course_llm.py`.
-- **Options considered:**
-  - Ollama (fully local): no account and no data leaves the machine. Needs a 2-5 GB download and a slower, weaker model at Spanish extraction.
-  - Groq free tier: very fast. Tighter free limits.
-  - Paid OpenAI: most reliable structured output. Costs money.
-- **Pros of chosen:** strong quality, free key (Google AI Studio sign-in, no card), already wired in the course. Works with the OpenAI-style SDK.
-- **Cons of chosen:** candidate data goes to Google's servers, which matters for GDPR. Free-tier rate limits. The key must stay in `.env`.
-- **Decided by:** user, 2026-10-25.
-
-## D3: Storage
-
-- **Chosen:** SQLite (single file, built into Python).
-- **Options considered:**
-  - One JSON file per candidate: readable, but the dashboard reads every file to filter.
-  - One big JSON file: rewrites everything on each save, breaks on crashes.
-  - Postgres or cloud DB: production grade, but needs a server or account.
-- **Pros of chosen:** real queries and filters for the dashboard, no install, safe writes.
-- **Cons of chosen:** slightly more code than JSON. Single writer, which is fine for this scope.
-- **Decided by:** user, 2026-10-25.
-
-## D4: Recruiter tool
-
-- **Chosen:** Streamlit dashboard, run locally.
-- **Options considered:**
-  - Terminal commands: no extra dependency, but hard for non-technical recruiters.
-  - Both CLI and dashboard: twice the work for the same data.
-  - Defer the tool: the brief requires it.
-- **Pros of chosen:** looks like a product, filters and status changes, easy to demo, easy to move online later.
-- **Cons of chosen:** one extra dependency. Local only, not shared between recruiters.
-- **Decided by:** user, 2026-10-25.
-
-## D5: Flow shape (how fields are collected)
-
-- **Chosen:** Hybrid. The candidate can answer several things in one message. The agent asks only for fields still missing.
-- **Options considered:**
-  - Fixed, one question at a time: predictable and easy to test, but robotic and repetitive.
-  - Free chat, then extract: most natural, but misses fields and is hardest to validate.
-- **Pros of chosen:** natural and shorter than fixed, still structured enough to validate.
-- **Cons of chosen:** needs logic that tracks which fields are filled.
-- **Decided by:** user, 2026-10-25.
-
-## D6: Question order and disqualifier timing
-
-- **Chosen:** Friendly order (name and experience first). All fields are checked at the end, then the decision is made.
-- **Options considered:**
-  - Disqualifiers first (license, city): ends non-qualifiers quickly, saves recruiter and candidate time, but can feel like an interrogation.
-  - Ask everything, decide later: same as the chosen option in effect, but the opening order differs.
-- **Pros of chosen:** warmer start, better candidate experience.
-- **Cons of chosen:** candidates who will be disqualified spend longer in the chat. This works against the client's problem of recruiter time spent on unqualified candidates. Revisit if pilot data shows long chats for rejected candidates.
-- **Decided by:** user, 2026-10-25.
-- **Open tension:** this conflicts with the client problem. Flag if it comes up again.
-
-## D7: Qualified path
-
-- **Chosen:** Offer a call time now.
-- **Options considered:**
-  - Mark ready and send a recruiter summary: clear next step, but the recruiter still has to schedule.
-  - Store as qualified only: simplest, but the candidate hears nothing after qualifying, which makes the no-response problem worse.
-- **Pros of chosen:** fewest steps for the candidate.
-- **Cons of chosen:** needs a source of available times. Calendar integration would add setup, so a recruiter-defined slot list is likely needed. How slots are provided is still open.
-- **Decided by:** user, 2026-10-25.
-
-## D8: Source of call slots
-
-- **Chosen:** Recruiter-set slot list, kept in a simple config or dashboard page. The agent offers the next free slots.
-- **Options considered:**
-  - Google Calendar integration: real availability, but needs OAuth and a Google account per recruiter.
-  - Candidate proposes a time, recruiter confirms: no slot management, but no firm time is offered.
-- **Pros of chosen:** no accounts or integrations, fits the no-setup goal.
-- **Cons of chosen:** lists go stale unless recruiters maintain them. No real calendar check.
-- **Decided by:** user, 2026-10-25.
-
-## D9: Disqualified path
-
-- **Chosen:** Polite close with a reason code (for example no license, outside service area). Stored for the recruiter.
-- **Options considered:**
-  - Polite close + keep for future roles: builds a talent pool, but needs explicit GDPR consent, retention rules and deletion on request.
-  - Polite close + explain how to qualify: helpful sometimes, but rarely actionable and can promise things the client did not approve.
-- **Pros of chosen:** respectful, simple, gives the recruiter clean reporting.
-- **Cons of chosen:** candidates who might qualify later must reapply.
-- **Decided by:** user, 2026-10-25.
-
-## D10: No reply mid-conversation
-
-- **Chosen:** One reminder after 24 hours. If still no reply, mark the candidate as stalled, visible in the dashboard.
-- **Options considered:**
-  - Two reminders over 3 days: more recovery, but can feel like spam and conflicts with the message-tone guidelines.
-  - No reminders: simplest, but loses candidates with no second chance.
-- **Pros of chosen:** one nudge catches most people, and stalled candidates stay visible for recruiters.
-- **Cons of chosen:** in terminal mode the 24-hour wait must be simulated, for example with a command.
-- **Decided by:** user, 2026-10-25.
-
-## D11: Language
-
-- **Chosen:** Mirror the candidate's language on each message (Spanish or English).
-- **Options considered:**
-  - Lock to one language chosen at start: simpler, but a mid-chat switch may not be understood.
-  - Always Spanish, English on request: matches the main market, still needs a switch path.
-- **Pros of chosen:** natural, no confusion about which language is in use.
-- **Cons of chosen:** language detection per message. Screening questions need templates in both languages.
-- **Decided by:** user, 2026-10-25.
-
-## D12: AI disclosure and consent
-
-- **Chosen:** The first message says the candidate is talking to an AI and asks consent to store their answers. No screening questions until consent is given.
-- **Options considered:**
-  - Disclose at start with no consent gate: no lawful basis recorded for storing personal data.
-  - Disclose at the end: breaks the transparency expectation, since candidates answer personal questions unaware.
-- **Pros of chosen:** matches EU AI Act transparency and GDPR consent expectations. Gives a clear record.
-- **Cons of chosen:** one extra message. A candidate who declines cannot be screened.
-- **Decided by:** user, 2026-10-25.
-- **Note:** this is an engineering interpretation. Confirm with the client's legal team before any real use.
-
-## D13: Service areas
-
-- **Chosen:** Sample list for now (Madrid, Barcelona, Valencia, Ciudad de México, Guadalajara, Monterrey), kept in one config file to swap for the real list later.
-- **Options considered:**
-  - Wait for the real list: correct, but blocks building.
-  - Accept any city: simplest, but the brief requires the outside-area disqualifier, which would not work.
-- **Pros of chosen:** unblocks building, a single place to change.
-- **Cons of chosen:** test results only reflect the sample areas.
-- **Decided by:** user, 2026-10-25.
-- **Open:** the real list from the client is still needed before any pilot.
-
-## D14: Candidate asks for a human
-
-- **Chosen:** Politely decline and keep screening.
-- **Options considered:**
-  - Flag for recruiter and tell the candidate when they'll hear back: honours the request, sets expectations, needs a flag in the dashboard.
-  - Stop the chat with no action: simplest, but the candidate is effectively lost.
-- **Pros of chosen:** simple flow, nothing extra to build.
-- **Cons of chosen:** candidates who want a human are frustrated and may drop out. It also weakens the human-oversight principle in CLAUDE.md, since a candidate cannot reach a person through the agent. A flag would still be cheap to add later.
-- **Decided by:** user, 2026-10-25.
-- **Flag:** revisit if pilot data shows drop-off at this point.
-
-## D15: Tone and formality
-
-- **Chosen:** Friendly "tú" in Spanish.
-- **Options considered:**
-  - Formal "usted": professional but stiff for chat.
-  - Neutral wording with no pronoun: avoids the choice but reads awkwardly.
-- **Pros of chosen:** warm, matches gig and delivery job messaging.
-- **Cons of chosen:** a few candidates may find it too casual.
-- **Decided by:** user, 2026-10-25.
-
-## D16: Ambiguous answers
-
-- **Chosen:** Keep asking until the answer is clear.
-- **Options considered:**
-  - Ask once more, then flag for recruiter: a clear answer most of the time, and unclear cases go to a human. Recommended.
-  - Accept raw text as-is: structured fields become unreliable, which the brief forbids.
-- **Pros of chosen:** every field ends up clean.
-- **Cons of chosen:** repeated questions can frustrate candidates and cause drop-off, the same problem the client has now. Needs a cap, see the open question below.
-- **Decided by:** user, 2026-10-25.
-- **Open:** whether to add a maximum number of follow-ups per field.
-
-## D17: Follow-up cap per field
-
-- **Chosen:** Maximum of 3 follow-up questions per field. After that, the field is flagged for recruiter review.
-- **Options considered:**
-  - Cap of 2: fewer frustrated candidates, more fields left for humans.
-  - No cap: no unclear fields, but loops can drop candidates.
-- **Pros of chosen:** keeps "ask until clear" while preventing endless loops.
-- **Cons of chosen:** some candidates will still be asked three times, which can frustrate them.
-- **Decided by:** user, 2026-10-25.
-
-## D18: Message length and style
-
-- **Chosen:** 1-2 short sentences per message, one question each.
-- **Options considered:**
-  - Short paragraph with 2-3 questions: fewer messages, but candidates skip some questions and need follow-ups.
-  - Longer explanations: unlike chat, more drop-off.
-- **Pros of chosen:** reads like a phone chat, better answer quality.
-- **Cons of chosen:** more messages per conversation.
-- **Decided by:** user, 2026-10-25.
-
-## D19: Experience is not a disqualifier
-
-- **Chosen:** Record years and platform. Never disqualify on experience.
-- **Options considered:**
-  - Disqualify if no experience: a stronger filter than the brief specifies.
-  - Flag as lower priority: needs a ranking rule the brief does not define.
-- **Pros of chosen:** matches the brief (experience is a field, not a rule), keeps the funnel wide.
-- **Cons of chosen:** recruiters may see more candidates with no experience.
-- **Decided by:** user, 2026-10-25.
-
-## D20: Bonus features
-
-- **Chosen:** Build all bonus features, but only after the basic version (Phase 2 core plus the Phase 1 doc) is finished.
-- **Bonus set:** funnel analytics, automatic 24-hour reminder, voice agent (ElevenLabs), candidate CV upload.
-- **Options considered:** choose a subset (for example analytics and voice only), which keeps scope smaller.
-- **Pros of chosen:** full bonus coverage; sequencing keeps the core first.
-- **Cons of chosen:** scope is large. CV upload adds file parsing and a new category of personal data, which increases GDPR and EU AI Act obligations. Flag if time runs short.
-- **Decided by:** user, 2026-10-25.
-
-## Deferred
-
-- **Voice agent (bonus):** after the core works. Would use the ElevenLabs `agents` skill, which needs an API key.
-- **Presentation format** (the brief says "present your work"): not decided. Does not change what gets built.
-- **Field details** (name rules, start-date parsing, a driver's license answer of "unsure"): to decide during the build, with proposed defaults written into the Phase 1 doc.
-
-## Proposed defaults (P1 and P2 confirmed in D26)
-
-Written into [PHASE1_PROCESS_DESIGN.md](PHASE1_PROCESS_DESIGN.md) as engineering defaults. Confirm or change each one.
-
-- **P1 Name rule:** at least two words of letters, spaces, hyphens and apostrophes (confirmed, changed in D26).
-- **P2 Start date:** more than 12 weeks away is recorded but flagged (confirmed in D26).
-- **P3 Off-topic messages:** two in a row end the chat with `ENDED_OFF_TOPIC`.
-- **P4 Retention:** disqualified data deleted after 6 months. Qualified and stalled data kept for the active hiring cycle. Needs legal review.
-- **P5 Files and photos:** not accepted in Phase 2. The agent asks for text.
-- **P6 Pay and schedule questions:** answered only with client-approved information. Otherwise a recruiter answers, and the question is logged.
-- **P7 Asks for a human:** logged as an event, still declined (D14).
-
-## D21: Phase 1 doc format
-
-- **Chosen:** Markdown in the repo.
-- **Options considered:** PDF (polished, hard to edit and version), Word (familiar for business readers, binary in git).
-- **Pros of chosen:** versioned with the code, free, readable on GitHub, can be exported to PDF later.
-- **Cons of chosen:** less polished for a non-technical reader.
-- **Decided by:** user, 2026-10-25.
-
-## D22: Conversation engine
-
-- **Chosen:** Pure-Python state machine owns fields, follow-up caps and the qualified/disqualified decision. The LLM only extracts fields from the candidate message and phrases the short reply.
-- **Options considered:**
-  - LangGraph state graph: matches course module 4, but heavy for a linear flow with hybrid skipping.
-  - Single LLM with tool calls: least code, but hard to test, the model makes the decision, and it is weak against prompt injection.
-- **Pros of chosen:** rules are unit-testable offline (D5, D16, D17). Candidate text can never change a decision.
-- **Cons of chosen:** more code than a prompt-only agent.
-- **Decided by:** user, 2026-10-25.
-
-## D23: LLM client
-
-- **Chosen:** Own thin client (`openai` SDK against Gemini's OpenAI-compatible endpoint), key from this repo's `.env`, behind an interface so tests use a fake. Refines D2: the course wrapper is read for the pattern only, not imported.
-- **Options considered:** import `course_llm.py` by absolute path (zero code, but breaks on other machines, couples the repo to private course files, may touch the course `.env`).
-- **Pros of chosen:** self-contained, no course content copied, no real keys read.
-- **Cons of chosen:** a little extra code.
-- **Decided by:** user, 2026-10-25.
-
-## D24: Build order
-
-- **Chosen:** Slice 1 domain core with no LLM (models, validators, follow-up cap, decision, SQLite store). Slice 2 LLM extraction and terminal chat. Slice 3 summary and Streamlit dashboard.
-- **Options considered:** thin end-to-end first (earlier demo, but rules tested last and more rework).
-- **Decided by:** user, 2026-10-25.
-
-## D25: Branching
-
-- **Chosen:** Merge the Phase 1 docs branch to `main` first, then branch Phase 2 work from `main`. Done 2026-10-25 (fast-forward to `959d195`).
-- **Decided by:** user, 2026-10-25.
-
-## D26: Slice 1 rule details
-
-- **Consent reply:** the agent always speaks first with the consent question, so nothing is collected before it. If the consent reply also contains data, it is processed only after a yes. After a no, it is discarded.
-- **Unclear answers:** each follow-up must say what exactly is unclear and what a good answer looks like, so the conversation can move forward. The 3-follow-up cap (D17) still applies.
-- **Cap hit on license or city:** superseded by D28 (no cap on these two fields).
-- **P1 confirmed (changed):** name is 2+ words of letters, spaces, hyphens and apostrophes (accents allowed).
-- **P2 confirmed:** start date more than 12 weeks away is recorded and flagged, never rejected.
-- **Decided by:** user, 2026-10-25.
-
-## D27: Early disqualification (updates D6)
-
-- **Chosen:** A disqualifier that is already known (no license, out-of-area city) ends the chat with a polite close, even if other fields are still missing. Friendly question order (D6) stays, but the decision is not delayed.
-- **Options considered:** finish the flow and decide at the end (D6 as written): full data on everyone, but ineligible candidates answer more questions.
-- **Pros of chosen:** saves candidate and recruiter time, which is the client's core problem. Closes the tension noted in D6.
-- **Cons of chosen:** less data on rejected candidates.
-- **Decided by:** user, 2026-10-25.
-
-## D28: Eligibility fields are not capped (updates D17, replaces the D26 assumption)
-
-- **Chosen:** License and city are asked again, with a specific explanation each time, until the answer is clear. The 3-follow-up cap (D17) applies to the other fields only. There is no NEEDS_REVIEW outcome for eligibility.
-- **Options considered:** higher cap then recruiter review; disqualify as unverifiable.
-- **Pros of chosen:** eligibility is always known before qualifying or rejecting.
-- **Cons of chosen:** risk of long loops and drop-off. The exit from a loop is withdrawal (D29) or the 24-hour stall. Unclear answers reset the off-topic counter, so that rule does not end the loop. Revisit if pilot data shows loops.
-- **Decided by:** user, 2026-10-25.
-
-## D29: Candidate can withdraw at any time
-
-- **Chosen:** A withdraw request ("stop", "para", "no quiero continuar") ends the chat with outcome `WITHDRAWN`, logs a `withdrawn` event and asks nothing more. It wins over every other outcome except declined consent. Slice 2 must detect the request, and the candidate's data stays under the retention rules until deleted on request.
-- **Options considered:** no withdraw path (only the 24-hour stall ends a loop, and consent withdrawal would be harder than giving it).
-- **Pros of chosen:** GDPR-aligned, gives uncapped license and city questions (D28) a real exit.
-- **Cons of chosen:** an LLM misreading could end a chat early. Include withdraw wording in the slice 2 extraction evals.
-- **Decided by:** user, 2026-10-25.
-
-## D30: Who writes candidate messages
-
-- **Chosen:** Code decides what to ask and why; the LLM phrases 1-2 short sentences in the candidate's language (D11, D15, D18). A length check and a fixed fallback template protect against bad output.
-- **Options considered:** fixed templates in both languages (predictable, robotic); hybrid with fixed consent/close texts (safer legal wording, more code).
-- **Pros of chosen:** natural, handles language switching.
-- **Cons of chosen:** wording varies run to run. The consent and AI-disclosure text should be reviewed by the client's legal team (D12), so it may become fixed later.
-- **Decided by:** user, 2026-10-25.
-
-## D31: Extraction
-
-- **Chosen:** One JSON call per candidate message, validated by a Pydantic schema. The call returns every field it can see plus intent flags (consent, withdraw, wants human, off-topic). The candidate text is passed as delimited data, never as instructions. Invalid output becomes a follow-up, not a crash.
-- **Options considered:** separate small calls per intent and field (simpler prompts, 3-4x the calls on a rate-limited free tier).
-- **Decided by:** user, 2026-10-25.
-
-## D32: Terminal chat
-
-- **Chosen:** Plain loop with commands: `/new`, `/resume <id>`, `/wait24h` (simulates the stall and reminder, D10), `/quit`. All writes go through `session.commit`.
-- **Options considered:** also a scripted demo mode without the LLM (safer to present, extra code).
-- **Decided by:** user, 2026-10-25.
-
-## D33: Gemini model and data
-
-- **Chosen:** The model name is read from `LLM_MODEL` in `.env` with a default, because Gemini names drift (a 404 gives a clear message). The client uses the OpenAI SDK against Gemini's OpenAI-compatible endpoint with timeouts and bounded retries on 429/5xx.
-- **Data rule:** Gemini free-tier prompts may be used by Google to improve its products. Use only fictional candidates until a paid or EU-compliant tier is chosen. Add to D2's cons.
-- **Decided by:** user (D2, D23), 2026-10-25. The refinements are mine.
-
-## D34: Consent and AI-disclosure message is a fixed template (deviates from D30)
-
-- **Chosen:** The first message is fixed text, Spanish line then English line, with the AI disclosure and the consent question. It is never LLM-written. Later replies mirror the candidate's language (D11).
-- **Options considered:** Spanish only (shorter, but an English-only candidate may not understand the consent question); LLM-written (natural, but the disclosure is not guaranteed).
-- **Pros of chosen:** the legal disclosure (D12) is always present and reviewable by the client's legal team.
-- **Cons of chosen:** a longer first message.
-- **Decided by:** user, 2026-10-25.
-
-## D35: Stall and reminder model (refines D10)
-
-- **Chosen:** The first `/wait24h` sends the single reminder and logs a `reminder_sent` event. The second sets outcome `STALLED`, visible in the dashboard. Any new candidate message resumes the chat.
-- **Decided by:** user, 2026-10-25.
-
-## D36: Call slots deferred (refines D7, D8)
-
-- **Chosen:** The slot list and the booking offer are built in slice 3 with the dashboard. Until then, qualified candidates hear the Phase 1 fallback: a recruiter will reply within 48 hours. The LLM never invents times.
-- **Decided by:** user, 2026-10-25.
-
-## D37: Fixed texts for closes, reminder and errors (deviates from D30)
-
-- **Chosen:** The closes (qualified, disqualified, withdrawn, off-topic), the reminder and the technical-error message are fixed Spanish and English templates, with the AI-disclosure message (D34). Only questions, follow-ups and city confirmations are LLM-phrased, behind length, URL and one-question checks with template fallbacks.
-- **Options considered:** let the LLM phrase them too (more natural, but it could promise a job, pay or a call time).
-- **Pros of chosen:** the riskiest texts can be reviewed by the client's legal team and cannot be improvised.
-- **Cons of chosen:** less natural wording at the end of the chat.
-- **Decided by:** user, 2026-10-25.
-
-## D38: One reminder per period of silence (refines D35)
-
-- **Chosen:** Any candidate reply resets the reminder, so each period of silence gets one reminder before `STALLED`.
-- **Options considered:** one reminder per candidate in total (stricter on spam, lets a second silence stall with no nudge).
-- **Decided by:** user, 2026-10-25.
-
-## D39: Model failures never cost the candidate a follow-up (refines D31)
-
-- **Chosen:** Unparseable model output is retried once. If it still fails, or the model is unreachable, the candidate gets the fixed technical-problem message, no follow-up is counted, and a `model_failure` event (`unparseable` or `unreachable`, no candidate data) is logged. An empty response from Gemini is treated as unreachable.
-- **Options considered:** keep charging a follow-up and log it (loops always end, but our glitches can push answers to REVIEW); apologise at once with no retry (cheaper, more glitches reach the candidate).
-- **Cons of chosen:** one extra call on a rate-limited tier. A message that always breaks the model repeats the apology until the 24-hour stall.
-- **Decided by:** user, 2026-10-25.
-
-## D40: Confirm before rejecting (refines D27)
-
-- **Chosen:** A "no license" or out-of-area answer first gets one fixed confirmation question ("Just to confirm: is it right that you don't have a driver's license?"). Only a confirming reply, or repeating the same answer, ends the chat. A contradicting answer clears it. The extraction prompt also says a license is not a car or any vehicle.
-- **Why:** the real model (gemini-3.5-flash-lite, first live run) read "no tengo coche" ("I don't have a car") as "no license". With D27 alone, one misread would reject a candidate with no human involved. The sharpened prompt fixed that case in a live re-check, but one misread must never be enough.
-- **Options considered:** only sharpen the prompt (no extra message, nothing stops the next misread); require a license keyword in the candidate's words (brittle across Spanish and Mexican wording).
-- **Pros of chosen:** a single model error can never reject a candidate.
-- **Cons of chosen:** one extra message for candidates who really are ineligible, which slightly weakens D27's time saving.
-- **Decided by:** user, 2026-10-25.
-
-## D41: Insist five times, then BLOCKED (replaces D16, D17 and D28; removes NEEDS_REVIEW)
-
-- **Chosen:** For every field the screening collects (all are necessary, and experience can always be answered with "0"), an unclear answer gets a follow-up that explains the information is needed to move forward. After 5 follow-ups, the next unclear answer gets a fixed message: "I can't continue with your application until you tell me X". The candidate gets that same reply to every later message until they provide X. The outcome is `BLOCKED` with reason `BLOCKED_ON_<FIELD>`, visible in the dashboard, and it clears when the field is provided. A blocked candidate is still reminded and can stall (D35). Model failures never count (D39).
-- **Removed:** the 3-follow-up cap, the `NEEDS_REVIEW` flags, and storing the candidate's raw words in place of a value. `extracted` now only holds validated values, so it has one consistent shape. The earlier "uncapped license and city" rule (D28) is replaced by this single rule.
-- **Options considered:** a separate `review` map for raw answers; a wrapper object on every field; keeping the mixed shape.
-- **Pros of chosen:** one simple rule for all fields, clean typed JSON, and recruiters see stuck candidates as a clear status.
-- **Cons of chosen:** a candidate who cannot or will not answer is stuck until the 24-hour stall. Nothing reaches a recruiter except the `BLOCKED` status, so recruiters must watch that filter. Revisit if pilot data shows many blocked candidates.
-- **Decided by:** user, 2026-10-25.
-
-## D42: Recruiter data is separate from the agent's data
-
-- **Chosen:** The agent owns `outcome`, `reasons`, `flags`, `extracted`, the summary and the transcript. Recruiters own a separate record: a hiring status (`new`, `contacted`, `interview_scheduled`, `hired`, `rejected`, `unreachable`, default `new`), an assignee, and append-only notes. Chat turns never touch the recruiter record and recruiter actions never touch the agent's data. A recruiter may set any status on any candidate, including one the agent disqualified, so a human can always overrule the agent. Every recruiter action is an audit event whose `actor` is `recruiter:<name>`; agent events have actor `agent`.
-- **Also done:** the decision's reasons and flags are stored with every turn, so the dashboard filters by `BLOCKED_ON_NAME` or `START_DATE_FAR` without rebuilding the screening. The store waits up to 10 seconds on a busy database so the dashboard and chat can write at the same time. Databases created earlier are upgraded in place.
-- **Options considered:** let recruiters edit the agent's fields directly (fixes misreads at the source, but needs protection against the next chat turn overwriting the fix and a per-field marker for human edits).
-- **Pros of chosen:** overwrite conflicts cannot happen, and the agent's decision and the human's decision stay visibly distinct (human oversight).
-- **Cons of chosen:** a recruiter cannot correct an extracted value in place; they add a note.
-- **Decided by:** user, 2026-10-25.
-
-## D43: Unexpected errors in the terminal chat
-
-- **Chosen:** Any unexpected error, in a message or in `/new`, `/resume` or `/wait24h`, never ends the program. The candidate side shows the usual short apology, the full error (type and stack trace, never the candidate's messages) is appended to `data/sazon.log`, and the terminal prints an operator line such as `[error 3f2a1c: see data/sazon.log]`. If the opening of the chat fails, the program stays up and asks for `/new`. A database that cannot be opened at startup exits with a clear message. A log that cannot be written never makes things worse.
-- **Options considered:** log silently with no error line (cleaner demo, but easy to miss a problem); a `--debug` flag that crashes loudly (fast for developers, one more mode).
-- **Pros of chosen:** nothing is hidden, bugs are traceable in a demo or pilot, and candidates never see technical text.
-- **Cons of chosen:** a small log file to look after. The log should be covered by the retention rules (P4), since stack traces can in rare cases include fragments of data.
-- **Decided by:** user, 2026-10-25.
-
-## D44: The consent reply is read in plain code, never by the model (refines D12, D26, D31)
-
-- **Chosen:** The answer to the consent question is read by `sazon/consent.py`, a conservative Spanish and English word list. No extraction call is made and nothing the candidate writes reaches the model until they have said yes. The reply is read as:
-  - **yes** for short, clear agreement ("sí", "vale", "ok", "yes", "no hay problema", "no problem"), or a clear agreement word followed by punctuation and more text without a condition ("sí, soy Juan de Madrid"). The extra text is ignored and asked for normally after the yes.
-  - **no** only for short, explicit refusals ("no", "no gracias", "no quiero", "no thanks"), and also "stop", "para" and "no quiero continuar" said before consent. All close the chat as `NO_CONSENT` at once, with no confirmation question, because nothing has been stored.
-  - **unclear** for anything else (questions, conditions, unknown words, long messages). The consent question is asked again, with no limit: it costs no model call and the 24-hour stall ends an abandoned chat.
-- **Why:** the consent answer used to be sent to Google's model before the candidate had agreed to anything, the weakest point of the privacy design. A misread "no" would also end a chat for good, so a refusal must be short and explicit.
-- **Options considered:** keep the model for the consent reply (understands any wording and keeps data given with the yes, but the text leaves our system before consent); ask "just to confirm" before closing on a no (no accidental close, but pressing someone who has just refused can read as pushy under GDPR).
-- **Cons of chosen:** an unusual way of saying yes is read as unclear and asked again. Data given with the yes is asked for again.
-- **Supersedes:** the part of D26 that used data from the consent reply, and the consent intent in D31.
-- **Decided by:** user, 2026-10-25.
-
-## D45: All message rules live in Screening; turn.py only does I/O
-
-- **Chosen:** `Screening` decides everything about a message: consent, blocking, confirmations, what to ask next, the reminder and stall, and the model-failure directive. `turn.py` only loads and saves, calls the model, and writes the reply. `session.py` reaches the screening through `syncing_events()`, so the "events saved" counter is private and rolled back if saving fails. Language, fields and reasons are enums (`Language`, `Field`, `Reason`). An unsupported language keeps the last supported one, starting in Spanish. The two fake LLMs raise `LLMError` when their script runs out, like the real client.
-- **Options considered:** only add methods for the private bits and keep the split (smaller, but new rules would keep landing in the wrong file).
-- **Pros of chosen:** every rule is testable without a model or a store, and nothing writes the screening's private state from outside.
-- **Cons of chosen:** a larger `Screening` class. Revisit if it grows further.
-- **Decided by:** user, 2026-10-25.
-
-## D46: The recruiter summary is a card built by code, in Spanish
-
-- **Chosen:** `sazon/summary.py` builds the summary from the validated data, the outcome and reasons, the flags and a few chat facts (language, number of clarifications, a human was requested, a reminder was sent). It is always in Spanish, never repeats the candidate's own words, and says nothing about the person beyond the facts they gave. A refused-consent card holds no personal data. It is rebuilt and saved atomically with every turn, so it is never stale, and it ends with "the final decision is the recruiter's".
-- **Options considered:** the model writes a paragraph (friendlier, but a model call per candidate, risk of invented details, and the AI Act wants impressions of the candidate kept out of hiring tools); both a card and a paragraph (two texts that can disagree).
-- **Pros of chosen:** always accurate, free and instant, consistent in one language.
-- **Cons of chosen:** reads like a card, not prose. An English-speaking recruiter would need the labels changed.
-- **Decided by:** user, 2026-10-25.
-
-## D47: Dashboard scope and slice 3 order
-
-- **Chosen:** The first dashboard (Streamlit, local, reading the same SQLite file as the chat) has a filterable candidate list (agent outcome, recruiter status, search by name), a candidate page (summary card, validated data, flags, full transcript, audit log) and the recruiter actions from D42 (status, assignee, notes). The recruiter types their name once in the sidebar; there is no login in the prototype. Funnel analytics come later. Slice 3 is built in this order: summary, dashboard, then call slots (D7, D8, D36).
-- **Options considered:** add funnel analytics to the first version (stronger demo, more before the core is verified); build slots before the dashboard (earlier booking flow, but the slot list would have to be edited in a file).
-- **Cons of chosen:** no access control. Anyone who can run the app sees every candidate, so it must not be exposed beyond a trusted machine until real authentication is added.
-- **Decided by:** user, 2026-10-25.
-
-## D48: Call slots (completes D7, D8 and D36)
-
-- **Chosen:**
-  - **Per country.** Recruiters add slots on the dashboard's "Horarios" page with a country (Spain or Mexico), a day and a time. The time is the clock time of that country (Madrid or Mexico City). A candidate is only offered slots of their own city's country, so they see exactly the time the recruiter typed. The only conversion is the check that a slot is at least 2 hours away. Past times, too-soon times and times that do not exist when the clocks change are refused.
-  - **Offer.** When a candidate qualifies, the agent offers the next three free slots as a numbered list, with the fallback inside the same message ("reply 'ninguna' and a recruiter will message you within 48 hours"). Without free slots the candidate just gets the 48-hour message.
-  - **Pick.** The reply is read in plain code (`slot_choice.py`): "1", "la 2", "el primero", "ninguna". A pick needs one valid option number and nothing unrecognised ("2 horas" is unclear), because it books a real call. An unclear reply shows the same list again. A slot taken in the meantime gets a fresh list. "None" or no free slot gives the 48-hour message. The reply is never sent to the model.
-  - **One booking per candidate.** The slots table is the only record of a booking, with a database rule of one live booking per candidate. Booking is atomic and idempotent, so a failed turn can be retried without double-booking. The screening only remembers which slots are on offer.
-  - **Fixed texts.** The offer and confirmation messages are fixed Spanish and English templates, with weekday and month names written in code, never the machine's locale (D37).
-  - **Recruiter side.** A booked call shows live on the candidate page and the table, and booked candidates leave the "Cualificados por contactar" number. The summary card does not hold the booking, because a recruiter can cancel it later and the stored card would go stale. Cancelling a booked slot logs an event on the candidate, returns them to "por contactar" and tells the recruiter to warn the candidate, since the terminal chat cannot message them.
-- **Options considered:** one global time zone (Mexican candidates would see times 7-8 hours off); free-text picks read by the model (more natural, but a misread books the wrong time for a real person); offering new slots again after "none" (can loop and run out of slots).
-- **Cons of chosen:** a candidate cannot reschedule through the agent; a recruiter has to. There is no calendar sync (D8).
-- **Known gap:** a qualified candidate who never answers the slot offer is never reminded and never stalls, because `QUALIFIED` is a final outcome. The 48-hour promise is inside the offer message, and they stay in the dashboard's "Cualificados por contactar" number until a recruiter acts. Also: the question text given to the model when phrasing a question now includes the exact fixed wording, so it keeps the options (for example full-time, part-time or weekends) instead of drifting.
-- **Decided by:** user, 2026-10-25.
-
-## D49: Fixes from the slice 3 architecture review
-
-- **Withdrawing during a slot offer** ("me retiro", "ya no quiero continuar", "I want to withdraw", "cancelar") now declines the offer instead of repeating the list. A reply that cannot be read is answered with the same list at most 3 times, then the 48-hour promise applies.
-- **Two slots at the same time** are offered as one option (they stay separately bookable once one is taken).
-- **The Horarios page** no longer shows a slot as free when it is less than 2 hours away and can no longer be offered; it says so.
-- **A booking race** for the same candidate (two processes) returns the existing booking instead of failing. Every outcome has a polite close, so none can crash the chat.
-- **Not fixed yet (structural, for discussion):** the store has grown into one large class; the screening still holds the slot offer while the slots table holds the booking; recruiter-name checks and error routing by message text are repeated in the dashboard pages; labels live in `phrasing.py`; `screening.py` is large; naive and aware datetimes are mixed between the chat and the dashboard.
-- **Decided by:** the assistant, as bug fixes within decisions the user already made (D48), 2026-10-25.
-
-## D50: Whole-product review and the first real-model scenario run
-
-Four reviewers (security and compliance, conversation robustness, data and operations, brief coverage) read the whole product, and 18 fictional conversations were played on the real model (`python -m sazon.demo`). Fixed, each with tests:
-
-- **Opt-out never depends on the model.** "para", "stop", "me retiro", "no quiero continuar" and similar withdraw the candidate by plain-code rules (`is_stop_request`), while ordinary sentences containing those words do not.
-- **A greeting before the answer.** "hola, sí" was not read as consent and the disclosure was repeated forever. Greetings are now ignored in front of the answer.
-- **Hesitation is not off-topic.** "mmm", "no sé", "jaja", "ok" are an answer that did not answer. They count toward the five insistences (D41), no longer toward the two off-topic messages that end the chat. The prompt says so, and plain code enforces it.
-- **No repeated "¡Hola!" or "Bienvenido"** before every question; the model is told not to, and a leading greeting is removed from its text.
-- **Asking for a person or about pay** now gets a fixed sentence before the next question (a recruiter will review the application and answer about pay), is not counted as an unclear answer, and is logged (`human_requested`, `pay_question`).
-- **A closing is not repeated word for word.** Later messages get a short note. The off-topic close now says why the chat ended.
-- **Injection hardening.** Both of our data tags are removed from candidate text in any spelling, earlier-turn text sits inside its own data block, and messages are cut at 2000 characters.
-- **Dashboard.** Candidate text and recruiter names are shown as plain text (no Markdown images or links), the server listens on localhost only, and the store creates its own folder (a clean machine crashed if the dashboard was started first).
-- **Dates, years, names, cities.** "dentro de 3 meses" and "el lunes" resolve in code; impossible years (NaN, over 60) are refused; "Dr. Juan Pérez" and initials are valid names; "Madrid, España", "Zapopan", "Chamberí" and similar count as their service area (sample list of nearby towns, to be replaced by the client's real list, D13).
-- **Model-phrased text** is rejected when it mentions pay, a hire or a clock time.
-- **Evidence and traceability.** The consent event stores a hash of the exact wording shown; model-failure events say which kind of error it was; ids are 12 characters and never reused; the chat and dashboard use the same database file; SQLite runs in WAL mode with indexes; a saved state from another version still loads.
-- **`.gitignore`** now covers `.env.*`, database side files, logs and the `data/` folder.
-
-**Open, needing the user's decision (not changed):**
-- What happens when a later message contradicts an accepted answer (today it silently overwrites).
-- Whether a rejected or closed candidate can correct a misunderstanding, and how a returning applicant is recognised (the terminal has no phone number).
-- Consent wording: the disclosure does not say that answers are processed by an external AI service (Gemini). Legal text, so not changed without approval.
-- Erasure and retention are not implemented (no delete on request, no six-month purge).
-- Automated rejection: the agent itself tells a candidate "no podemos seguir" (no license, out of area), against "a recruiter makes every hiring decision".
-- The off-topic limit of two in a row (P3) is still an unconfirmed default.
-- The dashboard has no real login: the recruiter name is free text.
-- The free tier (about 5 requests per minute) cannot serve the client's volume.
-
-## D51: Consent names the external AI service
-
-- **Chosen:** The first message adds one sentence in both languages: the answers are processed by an external AI service and always reviewed by a recruiter. The consent record keeps a hash of the exact wording shown, so the change is traceable.
-- **Cons of chosen:** still a draft until the client's lawyers approve it (D12).
-- **Decided by:** user, 2026-10-25.
-
-## D52: Softer rejection and a review queue (refines D9, D27, D40)
-
-- **Chosen:** When the agent cannot continue (no license, outside the area) it says it cannot go on with the automated process and that a recruiter can review the case if something is wrong. Every candidate the agent rejected on those grounds appears in the dashboard as "Descartes por revisar" until a recruiter sets a status, so a human can overrule within the promised two days.
-- **Why:** "a recruiter makes every hiring decision" (CLAUDE.md) and the AI Act's human oversight.
-- **Decided by:** user, 2026-10-25.
-
-## D53: Erasure and retention
-
-- **Chosen:** A "Borrar datos" action in the dashboard (with a confirmation) removes a candidate's answers, transcript, notes, recruiter record and booking, and keeps an anonymous line saying who erased which (hashed) id and when. A command, `python -m sazon.retention`, lists (and with `--apply` erases) rejected, withdrawn and off-topic candidates older than six months (a default to confirm with legal, P4). The error log is not covered yet.
-- **Decided by:** user, 2026-10-25.
-
-## D54: A changed answer is confirmed with the candidate (replaces the silent overwrite)
-
-- **Chosen:** When a later message gives a different valid value for a field already accepted, the agent asks "Antes me dijiste X. ¿Lo cambio a Y?" and changes it only on a yes (read in plain code). A no keeps the old value. The same value is ignored. A change to the license or the city still goes through the confirmation before rejecting (D40).
-- **Options considered:** change only on an explicit correction (fewer questions, but depends on the model flagging corrections); always overwrite (an incidental mention can change a record).
-- **Cons of chosen:** one extra message for every real correction.
-- **Decided by:** user, 2026-10-25.
-
-## D55: Off-topic messages: redirect, three strikes in total, then leave (replaces P3 and D41's off-topic rule)
-
-- **Chosen:** A message that is not about the application gets a fixed sentence ("that is not part of my role, let's continue") and the agent goes on with the question. Hesitation ("mmm", "no sé") does not count. The third such message in the conversation (not in a row; a good answer does not reset it) ends it with a factual farewell about the messages, not about the person: "Has enviado varios mensajes ajenos a la solicitud y en Grupo Sazón pedimos un trato profesional, así que termino la conversación. Un reclutador puede revisarlo." This exit is final until a recruiter acts.
-- **Why the wording:** the user proposed telling the candidate they failed the professionalism values; a statement about the person's character is the kind of automated assessment the AI Act wants kept out of hiring tools, so the farewell talks about the messages. Legal should confirm.
-- **Decided by:** user, 2026-10-25 (wording confirmed with the user).
-
-## D56: Candidates can come back, and applications can be closed
-
-- **Chosen:** While applications are open, a candidate can write again and continue after silence, being blocked, withdrawing (the agent asks whether they want to continue) or declining consent (a later yes starts the process). It stays closed after the professionalism exit (D55), once all the information has been collected (qualified), and after a rejection by the agent. A recruiter handles the last three (D52). A dashboard switch, "Aceptando candidaturas", stops everyone, in-progress candidates too; the change is logged with the recruiter's name. While it is off, any message gets "applications are closed".
-- **Cons of chosen:** a rejected candidate cannot fix a misread by themselves; the review queue is the way back.
-- **Decided by:** user, 2026-10-25.
-
-## D57: Recruiter accounts
-
-- **Chosen:** One account per recruiter (name and password) for the dashboard. Passwords are stored only as salted hashes in a git-ignored local file, created with `python -m sazon.accounts add NAME`. The signed-in name is what every audit event records. This is a prototype measure; a real deployment should use the company's single sign-on.
-- **Decided by:** user, 2026-10-25.
-
-## D58: Bonuses
-
-- **Chosen:** Build funnel analytics (a dashboard page) and a real 24-hour reminder job (queued in an outbox, because the terminal has nowhere to deliver; it also covers qualified candidates who ignore the slot offer). The voice agent and CV upload are left for later if there is time; CV upload is not recommended (new personal data category, file parsing, more AI Act duties).
-- **Decided by:** user, 2026-10-25.
-
-## D59: How D51-D58 were built, and what is still open
-
-**Built (all with tests; the real model checked on the conversation test and on replayed scenarios):**
-- Consent wording and softer rejection closes; closes that match the return rules; off-topic redirect with three strikes in total (`wants_human` and `asks_pay` never count as strikes).
-- Return rules: a withdrawn candidate resumes only on an explicit "continuar" (so "vale" or "gracias" does not reopen it); declined consent restarts on a plain "sí"; qualified, rejected and the off-topic exit stay closed. The applications switch is checked first on every entry point and stores and sends nothing to the model.
-- A changed answer is confirmed, comparing validated values (availability as a set, years as numbers, the canonical city, names ignoring case and accents). The yes or no is read in plain code and an unclear reply drops the question.
-- Saves are versioned: a stale chat turn, job or erase can no longer revert another writer's change or re-create an erased candidate (it is refused, and the chat turn answers with the technical-problem message and the next message starts from the current record).
-- Erasure on request overwrites the data (`secure_delete`) and truncates the write-ahead log; a test reads the raw database bytes. (The retention command was removed again, D60.)
-- Recruiter accounts (scrypt hashes, constant-time comparison, no accounts file means no access), a dashboard switch for applications, the review queue, an erase button, and a funnel page.
-- The reminder job and its outbox, which also covers qualified candidates who ignore the slot offer (closing the D48 gap).
-
-**Still open:**
-- The reminder job has to be started by someone (`python -m sazon.reminders --every 600`); nothing supervises it. Its messages sit in the outbox until a real channel (WhatsApp or similar) sends them: the terminal can only show them with `/inbox`.
-- The login is a prototype: no lockout after failed attempts, no password reset beyond the command, and recruiters cannot change their own password.
-- A candidate the agent rejected cannot fix a misunderstanding alone; a recruiter reviews them (D52) but the dashboard has no "reopen the chat" action.
-- The error log (`data/sazon.log`) is not covered by the retention command.
-- The structural findings of the slice 3 review (store size, mixed naive and aware datetimes, repeated checks in the dashboard pages) are still open.
-- The free tier of the model cannot serve the client's volume; a paid tier with a data-processing agreement is needed.
-- The voice agent and CV upload are not built (D58).
-
-## D60: Everything is saved; nothing is erased on a timer (supersedes the retention command of D53)
-
-- **Chosen:** The brief asks to save conversations and extracted data, so every conversation and its data are kept. The `sazon.retention` command and its six-month rule are removed. The only erasure left is the dashboard's "Borrar los datos de este candidato" action, used when a candidate asks (the right to erasure in GDPR and Mexico's law), which really overwrites the data and leaves an anonymous log line. The retention period for the rest (P4) becomes an open question for the client's lawyers.
-- **Options considered:** keep both (a storage limit, but data erased on a timer); remove all erasure (matches the brief literally, but no way to honour a deletion request).
-- **Cons of chosen:** data is kept without an end date until the client sets one.
-- **Decided by:** user, 2026-10-25.
-
-## D61: Architecture review round and its fixes
-
-- **Chosen:** Four reviewers plus a scenario replay checked the whole product; the user chose "review, then fix what it finds". Fixed, each with a test written first: forms starting from the chosen candidate, typed input errors, escaped names, stop wording honoured in every state, no false "changed" notice, pending questions cleared on withdrawal; the version checked under the write lock, databases from the first release opening (tables, then columns, then indexes), a message from an unknown or erased id starting with the disclosure, no booking under an erased id, the log checkpoint result recorded, a turn that loses a race run once more, the reminder job re-checking activity and isolating errors, a message queued for a candidate whose booked call a recruiter cancels; accounts (a damaged file is never overwritten, atomic writes, scrypt 2^16, five failures lock a name for ten minutes), paths anchored to the project, name (100) and city (80) length caps, `.gitignore` for secrets files.
-- **Cons / still open:** the login throttle lives in the dashboard process memory; `screening.py` and `store.py` are still large (split proposed, not done); the dashboard loads every candidate on each rerun; naive and aware datetimes are still mixed; the fixed texts promise a recruiter review and a 48-hour reply that nothing enforces (legal review).
-- **Decided by:** user (review requested 2026-10-25); fixes by the agent.
-
-## D62: Split the two big modules and speed up the dashboard
-
-- **Chosen:** (user, "split plus dashboard speed-up") No behaviour change in the split: `screening.py` keeps the rules and precedence and hands the change confirmation (`screening_changes`), the slot offer (`screening_slots`) and its pure helpers (`screening_values`) to smaller files; `store.py` keeps the turn, erase, recruiter and read methods while the layout and upgrades (`store_schema`), the record types and errors (`store_types`) and the call slots (`store_slots`) moved out. Every import that worked before still works. Speed: database triggers keep a change counter (`Store.revision()`), the dashboard caches the candidate list and reads it again only when the counter moved, and the candidate table shows 50 rows per page.
-- **Options considered:** split only (no speed-up); skip the refactor.
-- **Cons:** the pieces of `Screening` are mixins that share its attributes, so they are not independent classes; the precedence rules still live in `Screening`. The cache is per dashboard process; the funnel and KPIs still read every candidate when the data changes.
-- **Decided by:** user, 2026-10-26.
-
-## D63: Make the product reusable for another client (review of 2026-10-26)
-
-- **Chosen:** (user) Build review candidates 1-5: one screening spec per client written as Python dataclasses (fields, questions, labels, limits, qualification rules with their texts), copy and language packs plus one region config passed down (no global config reads), screening state with one owner instead of mixins, and guards against silent failures. Candidate 6 (a Store interface) is left out. Proof of reuse: a small second spec in the tests, run through the real engine. The package split into a generic engine and a client folder comes last, as a mechanical commit. Pure refactor first: Sazón's texts, the extraction prompt and schema, the consent hash and saved state keep their exact values, guarded by characterization tests.
-- **Options considered:** YAML/JSON spec (two places per client because rules need code); split the package first (big diff up front); keep one package (less reusable); a real second example client (more to maintain); all six candidates.
-- **Cons:** reopens part of D62 (the mixins); a spec adds a layer to read; behaviour that only Sazón needs (city and area matching, licence parsing) stays as hook functions rather than becoming spec features.
-- **Decided by:** user, 2026-10-26.
-
-## D64: How the reuse refactor ended (closes D63)
-
-- **Built:** a `ScreeningSpec` (fields with their validators, readers, wording, recruiter labels; rules that end a screening), a `Pack` (all fixed candidate text) and a `Client` (service areas, optional `SlotCalendar`, reminder clock) replace the Sazón values that were spread over about nine files. An incomplete spec or client fails when built and lists every problem. The engine lives in `screener/`, Grupo Sazón in `sazon/`; a boundary test fails on any client import or client word in the engine. A second toy client (English only, no areas; and a UK one that books calls) runs a whole conversation in the tests. Saved states, prompts, schema, fixed texts and the consent hash are unchanged (golden test).
-- **Differs from the review card:** candidate 4 was drawn as a state dataclass plus collaborator objects. What was built is a declared list of saved fields (`screening_state.STATE_FIELDS`, each attribute written once), a pure `propose_change` function, and the slot-offer methods folded back into `Screening`, because the saved JSON keys are flat and must not change. The precedence rules (what to ask or confirm first) still live in `Screening`.
-- **Declined, with reason:** a `Store` interface (one adapter, SQLite is part of the design); `models()` on the model protocol (it is only called by the command that builds the Gemini client).
-- **Still client-specific or open:** the dashboard page text in `app_pages/` is Spanish; the yes, stop and numbered-choice word lists, the weekday and month names and the `"es" or "en"` line of the extraction prompt are Spanish and English only, so a third language needs engine edits; the filler examples in the extraction prompt are Spanish; "48 horas" is three literals in Sazón's pack (one number would help the lawyers); `confirms_city` is the name of the area-confirmation flag in the model's reply.
-- **Decided by:** user (scope D63); agent (details).
-
-## D65: The four known leftovers (D61, D62), closed
-
-- **Chosen:** (user, "item 4 leftovers only") (1) The login lockout is kept in a `.failures` file beside the accounts file, so a restart or a second process does not clear it; a damaged file counts as empty. (2) The funnel and the key numbers are counted by SQL (`Store.funnel_counts`, `Store.kpi_counts`) and no longer load every candidate; the candidate table still loads the cached list to filter and search it. (3) Every stored time is naive local time: `stamp()` converts what it is given and `parse_stamp()` converts old rows written with a zone. (4) What the agent says first when several things wait is a plain function with its own table test (`screening_precedence.py`); the order of the checks inside `apply` (stop, facts, notices) still lives in `Screening`.
-- **Options considered:** a database for the lockout (heavier than a file for a prototype); keeping the Python funnel on a cached list (still reads everything when data changes); storing aware UTC times (needs a migration of old rows).
-- **Cons / still open:** the lockout file is per accounts file, not shared between machines; the table still reads every candidate for search; the legal wording items and the voice agent, CV upload and presentation are not done.
-- **Decided by:** user, 2026-10-26.
-
-## D66: Dashboard in two languages, a redesign, and a browser chat to try the agent
-
-- **Chosen:** (user, after a grill) (1) Every word the dashboard shows is in a text pack (`sazon/ui_pack.py`, built by the engine's `UiPack`) with a Spanish and an English entry per key; a pack with a missing language or different placeholders fails to build, and a test fails if a page holds any visible text instead of a key. A switch on the login screen and in the sidebar picks the language and survives signing out. (2) The recruiter-facing texts of the screening (field labels, card lines, reasons, funnel labels) exist per language in the spec; a spec lacking a language fails to build. The card on screen is rebuilt from the saved state in the chosen language (`summary.card_for`); the card saved with the candidate stays the Spanish audit snapshot, and a rebuilt Spanish card equals it (tested). (3) Redesign: candidate table beside a detail panel with row selection (the list below it still works), colored status badges, bordered metric cards, a funnel bar chart with a table view. (4) `chat_app.py`: a Streamlit chat that runs the engine's own turn code with the real model against a demo database (`SAZON_DEMO_DB`, `data/demo.db`), never `SAZON_DB`; no login, local use; an inspector shows the validated data, outcome, recruiter card, booked call and queued messages (read by `screener.inspector`); buttons for a new candidate, 24 hours of silence and delivering queued messages.
-- **Options considered:** following each candidate's language in the table; storing a card per language; a plain-chat-only demo; making the chat the real candidate channel (needs hosting, abuse protection and legal review first); a theme file (not chosen).
-- **Cons / still open:** the `ui_language` switch changes the screens only (the agent follows the candidate's language); a third screen language needs a pack entry, a recruiter-texts entry and the engine word lists; the dashboard's Call times page needs a client with a calendar; the chat app has no login, so it must not be exposed on a network; the free model tier can rate-limit (the screen says so).
-- **Decided by:** user (scope), agent (details).
-
-## D67: The chat language follows the candidate's words, and "days a week" is part-time
-
-- **Found by trying the chat app (user):** "2 days a week" was read as weekends, and a bare "Madrid" switched the chat to Spanish and a later English answer did not switch it back, because the model's `language` guess was trusted for any message.
-- **Chosen:** the chat language is decided in code (`screener/language_hint.py`): the language whose everyday words appear in the message wins; a name, a place or a number changes nothing; a longer message with no known word follows the model's guess; a tie keeps the current language. The extraction prompt now says `language` is null for a name, a place, a number or one word, and that a number of days or hours a week below a full job is `part_time` and `weekends` needs weekends, Saturday or Sunday. Offline tests pin the word rule and the prompt; real-model tests (marked live) check "2 days a week" in three phrasings and the three bare names.
-- **Cons / still open:** the word lists cover Spanish and English only (a third language needs its own list); a message written wholly in names or numbers cannot show a language; the free-text availability is still mapped to three options, so "3 days" and "4 days" are both part-time.
-- **Decided by:** agent, from the user's report.
-
-## D68: Three more fixes from trying the chat app
-
-- **Found by the user:** (1) a plain "yes" to the experience question was sometimes saved as 0 years (the real model wrote 0 about 3 times in 30); (2) "2 years uber" was saved as "other"; (3) the chat screen's own text ("El asistente está escribiendo") stayed Spanish while the candidate wrote English.
-- **Chosen:** (1) the reply shape has a separate `no_experience` flag; a zero years without it is ignored, so zero years needs the candidate to say they have none, and the prompt says a plain yes is not a number; real-model tests cover four ways of saying yes and three of saying none. (2) Common ways of writing a platform (Uber, UberEats, Uber-Eats, JustEat, Glovo App, DiDi) are recognised before the unknown ones become "other" (unknown platforms stay "other" on purpose: free text is not stored). (3) The candidate's side of the chat app (input hint, "typing" text, error) follows the language the candidate writes in; the operator's side (buttons, notice, inspector) follows the language switch.
-- **Cons / still open:** the platform aliases are a short list; the model can still invent other values, which the validators catch.
-- **Decided by:** agent, from the user's report.
-
-## D69: The agent words its messages itself, in a written voice (changes D13-style fixed phrasing)
-
-- **Asked by the user:** "I don't like a list of phrases for it to say: define a personality and the things it must collect and let the AI speak more freely." After options, the user chose: a persona and goals, with fixed text only where it must be exact.
-- **Chosen:** the spec has a `persona` (tone, length, form of address) that goes into the model's instructions with the engine's safety rules (no promises of a job, pay or times, no facts it was not given, one question, no greeting). The model now words the questions, follow-ups, place confirmations, change questions, rejection confirmations and the "cannot continue" message, given the last six messages of the conversation (only after consent, and never on the turn that answers the consent question) inside <conversation> tags as data. Every model message is checked: length, one question, language, no pay or time, and it must keep the facts (the place; both the old and the new answer of a change); a failed check, an unreachable model or a missing key sends the fixed text instead. Still fixed word for word: the disclosure and consent, every closing message, the call offers and bookings, the reminders (sent without a model), the technical-error line, and all notices (a person, pay, change made, answer kept, off-topic), which report what the code did; the model is told the notice was already said and a repeat is cut.
-- **Replaces:** the tests that said the candidate's text never reaches the phrasing prompt. It does now, only as conversation data after consent, and a test shows a model that obeys an injection is not believed (its message fails the checks and the fixed question is sent). Recruiters still decide; the model's wording cannot change what is collected, who qualifies or any outcome.
-- **Cons / still open:** more model calls per candidate message are not needed (the same call words the message), but the prompt is longer; wording is less predictable, so the legal review should look at a sample of real conversations, not only the fixed texts; the free tier can still rate-limit.
-- **Decided by:** user (voice), agent (details).
+The settled design and technology choices for the Grupo Sazón screening agent, D1 to D69. Each entry states what is true **now**; a chain of revisions is merged into one entry and lists the numbers it replaces. Before acting against an entry, say so and confirm with the user. Add a short entry when a decision is made.
+
+The full log, with every option considered and its pros and cons, is in git: `git show 4706568^:DECISIONS.md`.
+All entries were decided by the user (2026-10-25 to 2026-10-27) unless marked *agent* (a fix or detail inside a decision the user had made).
+
+## 1. How the conversation works
+
+- **D5, D6, D27: flow.** The candidate may answer several things in one message; the agent asks only what is missing, in a friendly order (name, experience, availability, schedule, start date, city, license). A disqualifier that is already known (no license, outside the area) ends the chat at once instead of at the end, which protects recruiter time.
+- **D40: confirm before rejecting.** A "no license" or out-of-area answer first gets one confirmation question; only a confirming reply ends the chat. Reason: the real model read "no tengo coche" as "no license", and one misread must never reject anyone.
+- **D16, D17, D28, D41: unclear answers.** Every field is asked again with an explanation of what is needed. After 5 follow-ups the agent says it cannot continue until the candidate provides it, and repeats that: outcome `BLOCKED` (reason `BLOCKED_ON_<FIELD>`), cleared when the field is given. Model failures never count (D39). *(Replaces the cap of 3, the uncapped license and city, and NEEDS_REVIEW.)*
+- **D19, D68: experience.** Years and platform are recorded and never disqualify. Zero years needs the candidate to say they have none (a separate `no_experience` flag); a plain "yes" is not a number. Common spellings of the known platforms are recognised; unknown ones are stored as "other" on purpose (no free text).
+- **D26: field rules.** Name: two or more words of letters, hyphens, apostrophes. Start date: more than 12 weeks away is flagged, never rejected. Availability: "N days a week" below a full job is part-time; weekends needs weekends, Saturday or Sunday (D67).
+- **D54: a changed answer** is confirmed ("Antes me dijiste X. ¿Lo cambio a Y?") and changed only on a yes, read in plain code.
+- **D55: off-topic.** A fixed redirect and the same question; the third off-topic message in total (not in a row; hesitation like "mmm" does not count) ends the chat with a farewell about the messages, never about the person. Final until a recruiter acts.
+- **D14, D50: asking for a person or about pay.** Not a strike. A fixed sentence says a recruiter reviews and will answer, then the next question; an event is logged. The agent does not hand over to a person itself.
+- **D29, D56: stopping and coming back.** Stop wording ("stop", "para", "me retiro") is read in plain code and closes the chat as `WITHDRAWN`. While applications are open a candidate can come back: after silence or being blocked, after withdrawing ("continuar"), or after declining consent (a later "sí"). It stays closed after qualifying, after a rejection by the agent and after the off-topic exit. A dashboard switch closes applications for everyone.
+- **D9, D52: disqualified path.** A polite close with a reason code ("I can't continue with the automated process; a recruiter can review your case"). Every such candidate is in the dashboard's review queue until a recruiter sets a status, so a human can overrule.
+- **D7, D8, D36, D48: qualified path and call slots.** Recruiters add call times per country on the dashboard. A qualified candidate is offered the next three free times of their own country as a numbered list (clock time of that country, at least a few hours away). The pick is read in plain code; a booking is atomic, one per candidate, and a recruiter's cancellation queues a message. No free time, or "none", gives the 48-hour message.
+- **D10, D35, D38, D58: silence.** One reminder after 24 hours; after 24 more, `STALLED`; any reply resets it. A reminder job (`python -m sazon.reminders`) queues the messages in an outbox for a real channel; it also covers qualified candidates who ignore the offer.
+- **D11, D67: language.** The chat mirrors the candidate's language. It is decided in code from the words written (`screener/language_hint.py`): a name, a place or a number changes nothing; the model's own guess is only used when no known word can check a long message.
+- **D13: service areas.** A sample list (Madrid, Barcelona, Valencia, Ciudad de México, Guadalajara, Monterrey, with nearby towns) in one place; the client's real list is still needed.
+
+## 2. What the agent says
+
+- **D22, D45: the engine.** A pure-Python state machine (`Screening`) owns the fields, the decision and every message rule; the model only extracts fields and words messages. Reason: rules are unit-testable offline and candidate text can never change a decision.
+- **D31, D39: extraction.** One JSON call per message, validated by a Pydantic model whose shape and prompt come from the client's spec. Candidate text is passed as delimited data. Unparseable output is retried once; a failure shows a fixed apology, is logged without candidate data and never costs the candidate a follow-up.
+- **D15, D18, D30, D34, D37, D69: wording.** The client writes a persona (tone, length, form of address; Spanish uses "tú"). The model words the questions, follow-ups, place confirmations, change questions, rejection confirmations and the "cannot continue" message, one to two short sentences, given the recent conversation (only after consent, never on the turn that answers the consent question) as data. Every model message is checked (length, one question, language, no pay, job or time, and it must keep the facts it was given); a failed check or an unreachable model sends the fixed text. **Fixed word for word:** the AI disclosure and consent, every closing, the call offers and bookings, the reminders, the error line and all notices (a person, pay, change made, answer kept, off-topic). The model is told a notice was already said.
+- **D44: consent is read in plain code.** A conservative Spanish and English word list reads the answer: short clear agreement is yes, a short explicit refusal closes the chat, anything else asks again. Nothing the candidate writes reaches the model before a yes.
+- **D46, D66: the recruiter card.** Built by code from the validated data, never repeating the candidate's words or saying anything about the person. It is saved in Spanish with every turn (the audit snapshot) and rebuilt for the screen in the language the recruiter picked.
+
+## 3. Privacy, consent and oversight
+
+- **D12, D34, D51: disclosure and consent.** The first message is fixed, Spanish line then English line: it says the candidate is talking to an AI, that answers are processed by an external AI service and always reviewed by a recruiter, and asks consent to store them. Nothing is asked before a yes. The consent event stores a hash of the exact wording shown. Still a draft until the client's lawyers approve it.
+- **D42: recruiter data is separate.** The agent owns outcome, reasons, flags, validated data, card and transcript. Recruiters own a status (`new`, `contacted`, `interview_scheduled`, `hired`, `rejected`, `unreachable`), an assignee and append-only notes, and may set any status on any candidate, so a human can overrule the agent. Every action is an audit event with its actor.
+- **D53, D60: erasure and retention.** Every conversation and its data are saved and kept. The dashboard's erase action (with confirmation) overwrites a candidate's data, truncates the log and leaves an anonymous line; it is for a candidate's request. There is no automatic deletion. How long to keep the rest is a question for the client's lawyers.
+- **D57, D65: recruiter accounts.** One account per recruiter, scrypt-hashed in a git-ignored file (`python -m sazon.accounts add NAME`); five wrong passwords lock a name for ten minutes, kept in a file so a restart does not clear it. A prototype: a real deployment needs the company's single sign-on.
+- **D43: errors.** An unexpected error never ends the chat or shows technical text; the error with its stack trace (never the candidate's messages) goes to `data/sazon.log` with an id.
+- **D33: free-tier data.** Free Gemini prompts may be used by Google to improve its products: use fictional candidates only until a paid or EU-compliant tier is chosen.
+
+## 4. Technology
+
+- **D1, D66: channel.** Terminal chat first (`python -m sazon.chat`); a browser chat to try the agent (`apps/chat_app.py`) saves to a separate demo database and is local only. A real channel (WhatsApp or similar) comes later.
+- **D2, D23, D33: model.** Gemini free tier through the OpenAI SDK against Gemini's compatible endpoint, a thin client behind an interface so tests use a fake. Model name from `LLM_MODEL` in `.env`.
+- **D3: storage.** SQLite (versioned saves under a write lock, a change counter for the dashboard cache).
+- **D4, D47, D66: recruiter tool.** A local Streamlit dashboard (`apps/dashboard.py`): candidate table beside a detail panel with row selection, colored status badges, metric cards, a funnel chart, a call-times page, the applications switch and the review queue. Every word is in a Spanish/English text pack with a language switch.
+- **D20, D58: bonuses.** Funnel analytics and the reminder job are built. The voice agent (ElevenLabs) and CV upload are not; CV upload is not recommended (new personal data, more AI Act duties).
+- **D21, D24, D25: process.** The Phase 1 design is Markdown in the repo; work is built in slices (domain core, extraction and chat, summary and dashboard) on branches from `main`.
+
+## 5. Code structure
+
+- **D62, D63, D64: engine and client.** `screener/` is the reusable engine and never imports or names a client; `sazon/` is Grupo Sazón. A client is a `ScreeningSpec` (fields, rules, wording, recruiter labels, persona), a `Pack` (fixed texts), a `Client` (service areas, optional call calendar, reminder clock) and its entry points. An incomplete spec or client fails when built. `tests/support/toy_spec.py` is a second client run through the real engine; `tests/engine/test_engine_boundary.py` fails if the engine leaks. Saved states, prompts, fixed texts and the consent hash are pinned by a golden test.
+- **D63 differs from its review card:** screening state is a declared list of saved fields and a pure change-proposal function (not a state object with collaborators); the precedence of "what to say first" is a pure function, while the order of checks inside `apply` still lives in `Screening`. A `Store` interface was declined (one adapter).
+- **D65: leftovers closed.** Funnel and key numbers counted in SQL; every stored time is naive local time; the login lockout is kept in a file.
+- **D66: dashboard and chat app.** Text packs with a completeness check, per-language recruiter texts in the spec, the card rebuilt on screen, the redesign, and the browser chat with a live inspector.
+- **D69: free wording** is described in section 2; it replaced the tests that said candidate text never reaches the wording prompt (it does now, only as data after consent, and a model that obeys an injection is not believed).
+
+## 6. Reviews and what they fixed
+
+- **D49, D50, D61:** three review rounds, each fix with a test written first. Notable: opt-out never depends on the model; greetings and hesitation are not answers or strikes; injection hardening (data tags removed, 2000-character cap, model text rejected if it mentions pay, a hire or a time); versioned saves and race handling; erasure that really overwrites; accounts safety and login throttle; ids never reused; one database for chat and dashboard.
+- **D59:** erasure, return rules, versioned saves, accounts, the applications switch, review queue, funnel and reminder job were built and checked on the real model.
+- **D67, D68:** found by trying the chat app: the language flip on a bare place name, "days a week" read as weekends, a plain "yes" saved as zero years, "uber" saved as "other", and screen text in the wrong language. Real-model tests (`pytest -m live`) pin them.
+
+## 7. Open items
+
+**For the client or its lawyers**
+- The real service areas (D13).
+- Legal review of the consent and farewell wording, and of promises nothing enforces: "a recruiter always reviews", "we reply within 48 hours" ("48 horas" is three literals in the pack).
+- How long data may be kept (D60); approved answers about pay.
+- Single sign-on instead of the prototype login; a paid model tier with a data-processing agreement (the free tier cannot serve about 1000 applications a week).
+
+**Product**
+- A candidate the agent rejected cannot reopen the chat themselves, and the dashboard has no "reopen" action.
+- The reminder job must be started by someone and its messages wait for a real channel.
+- The voice agent, CV upload and the presentation (the format is not decided).
+- The chat app has no login and must not be exposed on a network.
+
+**Technical**
+- The candidate table still loads every candidate to filter and search it.
+- A third language needs engine edits (word lists, day and month names, the language line of the extraction prompt) and the extraction prompt's filler examples are Spanish.
+- The error log is not covered by any retention rule.
+- The wording of model-written messages is less predictable: a legal review should read sample conversations, not only the fixed texts.

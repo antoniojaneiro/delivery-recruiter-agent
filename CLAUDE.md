@@ -1,13 +1,13 @@
 # CLAUDE.md
 
-Guidance for Claude Code in this repo. The assignment itself is in [TASK.md](TASK.md). Read it first.
+Guidance for Claude Code in this repo. The assignment itself is in [docs/TASK.md](docs/TASK.md). Read it first.
 
 ## What we're building
 
 A candidate screening agent for Grupo Sazón (fictional): a restaurant chain hiring delivery drivers across Spain and Mexico. The deliverables are:
 
-1. **Phase 1:** a 1-2 page process design. Draft in [PHASE1_PROCESS_DESIGN.md](PHASE1_PROCESS_DESIGN.md). Its decisions are logged in [DECISIONS.md](DECISIONS.md).
-2. **Phase 2:** a Python conversational agent that screens candidates, plus a recruiter tool to track candidates. Built and reviewed (D51-D61); open items are in D59 and D61.
+1. **Phase 1:** a 1-2 page process design, [docs/PHASE1_PROCESS_DESIGN.md](docs/PHASE1_PROCESS_DESIGN.md), kept in line with the built agent. Its decisions are logged in [docs/DECISIONS.md](docs/DECISIONS.md).
+2. **Phase 2:** a Python conversational agent that screens candidates, plus a recruiter tool to track candidates and a browser chat to try the agent. Built and reviewed; open items are the last section of `docs/DECISIONS.md`.
 3. **Bonus:** a browser voice agent that runs the same flow.
 
 ## Workflow (always follow, in this order)
@@ -29,7 +29,7 @@ A candidate screening agent for Grupo Sazón (fictional): a restaurant chain hir
 
 ## Decisions
 
-All settled design and tech choices are logged in [DECISIONS.md](DECISIONS.md), with options, pros and cons. Before acting against an entry, say so and confirm with the user. Add new entries as decisions are made.
+All settled design and tech choices are logged in [docs/DECISIONS.md](docs/DECISIONS.md) (compact: what is true now; the full history with options is in git). Before acting against an entry, say so and confirm with the user. Add new entries as decisions are made.
 
 ## Stack and decisions
 
@@ -38,10 +38,12 @@ All settled design and tech choices are logged in [DECISIONS.md](DECISIONS.md), 
 - **LLM:** Gemini free tier, through the course wrapper at `C:/Users/AJ/agent_engineering/Agentic-AI-Course/00-setup/course_llm.py` (D2).
 - **Storage:** SQLite (D3).
 - **Code layout (D63):** `screener/` is the engine and must never import or name a client; `sazon/` is Grupo Sazón as a
-  client (spec, wording, areas, Spanish dashboard labels, the commands). `tests/toy_spec.py` is a second client used by
-  the tests, and `tests/test_engine_boundary.py` fails if the engine leaks. Put anything reusable in the engine.
+  client (spec, fixed texts, text packs, areas, the commands, `demo/`). `apps/` holds the Streamlit apps (`dashboard.py`,
+  `chat_app.py`, `views/`), `docs/` the documents, `data/` the git-ignored runtime files (`data/demo/` for everything the
+  demos write). Tests: `tests/engine`, `tests/client`, `tests/apps`, `tests/live`, helpers and a second client in
+  `tests/support`. `tests/engine/test_engine_boundary.py` fails if the engine leaks. Put anything reusable in the engine.
 - **Voice:** ElevenLabs is the suggested option (see the `agents` skill).
-- **Recruiter UI:** Streamlit dashboard, run locally (D4). The course capstone uses Streamlit too, and the `developing-with-streamlit` skill covers it.
+- **Recruiter UI:** Streamlit dashboard (`streamlit run apps/dashboard.py`), run locally (D4). The course capstone uses Streamlit too, and the `developing-with-streamlit` skill covers it.
 
 ## Hard constraints (from the domain)
 
