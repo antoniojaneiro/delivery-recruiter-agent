@@ -273,7 +273,11 @@ class Screening:
                 unclear = (field, result.reason)
 
         if self.awaiting_confirmation and ex.confirms_city is not None:
-            note(self.spec.area_field, self.confirm_area(ex.confirms_city))
+            area = self.spec.field(self.spec.area_field)
+            if ex.confirms_city is False and area.read(ex, today, None) is not _MISSING:
+                self._pending_area = None  # "no, Barcelona": the new place below replaces the suggestion, no follow-up
+            else:
+                note(self.spec.area_field, self.confirm_area(ex.confirms_city))
         if self.awaiting_rejection and ex.confirms_rejection is not None:
             note(self.awaiting_rejection, self.confirm_rejection(ex.confirms_rejection))
         for field in self.spec.keys:
