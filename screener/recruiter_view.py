@@ -1,11 +1,16 @@
-"""What the recruiter dashboard decides, as plain functions so they are testable without Streamlit (D63).
-The words the dashboard shows belong to the client; this module only filters, pages and counts."""
+"""What the recruiter dashboard decides and shows, as plain code so it is testable without Streamlit (D63, D70):
+filtering, paging, and a `RecruiterView` that gives every screen its labels, cards and rows for one client and
+language. The words themselves belong to the client (its text pack and its spec)."""
 import re
 
+from screener.language import plain
+from screener.model import Language, Outcome, RecruiterStatus
+from screener.phrasing import slot_label
 from screener.recruiter_rules import NEEDS_REVIEW
 from screener.spec import ScreeningSpec
-from screener.store import Record
-from screener.language import plain
+from screener.store import Booking, Record, Slot
+from screener.summary import card_for
+from screener.ui_texts import UiPack, UiTextError
 
 PAGE_SIZE = 50
 
@@ -38,3 +43,104 @@ def filter_records(records: list[Record], outcomes: list[str], statuses: list[st
             and (not outcomes or r.outcome in outcomes)
             and (not statuses or r.status in statuses)
             and matches(r, search, spec)]
+
+
+# Badge colors follow the meaning: green good, red an agent rejection, orange something stuck, blue open, gray over.
+BADGE_COLORS = {"red", "orange", "yellow", "blue", "green", "violet", "gray", "primary"}
+OUTCOME_COLOR = {
+    Outcome.IN_PROGRESS: "blue", Outcome.QUALIFIED: "green", Outcome.DISQUALIFIED: "red",
+    Outcome.BLOCKED: "orange", Outcome.STALLED: "gray", Outcome.ENDED_OFF_TOPIC: "red", Outcome.WITHDRAWN: "gray",
+}
+STATUS_COLOR = {
+    RecruiterStatus.NEW: "blue", RecruiterStatus.CONTACTED: "violet", RecruiterStatus.INTERVIEW_SCHEDULED: "orange",
+    RecruiterStatus.HIRED: "green", RecruiterStatus.REJECTED: "red", RecruiterStatus.UNREACHABLE: "gray",
+}
+
+# The keys of the client's text pack that the recruiter screens use (a missing one is refused when the view is built).
+REQUIRED_TEXT_KEYS = (
+    "col.id", "col.name", "col.city", "col.agent", "col.recruiter", "col.assigned", "col.call", "col.updated",
+    "slot.booked", "slot.too_close", "slot.free", "slot.no_name", "error.gone", "error.generic",
+    *(f"status.{status.value}" for status in RecruiterStatus),
+)
+
+
+class RecruiterView:
+    """What the recruiter screens show for one client in one language. The screens ask it for every label, card and
+    row, so nothing on a screen picks a language or a client by itself."""
+
+    def __init__(self, client, pack: UiPack, language: Language | None = None):
+        missing = [key for key in REQUIRED_TEXT_KEYS if key not in pack.texts]
+        if missing:
+            raise UiTextError("the text pack lacks " + ", ".join(missing))
+        self.client, self.pack = client, pack
+        self.language = language or pack.languages[0]
+
+    def text(self, key: str, **values) -> str:
+        return self.pack.get(key, self.language, **values)
+
+    def status_label(self, status) -> str:
+        return self.text(f"status.{RecruiterStatus(status).value}")
+
+    def outcome_label(self, outcome) -> str:
+        return self.client.spec.recruiter_texts(self.language).outcome_labels.get(outcome, str(outcome or ""))
+
+    def country_label(self, country: str) -> str:
+        key = f"country.{country}"
+        return self.text(key) if key in self.pack.texts else country
+
+    def no_name(self) -> str:
+        return self.text("slot.no_name")
+
+    def name_of(self, record: Record) -> str:
+        return record.extracted.get(self.client.spec.title_field) or self.no_name()
+
+    def card(self, record: Record) -> str:
+        """The summary card in this language, rebuilt from the saved state (the saved one is the audit snapshot)."""
+        return card_for(record, self.client, self.language)
+
+    def call_label(self, booking: Booking | None) -> str:
+        if booking is None:
+            return ""
+        return f"{slot_label(booking.starts_at, self.language)} ({self.country_label(booking.country)})"
+
+    def slot_state(self, slot: Slot, booked_name: str | None, now) -> str:
+        """Free, booked, or free but too close to be offered or booked."""
+        if slot.candidate_id:
+            return self.text("slot.booked", name=booked_name or self.no_name(), id=slot.candidate_id)
+        calendar = self.client.calendar
+        if not calendar.has_enough_notice(slot.country, slot.starts_at, now):
+            return self.text("slot.too_close", hours=int(calendar.min_notice.total_seconds() // 3600))
+        return self.text("slot.free")
+
+    def explain_error(self, error: Exception) -> str:
+        """The message for a refused input, chosen by its code and never by the English text of the error."""
+        if isinstance(error, LookupError):
+            return self.text("error.gone")
+        key = f"error.{getattr(error, 'code', '')}"
+        return self.text(key if key in self.pack.texts else "error.generic")
+
+    def table_rows(self, records: list[Record]) -> list[dict]:
+        spec = self.client.spec
+        return [{
+            self.text("col.id"): r.candidate_id,
+            self.text("col.name"): self.name_of(r),
+            self.text("col.city"): r.extracted.get(spec.area_field) or "",
+            self.text("col.agent"): self.outcome_label(r.outcome),
+            self.text("col.recruiter"): self.status_label(r.status),
+            self.text("col.assigned"): r.assignee or "",
+            self.text("col.call"): self.call_label(r.booking),
+            self.text("col.updated"): r.updated_at.strftime("%Y-%m-%d %H:%M"),
+        } for r in records]
+
+    def badge_columns(self) -> dict[str, tuple[list[str], list[str]]]:
+        """For the table's two status columns: every label a cell can hold and its badge color, in the same order."""
+        return {
+            self.text("col.agent"): ([self.outcome_label(o) for o in Outcome], [OUTCOME_COLOR[o] for o in Outcome]),
+            self.text("col.recruiter"): ([self.status_label(s) for s in RecruiterStatus],
+                                         [STATUS_COLOR[s] for s in RecruiterStatus]),
+        }
+
+    def badge_rows(self, rows: list[dict]) -> list[dict]:
+        """The same rows with the status cells as one-item lists, which is what a badge column shows."""
+        columns = self.badge_columns()
+        return [{key: [value] if key in columns and value else value for key, value in row.items()} for row in rows]

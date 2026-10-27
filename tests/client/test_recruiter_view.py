@@ -6,8 +6,9 @@ import pytest
 from sazon.client import SAZON_CALENDAR
 from sazon.spec import SAZON
 from screener.model import RecruiterStatus
-from screener.recruiter_view import filter_records, matches
-from sazon.recruiter_view import OUTCOME_LABEL, STATUS_LABEL, table_rows
+from screener.model import Outcome
+from screener.recruiter_view import BADGE_COLORS, OUTCOME_COLOR, STATUS_COLOR, filter_records, matches
+from sazon.recruiter_view import view_for
 from screener.store import Store
 
 T1 = datetime(2026, 10, 25, 10, 0)
@@ -36,13 +37,14 @@ def ids(records):
 
 
 def test_every_outcome_and_status_has_a_spanish_label():
-    from screener.model import Outcome
-    assert set(OUTCOME_LABEL) == set(Outcome) and set(STATUS_LABEL) == set(RecruiterStatus)
-    assert OUTCOME_LABEL["QUALIFIED"] == "Cualificado" and STATUS_LABEL["interview_scheduled"] == "Entrevista programada"
+    view = view_for("es")
+    assert [view.outcome_label(o) for o in Outcome] and all(view.status_label(s) for s in RecruiterStatus)
+    assert view.outcome_label("QUALIFIED") == "Cualificado" and view.status_label("interview_scheduled") == "Entrevista programada"
+    assert view_for("en").outcome_label("QUALIFIED") == "Qualified"
 
 
 def test_the_table_has_one_row_per_candidate_with_spanish_columns(store):
-    rows = table_rows(store.list_candidates())
+    rows = view_for("es").table_rows(store.list_candidates())
     row = next(r for r in rows if r["Id"] == "c2")
     assert row["Nombre"] == "María García-López" and row["Ciudad"] == "Guadalajara"
     assert row["Agente"] == "Cualificado" and row["Reclutador"] == "Contactado"
@@ -50,7 +52,7 @@ def test_the_table_has_one_row_per_candidate_with_spanish_columns(store):
 
 
 def test_a_candidate_without_a_name_is_still_listed(store):
-    row = next(r for r in table_rows(store.list_candidates()) if r["Id"] == "c4")
+    row = next(r for r in view_for("es").table_rows(store.list_candidates()) if r["Id"] == "c4")
     assert row["Nombre"] == "(sin nombre)" and row["Agente"] == "Bloqueado"
 
 
@@ -77,30 +79,30 @@ def test_the_key_numbers_count_what_a_recruiter_must_act_on(store):
 
 
 def test_a_booked_call_shows_in_the_table_and_leaves_the_to_contact_number(store):
-    from sazon.recruiter_view import call_label
+    view = view_for("es")
     store.commit_turn("c1", T1, {}, {"name": "Juan Pérez"}, "QUALIFIED", [], [])
     slot_id = store.add_slot("ES", datetime(2027, 6, 15, 10, 0), "Ana", "Ana", T1.astimezone())
     before = store.kpi_counts()["to_contact"]
     store.book_slot(slot_id, "c1", T1.astimezone())
     records = store.list_candidates()
-    row = next(r for r in table_rows(records) if r["Id"] == "c1")
+    row = next(r for r in view.table_rows(records) if r["Id"] == "c1")
     assert row["Llamada"] == "mar 15 jun, 10:00 (España)"
     assert store.kpi_counts()["to_contact"] == before - 1
-    assert call_label(next(r for r in records if r.candidate_id == "c1").booking) == "mar 15 jun, 10:00 (España)"
-    assert call_label(None) == ""
-    assert next(r for r in table_rows(records) if r["Id"] == "c2")["Llamada"] == ""
+    assert view.call_label(next(r for r in records if r.candidate_id == "c1").booking) == "mar 15 jun, 10:00 (España)"
+    assert view.call_label(None) == ""
+    assert next(r for r in view.table_rows(records) if r["Id"] == "c2")["Llamada"] == ""
 
 
 def test_the_slot_state_says_when_a_free_slot_is_too_close_to_be_offered():
-    from sazon.recruiter_view import slot_state
     from screener.store import Slot
+    slot_state = view_for("es").slot_state
     soon = Slot(1, "ES", datetime(2026, 10, 26, 10, 30), None, None, False)
     later = Slot(2, "ES", datetime(2026, 11, 3, 10, 0), None, None, False)
     taken = Slot(3, "ES", datetime(2026, 11, 3, 11, 0), None, "c1", False)
     now = datetime(2026, 10, 26, 8, 0, tzinfo=timezone.utc)  # a fixed instant, independent of this machine's zone
-    assert slot_state(later, None, now, SAZON_CALENDAR) == "Libre"
-    assert slot_state(soon, None, now, SAZON_CALENDAR) == "Ya no se ofrece (faltan menos de 2 horas)"
-    assert slot_state(taken, "Juan Pérez", now, SAZON_CALENDAR) == "Reservado: Juan Pérez (c1)"
+    assert slot_state(later, None, now) == "Libre"
+    assert slot_state(soon, None, now) == "Ya no se ofrece (faltan menos de 2 horas)"
+    assert slot_state(taken, "Juan Pérez", now) == "Reservado: Juan Pérez (c1)"
 
 
 def test_the_review_queue_holds_agent_rejections_nobody_has_looked_at(store):
@@ -134,19 +136,17 @@ def test_markdown_in_a_name_is_shown_as_text():
 
 def test_the_notice_period_shown_to_recruiters_comes_from_the_one_rule():
     from sazon.client import SAZON_CALENDAR
-    from sazon.recruiter_view import slot_state
     from screener.store import Slot
+    slot_state = view_for("es").slot_state
     soon = Slot(1, "ES", datetime(2026, 10, 26, 10, 30), None, None, False)
     now = datetime(2026, 10, 26, 8, 0, tzinfo=timezone.utc)
     hours = int(SAZON_CALENDAR.min_notice.total_seconds() // 3600)
-    assert f"menos de {hours} horas" in slot_state(soon, None, now, SAZON_CALENDAR)
+    assert f"menos de {hours} horas" in slot_state(soon, None, now)
 
 
 # --- badges (D66) ---------------------------------------------------------------------------------------------
 
 def test_every_outcome_and_status_has_a_badge_color_and_the_colors_tell_good_from_bad():
-    from sazon.recruiter_view import BADGE_COLORS, OUTCOME_COLOR, STATUS_COLOR
-    from screener.model import Outcome
     assert set(OUTCOME_COLOR) == set(Outcome) and set(STATUS_COLOR) == set(RecruiterStatus)
     assert set(OUTCOME_COLOR.values()) | set(STATUS_COLOR.values()) <= BADGE_COLORS
     assert OUTCOME_COLOR[Outcome.QUALIFIED] == "green" and OUTCOME_COLOR[Outcome.DISQUALIFIED] == "red"
@@ -155,11 +155,21 @@ def test_every_outcome_and_status_has_a_badge_color_and_the_colors_tell_good_fro
 
 @pytest.mark.parametrize("language,qualified", [("es", "Cualificado"), ("en", "Qualified")])
 def test_the_badge_columns_list_every_label_with_its_color_in_the_same_order(store, language, qualified):
-    from sazon.recruiter_view import OUTCOME_COLOR, badge_columns, badge_rows, table_rows
-    columns = badge_columns(language)
+    view = view_for(language)
+    columns = view.badge_columns()
     options, colors = columns[next(iter(columns))]
     assert len(options) == len(colors) and qualified in options
     assert colors[options.index(qualified)] == OUTCOME_COLOR["QUALIFIED"]
-    rows = badge_rows(table_rows(store.list_candidates(), language), language)
+    rows = view.badge_rows(view.table_rows(store.list_candidates()))
     first_column = next(iter(columns))
     assert all(isinstance(row[first_column], list) and len(row[first_column]) == 1 for row in rows)
+
+
+def test_a_text_pack_that_lacks_a_text_the_screens_use_is_refused_when_the_view_is_built():
+    from sazon.client import SAZON_CLIENT
+    from screener.model import Language
+    from screener.recruiter_view import RecruiterView
+    from screener.ui_texts import UiPack, UiTextError
+    with pytest.raises(UiTextError) as error:
+        RecruiterView(SAZON_CLIENT, UiPack((Language.ES,), {"col.id": {Language.ES: "Id"}}))
+    assert "status.new" in str(error.value)

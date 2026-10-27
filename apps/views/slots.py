@@ -9,18 +9,18 @@ from sazon.ui import t
 from sazon.client import SAZON_CLIENT
 from screener.phrasing import slot_label
 from screener.recruiter_view import escape_markdown
-from sazon.recruiter_view import country_label, explain_error, name_of, slot_state
 
 store = ui.store()
 recruiter = ui.recruiter_name()
 language = ui.language()
+view = ui.view()
 
 st.title(t("slots.title"))
 st.caption(t("slots.caption"))
 
 with st.form("slot_form"):
     countries = list(store.calendar.timezones)
-    country = st.selectbox(t("slots.country"), countries, format_func=lambda code: country_label(code, language),
+    country = st.selectbox(t("slots.country"), countries, format_func=lambda code: view.country_label(code),
                            key="slot_country")
     day = st.date_input(t("slots.day"), key="slot_date")
     hour = st.time_input(t("slots.hour"), value=time(10, 0), step=900, key="slot_time")
@@ -33,7 +33,7 @@ if save:
             raise ValueError(t("common.need_name"))
         store.add_slot(country, datetime.combine(day, hour), caller, recruiter, datetime.now().astimezone())
     except (ValueError, LookupError) as error:
-        st.error(explain_error(error, language))
+        st.error(view.explain_error(error))
     else:
         st.success(t("slots.added"))
 
@@ -43,7 +43,7 @@ slots = store.slots(now)
 if slots:
     def describe(slot_id: int) -> str:
         slot = next(s for s in slots if s.id == slot_id)
-        return f"{country_label(slot.country, language)} · {slot_label(slot.starts_at, language)}"
+        return f"{view.country_label(slot.country)} · {slot_label(slot.starts_at, language)}"
 
     with st.container(horizontal=True, vertical_alignment="bottom"):
         to_cancel = st.selectbox(t("slots.cancel_pick"), [s.id for s in slots], format_func=describe,
@@ -56,11 +56,11 @@ if slots:
             try:
                 booked_by = store.cancel_slot(to_cancel, recruiter, now)
             except (ValueError, LookupError) as error:
-                st.error(explain_error(error, language))
+                st.error(view.explain_error(error))
                 st.stop()
             if booked_by:
                 booked = store.get(booked_by)
-                who = f"{escape_markdown(name_of(booked, language))} ({booked_by})" if booked else booked_by
+                who = f"{escape_markdown(view.name_of(booked))} ({booked_by})" if booked else booked_by
                 told = slot_flow.notify_cancelled(store, SAZON_CLIENT, booked_by, now.replace(tzinfo=None))
                 st.warning(t("slots.booked_warning", who=who,
                              notice=t("slots.notice_left") if told else t("slots.notice_failed")))
@@ -73,10 +73,10 @@ if not slots:
 else:
     def state(slot) -> str:
         booked = store.get(slot.candidate_id) if slot.candidate_id else None
-        return slot_state(slot, name_of(booked, language) if booked else None, now, store.calendar, language)
+        return view.slot_state(slot, view.name_of(booked) if booked else None, now)
 
     st.dataframe(
-        [{t("col.id"): s.id, t("slots.country"): country_label(s.country, language),
+        [{t("col.id"): s.id, t("slots.country"): view.country_label(s.country),
           t("slots.col_when"): slot_label(s.starts_at, language), t("slots.col_caller"): s.recruiter or "",
           t("slots.col_state"): state(s)} for s in slots],
         hide_index=True, width="stretch")

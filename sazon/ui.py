@@ -3,8 +3,10 @@ import streamlit as st
 
 from sazon import config
 from sazon.client import SAZON_CLIENT
+from sazon.recruiter_view import view_for
 from sazon.ui_pack import PACK
 from screener.model import Language
+from screener.recruiter_view import RecruiterView
 from screener.store import Store
 
 
@@ -46,3 +48,8 @@ def language_switch() -> None:
     st.segmented_control(t("language.label"), [Language.ES, Language.EN], default=Language.ES,
                          format_func=lambda value: {Language.ES: "Español", Language.EN: "English"}[value],
                          key="ui_language", label_visibility="collapsed")
+
+
+def view() -> RecruiterView:
+    """The recruiter screens' labels, cards and rows in the language the recruiter picked."""
+    return view_for(language())

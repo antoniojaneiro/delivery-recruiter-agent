@@ -6,14 +6,12 @@ from sazon import ui
 from sazon.ui import t
 from screener.model import Outcome, RecruiterStatus
 from screener.recruiter_rules import TO_CONTACT
-from screener.recruiter_view import PAGE_SIZE, escape_markdown, filter_records, page_of
+from screener.recruiter_view import OUTCOME_COLOR, PAGE_SIZE, STATUS_COLOR, escape_markdown, filter_records, page_of
 from sazon.client import SAZON_CLIENT
-from sazon.recruiter_view import (OUTCOME_COLOR, STATUS_COLOR, badge_columns, badge_rows, call_label, card_of,
-                                  explain_error, name_of, outcome_label, status_label, table_rows)
 
 store = ui.store()
 recruiter = ui.recruiter_name()
-language = ui.language()
+view = ui.view()
 
 st.title(t("cand.title"))
 if "erase_message" in st.session_state:
@@ -35,9 +33,9 @@ with st.container(horizontal=True):
 
 with st.container(horizontal=True, vertical_alignment="bottom"):
     outcomes = st.multiselect(t("filter.outcome"), [o.value for o in Outcome], key="f_outcome",
-                              format_func=lambda value: outcome_label(value, language))
+                              format_func=lambda value: view.outcome_label(value))
     statuses = st.multiselect(t("filter.status"), [s.value for s in RecruiterStatus], key="f_status",
-                              format_func=lambda value: status_label(value, language))
+                              format_func=lambda value: view.status_label(value))
     search = st.text_input(t("filter.search"), key="f_search")
     review_only = st.checkbox(t("filter.review"), key="f_review")
 
@@ -52,8 +50,8 @@ with list_side:
     page = st.number_input(t("cand.page"), min_value=1, step=1, value=1, key="page") if len(shown) > PAGE_SIZE else 1
     on_page, pages, page = page_of(shown, page)
     columns = {title: st.column_config.MultiselectColumn(title, options=options, color=colors)
-               for title, (options, colors) in badge_columns(language).items()}
-    picked = st.dataframe(badge_rows(table_rows(on_page, language), language), hide_index=True, width="stretch",
+               for title, (options, colors) in view.badge_columns().items()}
+    picked = st.dataframe(view.badge_rows(view.table_rows(on_page)), hide_index=True, width="stretch",
                           column_config=columns, on_select="rerun", selection_mode="single-row",
                           key="candidate_table", alt=t("cand.title"))
     if pages > 1:
@@ -74,7 +72,7 @@ with list_side:
     selected_id = st.selectbox(
         t("cand.view"), list(by_id), index=None, placeholder=t("cand.pick"), key="candidate",
         bind="query-params",
-        format_func=lambda cid: f"{name_of(by_id[cid], language)} · {by_id[cid].extracted.get('city', '')} ({cid})")
+        format_func=lambda cid: f"{view.name_of(by_id[cid])} · {by_id[cid].extracted.get(SAZON_CLIENT.spec.area_field, '')} ({cid})")
 
 with detail_side:
     if selected_id is None:
@@ -82,20 +80,20 @@ with detail_side:
         st.stop()
     record = by_id[selected_id]
     with st.container(border=True):
-        st.subheader(escape_markdown(name_of(record, language)))
+        st.subheader(escape_markdown(view.name_of(record)))
         with st.container(horizontal=True):
             if record.outcome:
-                st.badge(outcome_label(record.outcome, language), color=OUTCOME_COLOR[record.outcome])
-            st.badge(status_label(record.status, language), color=STATUS_COLOR[record.status])
+                st.badge(view.outcome_label(record.outcome), color=OUTCOME_COLOR[record.outcome])
+            st.badge(view.status_label(record.status), color=STATUS_COLOR[record.status])
         st.markdown(f"**{t('detail.summary')}**")
-        st.text(card_of(record, language) or t("detail.no_summary"))
+        st.text(view.card(record) or t("detail.no_summary"))
         with st.expander(t("detail.json")):
             st.json(record.extracted)
 
         st.markdown(f"**{t('detail.call')}**")
         if record.booking:
             caller = t("detail.caller", name=record.booking.recruiter) if record.booking.recruiter else ""
-            st.markdown(t("detail.call_line", label=call_label(record.booking, language), caller=caller))
+            st.markdown(t("detail.call_line", label=view.call_label(record.booking), caller=caller))
         else:
             hint = t("detail.qualified_hint") if TO_CONTACT.matches(record) else ""
             st.caption(t("detail.no_call") + hint)
@@ -111,7 +109,7 @@ with detail_side:
                                     confirm_erase=False, _forms_for=selected_id)
         with st.form("status_form"):
             new_status = st.selectbox(t("form.status"), statuses_all, index=statuses_all.index(record.status.value),
-                                      format_func=lambda value: status_label(value, language), key="new_status")
+                                      format_func=lambda value: view.status_label(value), key="new_status")
             save_status = st.form_submit_button(t("form.save_status"), key="save_status")
         with st.form("assign_form"):
             assignee = st.text_input(t("form.assignee"), value=record.assignee or "", key="assignee")
@@ -132,7 +130,7 @@ with detail_side:
                 if save_note:
                     store.add_note(selected_id, note, recruiter, now)
             except (ValueError, LookupError) as error:
-                st.error(explain_error(error, language))
+                st.error(view.explain_error(error))
             else:
                 st.rerun()
 

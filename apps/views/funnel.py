@@ -5,12 +5,12 @@ from sazon import ui
 from sazon.ui import t
 from screener.funnel import build_funnel
 from sazon.client import SAZON_CLIENT
-from sazon.recruiter_view import outcome_label
 
 BAR_COLOR = "#4c78a8"  # one series, one hue: the stages are one measure, so no legend is needed
 
 store = ui.store()
 language = ui.language()
+view = ui.view()
 spec = SAZON_CLIENT.spec
 funnel = build_funnel(store, spec, language)
 
@@ -46,7 +46,7 @@ with st.container(border=True):
 left, right = st.columns(2)
 with left:
     st.subheader(t("funnel.ends"))
-    st.dataframe([{t("funnel.result"): outcome_label(o, language), t("funnel.candidates"): n}
+    st.dataframe([{t("funnel.result"): view.outcome_label(o), t("funnel.candidates"): n}
                   for o, n in sorted(funnel.outcomes.items())], hide_index=True, width="stretch")
     if funnel.reasons:
         st.subheader(t("funnel.reasons"))

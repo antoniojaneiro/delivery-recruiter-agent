@@ -13,11 +13,11 @@ from screener.chat import log_error
 from screener.inspector import inspect
 from screener.llm import LLMError
 from screener.model import Language
+from screener.recruiter_view import OUTCOME_COLOR
 from screener.store import Store
 
 from sazon import config, ui
 from sazon.client import SAZON_CLIENT
-from sazon.recruiter_view import OUTCOME_COLOR, call_label, outcome_label
 from sazon.ui import t
 from sazon.ui_pack import PACK
 
@@ -31,6 +31,7 @@ def open_demo_store(path: str) -> Store:
 
 store = open_demo_store(str(config.demo_db_path()))
 language = ui.language()
+view = ui.view()
 
 if "llm" not in st.session_state:  # one model client per browser session, created once
     try:
@@ -117,9 +118,9 @@ with inspector_side:
         if found is not None:
             st.markdown(f"**{t('inspector.outcome')}**")
             if found.outcome:
-                st.badge(outcome_label(found.outcome, language), color=OUTCOME_COLOR[found.outcome])
+                st.badge(view.outcome_label(found.outcome), color=OUTCOME_COLOR[found.outcome])
             if found.booking:
-                st.success(t("inspector.booking", label=call_label(found.booking, language)))
+                st.success(t("inspector.booking", label=view.call_label(found.booking)))
             st.markdown(f"**{t('inspector.data')}**")
             st.json(found.extracted)
             st.markdown(f"**{t('inspector.card')}**")
