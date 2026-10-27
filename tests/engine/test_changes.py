@@ -10,7 +10,8 @@ from sazon import config
 from screener.extraction import StartDate
 from sazon.spec import SAZON, Extraction
 from sazon.fields import Field
-from screener.phrasing import Kind, phrase
+from screener.directive import Kind
+from screener.phrasing import phrase
 from screener.screening import Screening
 from screener.store import Store
 from tests.support.fakes import FakeLLM, ScriptedLLM
@@ -228,16 +229,16 @@ def test_a_yes_that_leads_to_another_question_does_not_claim_the_answer_was_chan
     s = accepted()
     ask(s, "me mudé a Sevilla", city="Sevilla")
     directive = s.resolve_change(True, TODAY)
-    assert directive.kind == Kind.CONFIRM_REJECTION and directive.notice is None
+    assert directive.kind == Kind.CONFIRM_REJECTION and directive.notices == ()
     s2 = accepted()
     ask(s2, "ahora vivo en Barcelnoa", city="Barcelnoa")
-    assert s2.resolve_change(True, TODAY).notice is None
+    assert s2.resolve_change(True, TODAY).notices == ()
 
 
 def test_a_yes_that_really_changes_the_answer_says_so():
     s = accepted()
     ask(s, "soy Carlos López", name="Carlos López")
-    assert s.resolve_change(True, TODAY).notice == "changed"
+    assert s.resolve_change(True, TODAY).notices == ("changed",)
 
 
 def test_another_spelling_of_the_saved_city_is_not_a_change():

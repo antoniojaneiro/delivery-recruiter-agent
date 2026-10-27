@@ -7,7 +7,8 @@ from sazon.spec import SAZON
 from sazon.client import SAZON_CALENDAR, SAZON_CLIENT
 from screener import reminders, session, turn
 from sazon import reminders as sazon_reminders
-from screener.phrasing import Directive, Kind, phrase
+from screener.directive import Directive, Kind
+from screener.phrasing import phrase
 from screener.store import ConflictError, Store
 from tests.support.fakes import ScriptedLLM
 from tests.support.booking import add_slots, qualify

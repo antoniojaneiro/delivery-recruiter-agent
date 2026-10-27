@@ -2,10 +2,9 @@
 which text a directive needs, fills in the placeholders and keeps the model's rephrasing inside safe limits."""
 import hashlib
 import re
-from dataclasses import dataclass, field as dc_field
-from enum import StrEnum
 from typing import TYPE_CHECKING
 
+from screener.directive import Directive, Kind
 from screener.extraction import clean_text
 from screener.language import fold
 from screener.llm import LLM, LLMError
@@ -16,35 +15,6 @@ if TYPE_CHECKING:
 
 MAX_REPLY_CHARS = 280
 MAX_ECHO_CHARS = 40
-
-
-class Kind(StrEnum):
-    ASK = "ask"
-    FOLLOW_UP = "follow_up"
-    CONFIRM_CITY = "confirm_city"
-    CONFIRM_REJECTION = "confirm_rejection"
-    BLOCKED = "blocked"
-    CONFIRM_CHANGE = "confirm_change"
-    OFFER_SLOTS = "offer_slots"
-    SLOT_BOOKED = "slot_booked"
-    ALREADY_BOOKED = "already_booked"
-    REMINDER = "reminder"
-    CLOSE = "close"
-    TECHNICAL_ERROR = "technical_error"
-
-
-@dataclass(frozen=True)
-class Directive:
-    kind: Kind
-    field: str | None = None
-    reason: str = ""
-    suggestion: str | None = None
-    outcome: Outcome | None = None
-    reasons: list[str] = dc_field(default_factory=list)
-    options: list[str] = dc_field(default_factory=list)
-    label: str | None = None
-    notice: str | None = None  # "human", "pay" or "human+pay": a fixed sentence before the question
-    repeat: bool = False  # a closing already sent once: say it shortly instead of word for word
 
 
 # Names of days and months are locale data, not a client's wording.
@@ -216,7 +186,7 @@ def phrase(llm: LLM, spec: "ScreeningSpec", directive: Directive, language: str,
     fixed text is sent instead when the kind must be exact or the model's message fails the checks. A notice (a
     person, pay, a change made, an answer kept, an off-topic redirect) reports what the code did or decided, so it is
     always the client's fixed words, in front; the model is told it was said and writes the rest."""
-    names = directive.notice.split("+") if directive.notice and directive.kind != Kind.CLOSE else []
+    names = directive.notices if directive.kind != Kind.CLOSE else ()
     notices = [spec.pack.pick(spec.pack.notices[name], language) for name in names]
     text = _phrase(llm, spec, directive, language, history, notices)
     return " ".join([*notices, text])

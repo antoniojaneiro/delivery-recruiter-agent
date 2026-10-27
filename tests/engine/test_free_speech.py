@@ -6,7 +6,8 @@ import pytest
 from sazon.fields import Field
 from sazon.spec import SAZON
 from screener.llm import NO_MODEL
-from screener.phrasing import Directive, Kind, phrase
+from screener.directive import Directive, Kind
+from screener.phrasing import phrase
 from screener.model import Outcome
 from tests.support.fakes import FakeLLM
 from tests.support.toy_spec import TOY
@@ -78,15 +79,15 @@ def test_closes_offers_reminders_and_errors_never_reach_the_model(directive):
 
 def test_every_notice_is_the_clients_fixed_words_in_front_and_the_model_is_told_it_was_said():
     llm = FakeLLM("¿Qué disponibilidad tienes?")
-    out = say(llm, Directive(Kind.ASK, field=Field.AVAILABILITY, notice="kept"))
+    out = say(llm, Directive(Kind.ASK, field=Field.AVAILABILITY, notices=("kept",)))
     assert out == "De acuerdo, lo dejo como estaba. ¿Qué disponibilidad tienes?"
     assert "do not repeat it" in llm.calls[0]["user"] and "lo dejo como estaba" in llm.calls[0]["user"]
-    out = say(FakeLLM("¿Cómo te llamas?"), Directive(Kind.ASK, field=Field.NAME, notice="human+pay"))
+    out = say(FakeLLM("¿Cómo te llamas?"), Directive(Kind.ASK, field=Field.NAME, notices=("human", "pay")))
     assert out.startswith("Soy un asistente virtual:") and "Sobre el sueldo" in out and out.endswith("¿Cómo te llamas?")
 
 
 def test_when_the_model_fails_the_notice_and_the_fixed_question_are_sent():
-    out = say(NO_MODEL, Directive(Kind.ASK, field=Field.AVAILABILITY, notice="kept"))
+    out = say(NO_MODEL, Directive(Kind.ASK, field=Field.AVAILABILITY, notices=("kept",)))
     assert out.startswith("De acuerdo, lo dejo como estaba.") and "disponibilidad" in out
 
 
@@ -109,7 +110,7 @@ def test_no_history_means_no_conversation_block():
 
 def test_a_notice_the_model_repeats_inside_its_message_is_said_only_once():
     llm = FakeLLM("Hecho, lo he cambiado. ¿Tienes licencia de conducir?")
-    out = say(llm, Directive(Kind.ASK, field=Field.LICENSE, notice="changed"))
+    out = say(llm, Directive(Kind.ASK, field=Field.LICENSE, notices=("changed",)))
     assert out == "Hecho, lo he cambiado. ¿Tienes licencia de conducir?"
     assert out.count("lo he cambiado") == 1
 

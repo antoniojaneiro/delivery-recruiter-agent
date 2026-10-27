@@ -7,7 +7,7 @@ from screener.consent import ConsentReading
 from sazon.spec import SAZON, Extraction
 from screener.model import Language, Outcome
 from sazon.fields import Field, Reason
-from screener.phrasing import Kind
+from screener.directive import Kind
 from screener.screening import Screening
 
 AREAS = {"Madrid": [], "Guadalajara": []}

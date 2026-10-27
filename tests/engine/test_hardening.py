@@ -11,7 +11,8 @@ from sazon import config
 from screener.extraction import StartDate
 from sazon.spec import SAZON, Extraction
 from screener.llm import LLMError
-from screener.phrasing import Directive, Kind, consent_message, phrase
+from screener.directive import Directive, Kind
+from screener.phrasing import consent_message, phrase
 from sazon.fields import Field
 from screener.screening import Screening
 from screener.store import Store

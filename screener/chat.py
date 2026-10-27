@@ -9,7 +9,8 @@ from pathlib import Path
 from screener import turn
 from screener.client import Client
 from screener.llm import LLM
-from screener.phrasing import Directive, Kind, phrase
+from screener.directive import Directive, Kind
+from screener.phrasing import phrase
 from screener.store import Store
 
 HELP = "Commands: /new, /resume <id>, /state, /inbox, /wait24h, /help, /quit"

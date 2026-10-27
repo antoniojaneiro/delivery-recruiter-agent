@@ -3,7 +3,7 @@ then a rejection waits for its yes or no, then a near-miss place, then a changed
 unclear answer to ask again, and last the next question."""
 from dataclasses import dataclass
 
-from screener.phrasing import Directive, Kind
+from screener.directive import Directive, Kind
 
 
 @dataclass(frozen=True)

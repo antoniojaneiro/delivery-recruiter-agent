@@ -11,7 +11,7 @@ from screener import extraction, funnel, phrasing, summary
 from sazon.spec import SAZON, SYSTEM, Extraction
 from screener.model import Language, Outcome
 from sazon.fields import Field, Reason
-from screener.phrasing import Directive, Kind
+from screener.directive import Directive, Kind
 from screener.screening import Screening
 from screener.store import Store
 
@@ -54,7 +54,7 @@ def _fixed_texts() -> dict:
         out[f"slot_cancelled/{lang}"] = phrasing.slot_cancelled_message(SAZON, lang)
         out[f"tech/{lang}"] = phrasing.technical_error_message(SAZON, lang)
         for notice in ("human", "pay", "human+pay", "changed", "kept", "offtopic"):
-            out[f"notice/{notice}/{lang}"] = _say(Directive(Kind.ASK, field=Field.NAME, notice=notice), lang)
+            out[f"notice/{notice}/{lang}"] = _say(Directive(Kind.ASK, field=Field.NAME, notices=tuple(notice.split("+"))), lang)
         for outcome in Outcome:
             for repeat in (False, True):
                 out[f"close/{outcome}/{repeat}/{lang}"] = _say(

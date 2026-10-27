@@ -1,5 +1,5 @@
 """D63: what the agent says first when several things wait is one plain function with a table of its own."""
-from screener.phrasing import Directive, Kind
+from screener.directive import Directive, Kind
 from screener.screening_precedence import Waiting, directive_for
 
 CLOSE = Directive(Kind.CLOSE)

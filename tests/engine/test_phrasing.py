@@ -4,7 +4,8 @@ from sazon.spec import SAZON
 from screener.llm import LLMError
 from screener.model import Outcome
 from sazon.fields import Field
-from screener.phrasing import Directive, Kind, consent_message, phrase
+from screener.directive import Directive, Kind
+from screener.phrasing import consent_message, phrase
 from tests.support.fakes import FakeLLM
 
 

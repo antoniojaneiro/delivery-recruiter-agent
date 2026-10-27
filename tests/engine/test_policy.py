@@ -9,7 +9,8 @@ from sazon import config
 from sazon.spec import SAZON, Extraction
 from screener.model import Outcome
 from sazon.fields import Reason
-from screener.phrasing import Directive, Kind, consent_message, phrase
+from screener.directive import Directive, Kind
+from screener.phrasing import consent_message, phrase
 from screener.screening import Screening
 from screener.store import Store
 from tests.support.fakes import FakeLLM, ScriptedLLM
@@ -94,7 +95,7 @@ def test_three_off_topic_messages_in_total_end_the_chat_even_with_good_answers_b
     consented.apply(Extraction(experience_years=2, platforms=["Glovo"]), "2 años en Glovo", TODAY)
     directive = strike(consented)
     assert consented.decide().outcome == "ENDED_OFF_TOPIC"
-    assert directive.kind == Kind.CLOSE and directive.notice is None
+    assert directive.kind == Kind.CLOSE and directive.notices == ()
 
 
 def test_two_strikes_leave_the_chat_open(consented):

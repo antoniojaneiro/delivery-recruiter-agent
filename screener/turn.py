@@ -9,7 +9,8 @@ from screener.client import Client
 from screener.consent import ConsentReading, is_stop_request, read_consent
 from screener.extraction import ControlFlags, extract
 from screener.llm import LLM, LLMError
-from screener.phrasing import Directive, Kind, closed_message, consent_message, phrase, technical_error_message
+from screener.directive import Directive, Kind
+from screener.phrasing import closed_message, consent_message, phrase, technical_error_message
 from screener.screening import ExtractionContext, Screening
 from screener.spec import ScreeningSpec
 from screener.store import ConflictError

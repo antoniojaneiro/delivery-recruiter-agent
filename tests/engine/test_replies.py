@@ -9,7 +9,8 @@ from sazon import config
 from screener.consent import read_consent
 from sazon.spec import SAZON, Extraction
 from sazon.fields import Field
-from screener.phrasing import Directive, Kind, consent_message, phrase
+from screener.directive import Directive, Kind
+from screener.phrasing import consent_message, phrase
 from screener.screening import Screening
 from screener.store import Store
 from tests.support.fakes import FakeLLM, ScriptedLLM
@@ -146,7 +147,7 @@ def test_a_notice_is_not_repeated_on_the_next_turn():
     s.record_consent(True)
     s.apply(Extraction(asks_pay=True), "¿cuánto pagan?", TODAY)
     again = s.apply(Extraction(name="Juan"), "Juan", TODAY)
-    assert again.notice is None
+    assert again.notices == ()
 
 
 def test_the_extraction_schema_and_prompt_know_the_pay_flag():

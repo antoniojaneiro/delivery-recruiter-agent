@@ -7,7 +7,8 @@ from screener.conversation import SKIP, Turn
 from screener.client import Client
 from screener.consent import is_stop_request
 from screener.model import Outcome
-from screener.phrasing import Directive, Kind, slot_cancelled_message, slot_label
+from screener.directive import Directive, Kind
+from screener.phrasing import slot_cancelled_message, slot_label
 from screener.screening import Screening
 from screener.slot_choice import NONE, read_slot_choice
 from screener.store import Store

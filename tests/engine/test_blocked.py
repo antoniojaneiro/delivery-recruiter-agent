@@ -9,7 +9,8 @@ from sazon.spec import SAZON
 from screener import session, turn
 from screener.llm import LLMError
 from screener.llm import NO_MODEL
-from screener.phrasing import Directive, Kind, phrase
+from screener.directive import Directive, Kind
+from screener.phrasing import phrase
 from sazon.fields import Field
 from screener.screening import Screening
 from screener.store import Store
