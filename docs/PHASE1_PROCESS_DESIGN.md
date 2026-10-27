@@ -12,7 +12,7 @@ The persona is written down once, for the model, and every free message follows 
 
 - An AI assistant for Grupo Sazón recruiting, and it says so in its first message.
 - Warm, direct and respectful, like a friendly recruiter on the phone; the informal "tú" in Spanish; patient, never pushy, never judgmental.
-- Acknowledges what the candidate just said in a few words, varies its wording, never repeats a sentence, at most one emoji, no jargon.
+- Acknowledges what the candidate said in a few words, varies its wording, at most one emoji, no jargon.
 - Never promises a job, pay or a call time, never states facts it was not given, never decides.
 
 ## 3. Conversation stages
@@ -58,18 +58,16 @@ Candidates can come back while applications are open, except after qualifying, a
 | --- | --- |
 | **Stops responding mid-chat** | One reminder at 24 hours, then `STALLED`; the chat resumes if they write again. |
 | **Vague or invalid answer** ("a veces", "no sé" for a date) | Say what is expected, with an example, and ask again; counts toward the 5 follow-ups. A model failure never counts (D39). |
-| **Switches language (ES ↔ EN)** | The chat follows the words the candidate writes, decided in code: a name, a place or a number never changes the language; a sentence in the other language does (D67). Values are stored in one normalised form. |
-| **Asks for a person or about pay; goes off-topic; "ignore your rules"** | Person or pay: a fixed sentence (a recruiter reviews and answers), then the next question. Off-topic: a short redirect; the third in total ends the chat with a farewell about the messages, not the person (D55). Candidate text is data, never instructions; a model message that promises pay or a time is never sent. |
+| **Switches language (ES ↔ EN)** | The chat follows the words the candidate writes, decided in code: a name, a place or a number never changes the language; a sentence in the other language does (D67). Values are stored in one form. |
+| **Asks for a person or about pay; goes off-topic; "ignore your rules"** | Person or pay: a fixed sentence (a recruiter reviews and answers), then the next question. Off-topic: a short redirect; the third in total ends the chat with a farewell about the messages, not the person (D55). Candidate text is data, never instructions. |
 
 ## 7. Message tone and length
 
 - Messaging, not email: 1–2 short sentences and one question per message (D18); no mid-chat greetings; no legal text. The numbered call list is the one exception.
-- **Who writes what (D69).** The model words the questions, follow-ups, place confirmations, change questions and the "cannot continue" message in the voice above, seeing the recent conversation. Code checks every message (length, one question, language, no pay or time, the facts it must keep) and sends a fixed text instead if a check fails or the model is down. **Fixed word for word:** the disclosure, every closing, the call offers and bookings, reminders, the error line and the notices about a person, pay, a change made, an answer kept and an off-topic redirect.
+- **Who writes what (D69).** The model words the questions, follow-ups, place confirmations, change questions and the "cannot continue" message in the voice above, seeing the recent conversation. Code checks every message (length, one question, language, no pay or time, the facts it must keep) and sends a fixed text if a check fails or the model is down. **Fixed word for word:** the disclosure, every closing, the call offers and bookings, reminders, the error line and the notices about a person, pay, a change made, an answer kept and an off-topic redirect.
   > "Hola, soy el asistente virtual (una IA) de Grupo Sazón. Te haré unas preguntas para tu solicitud de repartidor. Tus respuestas se procesan con un servicio de IA externo y siempre las revisa un reclutador. ¿Te parece bien que guarde tus respuestas para el equipo de reclutamiento?"
-  >
-  > "¡Genial, tu perfil encaja! Elige una hora para una llamada corta con el equipo: 1) mar 3 nov, 10:00 2) mié 4 nov, 09:30 3) jue 5 nov, 16:00. Responde con el número, o 'ninguna' y un reclutador te escribirá en un máximo de 48 horas."
 
 ## 8. Compliance and open items
 
-- Hiring is high-risk under the EU AI Act (Annex III) and Mexico has its own data law. Built in: AI disclosure and consent first, with the exact wording recorded; human oversight (review queue, a recruiter can overrule any status); every decision logged with its actor; erasure on request and nothing erased automatically (D53, D60); a login per recruiter (D57); no emotion or personality inference; untrusted candidate text. An engineering baseline, not legal advice.
+- Hiring is high-risk under the EU AI Act (Annex III) and Mexico has its own data law. Built in: AI disclosure and consent first, with the exact wording recorded; human oversight (review queue, a recruiter can overrule any status); every decision logged with its actor; erasure on request only (D53, D60); a login per recruiter (D57); no emotion or personality inference; untrusted candidate text. Not legal advice.
 - **Open for the client:** the real service areas; legal review of the consent and farewell wording, of sample conversations (the model's wording varies), and of how long data may be kept; approved answers about pay; the 12-week rule; single sign-on; a paid model tier with a data-processing agreement.

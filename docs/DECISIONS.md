@@ -2,7 +2,7 @@
 
 The settled design and technology choices for the Grupo Sazón screening agent, D1 to D69. Each entry states what is true **now**; a chain of revisions is merged into one entry and lists the numbers it replaces. Before acting against an entry, say so and confirm with the user. Add a short entry when a decision is made.
 
-The full log, with every option considered and its pros and cons, is in git: `git show 4706568^:DECISIONS.md`.
+The full log, with every option considered and its pros and cons, is in git: `git show 4706568~1:DECISIONS.md` (it needs the merge commits of the pull requests; a squash merge would lose it).
 All entries were decided by the user (2026-10-25 to 2026-10-27) unless marked *agent* (a fix or detail inside a decision the user had made).
 
 ## 1. How the conversation works
@@ -34,7 +34,7 @@ All entries were decided by the user (2026-10-25 to 2026-10-27) unless marked *a
 
 - **D12, D34, D51: disclosure and consent.** The first message is fixed, Spanish line then English line: it says the candidate is talking to an AI, that answers are processed by an external AI service and always reviewed by a recruiter, and asks consent to store them. Nothing is asked before a yes. The consent event stores a hash of the exact wording shown. Still a draft until the client's lawyers approve it.
 - **D42: recruiter data is separate.** The agent owns outcome, reasons, flags, validated data, card and transcript. Recruiters own a status (`new`, `contacted`, `interview_scheduled`, `hired`, `rejected`, `unreachable`), an assignee and append-only notes, and may set any status on any candidate, so a human can overrule the agent. Every action is an audit event with its actor.
-- **D53, D60: erasure and retention.** Every conversation and its data are saved and kept. The dashboard's erase action (with confirmation) overwrites a candidate's data, truncates the log and leaves an anonymous line; it is for a candidate's request. There is no automatic deletion. How long to keep the rest is a question for the client's lawyers.
+- **D53, D60: erasure and retention.** Every conversation and its data are saved and kept. The dashboard's erase action (with confirmation) overwrites a candidate's data, truncates the database's write-ahead log and leaves an anonymous line; it is for a candidate's request. There is no automatic deletion. How long to keep the rest is a question for the client's lawyers.
 - **D57, D65: recruiter accounts.** One account per recruiter, scrypt-hashed in a git-ignored file (`python -m sazon.accounts add NAME`); five wrong passwords lock a name for ten minutes, kept in a file so a restart does not clear it. A prototype: a real deployment needs the company's single sign-on.
 - **D43: errors.** An unexpected error never ends the chat or shows technical text; the error with its stack trace (never the candidate's messages) goes to `data/sazon.log` with an id.
 - **D33: free-tier data.** Free Gemini prompts may be used by Google to improve its products: use fictional candidates only until a paid or EU-compliant tier is chosen.
