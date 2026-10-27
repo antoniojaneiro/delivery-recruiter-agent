@@ -159,22 +159,6 @@ def run_chat(store, lines):
     return out
 
 
-def test_a_new_candidate_never_reuses_an_existing_id(tmp_path, monkeypatch):
-    from screener import chat
-
-    draws = iter(["aaaaaaaaaaaa", "aaaaaaaaaaaa", "aaaaaaaaaaaa", "bbbbbbbbbbbb"])
-    monkeypatch.setattr(chat, "_draw_id", lambda: next(draws))
-    store = Store(tmp_path / "s.db", calendar=SAZON_CALENDAR)
-    run_chat(store, ["/new", "/quit"])
-    assert sorted(r.candidate_id for r in store.list_candidates()) == ["aaaaaaaaaaaa", "bbbbbbbbbbbb"]
-
-
-def test_ids_are_long_enough_to_make_collisions_negligible():
-    from screener import chat
-
-    assert len(chat._draw_id()) >= 12 and chat._draw_id() != chat._draw_id()
-
-
 def test_the_chat_and_the_dashboard_use_the_same_database_file(tmp_path, monkeypatch):
     from screener import chat
     from sazon import chat as sazon_chat

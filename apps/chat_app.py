@@ -3,12 +3,11 @@
 It runs the same turn code as the terminal chat and the real model, but saves into a demo database (SAZON_DEMO_DB,
 data/demo/chat.db by default), never the recruiters' one. There is no login: it is meant to run on your own computer.
 On the right, an inspector shows what the agent has understood, read from that database."""
-import uuid
 from datetime import datetime
 
 import streamlit as st
 
-from screener import gemini, turn
+from screener import dialog, gemini, turn
 from screener.chat import log_error
 from screener.inspector import inspect
 from screener.llm import LLMError
@@ -46,10 +45,7 @@ llm = st.session_state["llm"]
 
 
 def new_candidate() -> None:
-    candidate_id = uuid.uuid4().hex[:12]
-    while store.get(candidate_id) is not None:  # never merge two test candidates into one record
-        candidate_id = uuid.uuid4().hex[:12]
-    turn.start(store, SAZON_CLIENT, candidate_id, datetime.now())  # the disclosure, once per candidate
+    candidate_id, _ = dialog.new_candidate(store, SAZON_CLIENT, datetime.now())  # the disclosure, once per candidate
     st.session_state["chat_id"] = candidate_id
     st.session_state.pop("flash", None)
 
@@ -60,8 +56,7 @@ def wait_a_day() -> None:
 
 
 def deliver_queued() -> None:
-    for entry in store.outbox_pending(st.session_state["chat_id"]):
-        store.mark_delivered(entry.id, datetime.now())
+    dialog.deliver_queued(store, st.session_state["chat_id"], datetime.now())
 
 
 if "chat_id" not in st.session_state:
