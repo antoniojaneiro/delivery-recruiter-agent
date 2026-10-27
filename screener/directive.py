@@ -11,7 +11,7 @@ NOTICE_NAMES = ("human", "pay", "changed", "kept", "offtopic")  # the client's f
 class Kind(StrEnum):
     ASK = "ask"
     FOLLOW_UP = "follow_up"
-    CONFIRM_CITY = "confirm_city"
+    CONFIRM_AREA = "confirm_area"
     CONFIRM_REJECTION = "confirm_rejection"
     BLOCKED = "blocked"
     CONFIRM_CHANGE = "confirm_change"

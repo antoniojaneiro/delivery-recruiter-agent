@@ -46,7 +46,7 @@ PACK = Pack(
                 "Hi, are you still interested in the application? We can pick up where we left off."),
     unclear=bi("No me quedó claro y necesito este dato para continuar. ",
                "That wasn't clear, and I need this to move forward. "),
-    confirm_city=bi("¿Te refieres a {suggestion}?", "Do you mean {suggestion}?"),
+    confirm_area=bi("¿Te refieres a {suggestion}?", "Do you mean {suggestion}?"),
     confirm_change=bi("Antes me dijiste {old}. ¿Lo cambio a {new}?",
                       "Earlier you told me {old}. Shall I change it to {new}?"),
     blocked=bi("No puedo continuar con tu solicitud hasta que me indiques {what}.",

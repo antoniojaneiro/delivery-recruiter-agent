@@ -75,13 +75,13 @@ def test_a_valid_answer_after_follow_ups_clears_the_counter(consented):
 def test_city_typo_asks_for_confirmation_then_accepts_on_yes(consented):
     result = consented.submit("city", "Guadalajra", TODAY)
     assert result.status == "confirm" and result.suggestion == "Guadalajara"
-    assert consented.confirm_city(True).status == "ok"
+    assert consented.confirm_area(True).status == "ok"
     assert consented.values["city"] == "Guadalajara"
 
 
 def test_city_confirmation_declined_counts_as_a_follow_up(consented):
     consented.submit("city", "Guadalajra", TODAY)
-    result = consented.confirm_city(False)
+    result = consented.confirm_area(False)
     assert result.status == "follow_up"
     assert "city" not in consented.values
 
@@ -192,7 +192,7 @@ def test_nothing_is_asked_after_consent_is_declined(screening):
 
 
 def test_stray_confirmation_with_nothing_pending_is_a_follow_up_not_a_crash(consented):
-    assert consented.confirm_city(True).status == "follow_up"
+    assert consented.confirm_area(True).status == "follow_up"
 
 
 
@@ -221,7 +221,7 @@ def test_half_finished_screening_survives_a_save_and_reload(consented):
 
     restored.off_topic()
     assert restored.decide().outcome == "ENDED_OFF_TOPIC"
-    assert restored.confirm_city(True).status == "ok"
+    assert restored.confirm_area(True).status == "ok"
     assert restored.values["city"] == "Guadalajara"
     statuses = [restored.submit("name", "Juan", TODAY).status for _ in range(4)]
     assert statuses == ["follow_up", "follow_up", "follow_up", "blocked"]
@@ -259,7 +259,7 @@ def test_declined_confirmation_does_not_clear_an_earlier_out_of_area_city(consen
     consented.submit("city", "Sevilla", TODAY)
     consented.confirm_rejection(True)
     consented.submit("city", "Guadalajra", TODAY)
-    consented.confirm_city(False)
+    consented.confirm_area(False)
     assert consented.decide().outcome == "DISQUALIFIED"
     assert consented.decide().reasons == ["OUT_OF_AREA"]
 
@@ -267,7 +267,7 @@ def test_declined_confirmation_does_not_clear_an_earlier_out_of_area_city(consen
 def test_stale_pending_city_cannot_overwrite_a_later_city(consented):
     consented.submit("city", "Guadalajra", TODAY)
     consented.submit("city", "Madrid", TODAY)
-    assert consented.confirm_city(True).status == "follow_up"
+    assert consented.confirm_area(True).status == "follow_up"
     assert consented.values["city"] == "Madrid"
 
 
@@ -315,7 +315,7 @@ def test_a_pending_city_confirmation_is_visible_to_the_caller(consented):
     assert consented.awaiting_confirmation is None
     consented.submit("city", "Guadalajra", TODAY)
     assert consented.awaiting_confirmation == "Guadalajara"
-    consented.confirm_city(True)
+    consented.confirm_area(True)
     assert consented.awaiting_confirmation is None
 
 

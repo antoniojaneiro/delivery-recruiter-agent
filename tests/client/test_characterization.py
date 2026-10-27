@@ -39,7 +39,7 @@ def _fixed_texts() -> dict:
         for field in fields:
             out[f"ask/{field}/{lang}"] = _say(Directive(Kind.ASK, field=field), lang)
             out[f"blocked/{field}/{lang}"] = _say(Directive(Kind.BLOCKED, field=field), lang)
-        out[f"confirm_city/{lang}"] = _say(Directive(Kind.CONFIRM_CITY, suggestion="Madrid"), lang)
+        out[f"confirm_area/{lang}"] = _say(Directive(Kind.CONFIRM_AREA, suggestion="Madrid"), lang)
         for field in (Field.LICENSE, Field.CITY):
             out[f"confirm_rejection/{field}/{lang}"] = _say(
                 Directive(Kind.CONFIRM_REJECTION, field=field, suggestion="Leeds"), lang)

@@ -27,7 +27,7 @@ class Pack:
     error: Text
     reminder: Text
     unclear: Text  # said before asking the question again
-    confirm_city: Text  # {suggestion}
+    confirm_area: Text  # {suggestion}
     confirm_change: Text  # {old}, {new}
     blocked: Text  # {what}
     close: dict[Outcome, Text]  # QUALIFIED, ENDED_OFF_TOPIC, WITHDRAWN

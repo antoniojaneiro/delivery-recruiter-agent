@@ -32,7 +32,7 @@ class FieldSpec:
     validate: Callable[[Any, date], Validation] | None = None  # None: the engine's area matching decides
     same: Callable[[Any, Any], bool] = eq  # compares validated values, so the same answer is never a change
     rejects: Callable[[Any], bool] | None = None  # an answer that ends the screening once the candidate confirms it
-    confirm_rejection: Text | None = None  # asked before a rejecting answer counts; {city} is the candidate's text
+    confirm_rejection: Text | None = None  # asked before a rejecting answer counts; {area} is the candidate's text
     read: Callable[[Any, date, Any], object] | None = None  # (reply, today, base) -> a value or MISSING
     # base: what was kept of an earlier unclear answer, or the saved value when a change is being read
     partial: Callable[[Any], dict] | None = None  # what to keep of an unclear answer to combine with the next
@@ -205,7 +205,7 @@ def check_spec(spec: "ScreeningSpec") -> None:
         need_text(f"rule {rule.reason}: close", rule.close)
         need_recruiter_text(f"rule {rule.reason}: summary", rule.summary)
     pack = spec.pack
-    for name in ("consent", "closed", "error", "reminder", "unclear", "confirm_city", "confirm_change", "blocked",
+    for name in ("consent", "closed", "error", "reminder", "unclear", "confirm_area", "confirm_change", "blocked",
                  "close_other", "close_no_consent", "close_repeat_withdrawn", "close_repeat_other"):
         need_text(f"pack.{name}", getattr(pack, name))
     for outcome in _CLOSES:

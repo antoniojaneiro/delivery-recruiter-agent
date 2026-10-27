@@ -96,3 +96,19 @@ def test_the_terminal_chat_apologises_in_the_clients_default_language_not_always
     chat.run(ScriptedLLM(), Store(tmp_path / "t.db"), TOY_CLIENT, read=lambda prompt: next(lines), write=out.append,
              clock=lambda: datetime(2026, 10, 26, 10, 0))
     assert any("Something went wrong" in line for line in out)
+
+
+from screener.language import promises_pay_or_time  # noqa: E402
+
+
+@pytest.mark.parametrize("text", ["Ganarás 15 euros la hora", "You will earn 12$ an hour", "Te pagamos bien",
+                                  "Estás contratado", "You are hired", "Tu sueldo será alto", "Great salary",
+                                  "Te llamamos a las 10:30", "Call you at 9h30", "Una oferta increíble", "€20"])
+def test_a_text_that_mentions_pay_a_hire_or_a_clock_time_is_flagged(text):
+    assert promises_pay_or_time(text)
+
+
+@pytest.mark.parametrize("text", ["¿Cómo te llamas?", "What city do you live in?", "¿Tienes licencia de conducir?",
+                                  "Gracias, Juan. ¿Qué disponibilidad tienes?", "Do you have experience?"])
+def test_a_normal_question_is_not_flagged(text):
+    assert not promises_pay_or_time(text)

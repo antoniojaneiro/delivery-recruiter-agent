@@ -31,7 +31,7 @@ def test_a_half_finished_screening_resumes_where_it_stopped(store):
     session.commit(store, "c1", screening, T1)
 
     resumed = session.load(store, "c1", client_for(AREAS))
-    assert resumed.confirm_city(True).status == "ok"
+    assert resumed.confirm_area(True).status == "ok"
     statuses = [resumed.submit("name", "Juan", TODAY).status for _ in range(5)]
     assert statuses == ["follow_up"] * 4 + ["blocked"]
 

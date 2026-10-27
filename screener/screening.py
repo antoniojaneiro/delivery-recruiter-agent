@@ -5,7 +5,7 @@ from datetime import date
 from screener import validators
 from screener.consent import ConsentReading, is_hesitation, is_resume_request, read_consent
 from screener.extraction import ControlFlags
-from screener.model import CONSENT, NO_CONSENT, CityMatchStatus, EventType, Language, Outcome, Status
+from screener.model import CONSENT, NO_CONSENT, AreaMatchStatus, EventType, Language, Outcome, Status
 from screener.language import language_of
 from screener.directive import Directive, Kind
 from screener.phrasing import consent_text_hash
@@ -59,7 +59,7 @@ class Screening:
 
     @property
     def awaiting_confirmation(self) -> str | None:
-        return self._pending_city[0] if self._pending_city else None
+        return self._pending_area[0] if self._pending_area else None
 
     def _hear_language(self, language: Language | None) -> None:
         """The candidate's language, when the client has wording for it."""
@@ -273,7 +273,7 @@ class Screening:
                 unclear = (field, result.reason)
 
         if self.awaiting_confirmation and ex.confirms_city is not None:
-            note(self.spec.area_field, self.confirm_city(ex.confirms_city))
+            note(self.spec.area_field, self.confirm_area(ex.confirms_city))
         if self.awaiting_rejection and ex.confirms_rejection is not None:
             note(self.awaiting_rejection, self.confirm_rejection(ex.confirms_rejection))
         for field in self.spec.keys:
@@ -349,7 +349,7 @@ class Screening:
         # a question that was waiting for an answer must not swallow the answer after they come back
         self._pending_change = None
         self._pending_reject = None
-        self._pending_city = None
+        self._pending_area = None
         self.events.append((EventType.WITHDRAWN, ""))
 
     def human_requested(self) -> None:
@@ -391,35 +391,35 @@ class Screening:
         rejecting = spec.rejects is not None and spec.rejects(value)
         if self._pending_reject and self._pending_reject[0] == field:
             if rejecting or (field == self.spec.area_field and isinstance(value, str)
-                             and validators.match_city(value, self.areas, self.spec.place_qualifiers).status == CityMatchStatus.OUT_OF_AREA):
+                             and validators.match_area(value, self.areas, self.spec.place_qualifiers).status == AreaMatchStatus.OUT_OF_AREA):
                 return self.confirm_rejection(True)
             self._pending_reject = None
         if rejecting:
             self._pending_reject = (field, value)
             return SubmitResult(Status.CONFIRM_REJECT)
         if field == self.spec.area_field:
-            return self._submit_city(value)
+            return self._submit_area(value)
         return self._settle(field, self._validate(field, value, today), value if raw is None else raw)
 
-    def confirm_city(self, yes: bool) -> SubmitResult:
-        if self._pending_city is None:
+    def confirm_area(self, yes: bool) -> SubmitResult:
+        if self._pending_area is None:
             return SubmitResult(Status.FOLLOW_UP, "no city is waiting for confirmation")
-        city, raw = self._pending_city
-        self._pending_city = None
+        city, raw = self._pending_area
+        self._pending_area = None
         if yes:
             return self._settle(self.spec.area_field, validators.Validation(True, city), raw)
         return self._settle(self.spec.area_field, validators.Validation(False, reason="city not confirmed"), raw)
 
-    def _submit_city(self, raw: object) -> SubmitResult:
-        self._pending_city = None
+    def _submit_area(self, raw: object) -> SubmitResult:
+        self._pending_area = None
         if not isinstance(raw, str):
             return self._settle(self.spec.area_field, validators.Validation(False, reason="need a city"), raw)
         raw = " ".join(raw.split())[:MAX_CITY_LENGTH]  # what is stored of a place outside the area stays short
-        match = validators.match_city(raw, self.areas, self.spec.place_qualifiers)
-        if match.status == CityMatchStatus.CONFIRM:
-            self._pending_city = (match.city, raw)
+        match = validators.match_area(raw, self.areas, self.spec.place_qualifiers)
+        if match.status == AreaMatchStatus.CONFIRM:
+            self._pending_area = (match.city, raw)
             return SubmitResult(Status.CONFIRM, suggestion=match.city)
-        if match.status == CityMatchStatus.OUT_OF_AREA:
+        if match.status == AreaMatchStatus.OUT_OF_AREA:
             self._pending_reject = (self.spec.area_field, raw)
             return SubmitResult(Status.CONFIRM_REJECT)
         return self._settle(self.spec.area_field, validators.Validation(True, match.city), raw)

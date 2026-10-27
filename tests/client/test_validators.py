@@ -31,7 +31,7 @@ def test_license_unsure_is_not_valid_and_asks_again():
     assert result.reason
 
 
-from screener.validators import match_city
+from screener.validators import match_area
 
 AREAS = {
     "Madrid": [],
@@ -50,17 +50,17 @@ AREAS = {
     ("ciudad de mexico", "Ciudad de México"),
 ])
 def test_city_exact_after_folding_accents_case_and_aliases(raw, city):
-    result = match_city(raw, AREAS)
+    result = match_area(raw, AREAS)
     assert result.status == "match" and result.city == city
 
 
 def test_city_close_typo_asks_for_confirmation():
-    result = match_city("Guadalajra", AREAS)
+    result = match_area("Guadalajra", AREAS)
     assert result.status == "confirm" and result.city == "Guadalajara"
 
 
 def test_city_not_in_list_is_out_of_area():
-    result = match_city("Sevilla", AREAS)
+    result = match_area("Sevilla", AREAS)
     assert result.status == "out_of_area" and result.city is None
 
 

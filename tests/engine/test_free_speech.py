@@ -33,11 +33,11 @@ def test_a_client_without_a_persona_still_gets_the_safety_rules():
 
 def test_a_near_miss_place_is_confirmed_in_the_models_words_when_it_names_the_place():
     llm = FakeLLM("Ah, ¿te refieres a Madrid?")
-    assert say(llm, Directive(Kind.CONFIRM_CITY, suggestion="Madrid")) == "Ah, ¿te refieres a Madrid?"
+    assert say(llm, Directive(Kind.CONFIRM_AREA, suggestion="Madrid")) == "Ah, ¿te refieres a Madrid?"
 
 
 def test_a_confirmation_that_loses_the_place_falls_back_to_the_fixed_question():
-    out = say(FakeLLM("¿Seguro?"), Directive(Kind.CONFIRM_CITY, suggestion="Madrid"))
+    out = say(FakeLLM("¿Seguro?"), Directive(Kind.CONFIRM_AREA, suggestion="Madrid"))
     assert out == "¿Te refieres a Madrid?"
 
 
@@ -60,7 +60,7 @@ def test_a_blocked_field_is_explained_by_the_model_with_a_fixed_fallback():
 
 
 def test_a_model_message_that_promises_pay_or_a_time_is_never_sent():
-    d = Directive(Kind.CONFIRM_CITY, suggestion="Madrid")
+    d = Directive(Kind.CONFIRM_AREA, suggestion="Madrid")
     assert say(FakeLLM("¿Madrid? Ganarás 15 euros la hora."), d) == "¿Te refieres a Madrid?"
     assert say(FakeLLM("¿Madrid? Te llamamos a las 10:30."), d) == "¿Te refieres a Madrid?"
 

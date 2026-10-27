@@ -44,7 +44,7 @@ def test_an_unreachable_llm_falls_back_to_the_template_in_the_right_language():
 
 
 def test_a_city_confirmation_names_the_suggested_city_even_in_the_fallback():
-    out = phrase(FakeLLM(LLMError("x")), SAZON, Directive(Kind.CONFIRM_CITY, suggestion="Guadalajara"), "es")
+    out = phrase(FakeLLM(LLMError("x")), SAZON, Directive(Kind.CONFIRM_AREA, suggestion="Guadalajara"), "es")
     assert "Guadalajara" in out
 
 

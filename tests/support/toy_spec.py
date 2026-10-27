@@ -37,7 +37,7 @@ PACK = Pack(
     error=say("Something went wrong. Could you say that again?"),
     reminder=say("Still interested in the picker job?"),
     unclear=say("Sorry, I need that to continue. "),
-    confirm_city=say("Do you mean {suggestion}?"),
+    confirm_area=say("Do you mean {suggestion}?"),
     confirm_change=say("You said {old} before. Change it to {new}?"),
     blocked=say("I can't go on until you tell me {what}."),
     close={
@@ -123,7 +123,7 @@ SLOTS = SlotTexts(
 _TOWN = FieldSpec("town", ask=say("Which town do you live in?"), what=say("your town"), label=say("town"),
                   read=read_attribute("town"), schema={"town": (str | None, None)},
                   prompt="- town: the town as written, never corrected",
-                  confirm_rejection=say("Just to confirm: you live in {city}?"))
+                  confirm_rejection=say("Just to confirm: you live in {area}?"))
 TOY_UK_SPEC = replace(
     TOY,
     pack=replace(PACK, slots=SLOTS),

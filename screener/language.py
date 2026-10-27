@@ -61,3 +61,12 @@ def language_of(message: str, claimed: Language | None, current: Language) -> La
     if claimed and len(words) >= 4 and spanish == english == 0:
         return claimed
     return current
+
+
+# Words and symbols that state pay, a hire or a clock time. A message the model writes must never contain them: those
+# promises come from the client's fixed texts only. Spanish and English; another language adds its words here.
+_PROMISE = re.compile(r"[€$£]|\b(euros?|pesos|sueldo|salario|salary|wage|paga|pagamos|contratad[oa]|hired|offer|oferta|ganar[aá]s?|earn)\b|\b\d{1,2}\s*[:h]\s*\d{2}\b", re.I)
+
+
+def promises_pay_or_time(text: str) -> bool:
+    return bool(_PROMISE.search(text))

@@ -16,7 +16,7 @@ from screener.phrasing import consent_message, phrase
 from sazon.fields import Field
 from screener.screening import Screening
 from screener.store import Store
-from screener.validators import match_city, validate_name
+from screener.validators import match_area, validate_name
 from sazon.validators import validate_experience
 from tests.support.fakes import FakeLLM, ScriptedLLM
 
@@ -83,13 +83,13 @@ def test_stray_dots_are_still_refused(name):
     ("San Pedro Garza García", "Monterrey"),
 ])
 def test_places_with_a_country_or_state_and_nearby_towns_map_to_the_service_area(text, city):
-    result = match_city(text, config.AREAS, SAZON.place_qualifiers)
+    result = match_area(text, config.AREAS, SAZON.place_qualifiers)
     assert result.status == "match" and result.city == city
 
 
 @pytest.mark.parametrize("text", ["Sevilla, España", "Bilbao", "Cancún, Quintana Roo", "Madrid, Texas"])
 def test_places_that_really_are_outside_are_still_outside(text):
-    assert match_city(text, config.AREAS, SAZON.place_qualifiers).status == "out_of_area"
+    assert match_area(text, config.AREAS, SAZON.place_qualifiers).status == "out_of_area"
 
 
 # --- model-phrased text must not promise anything -------------------------------------------------

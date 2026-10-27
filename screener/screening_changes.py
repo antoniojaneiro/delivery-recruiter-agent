@@ -15,7 +15,7 @@ def propose_change(spec: ScreeningSpec, areas: dict[str, list[str]], language: L
     if field == spec.area_field:
         if not isinstance(candidate, str):
             return None
-        match = validators.match_city(candidate, areas, spec.place_qualifiers)
+        match = validators.match_area(candidate, areas, spec.place_qualifiers)
         if match.city == old:
             return None  # the same city, however it is spelled (an outside-the-area city has no match)
         shown = match.city or echo(candidate)

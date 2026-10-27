@@ -127,7 +127,7 @@ def test_changing_the_city_to_a_typo_asks_the_city_question_next():
     s = accepted()
     ask(s, "ahora vivo en Barcelnoa", city="Barcelnoa")
     directive = s.resolve_change(True, TODAY)
-    assert directive.kind == Kind.CONFIRM_CITY and directive.suggestion == "Barcelona"
+    assert directive.kind == Kind.CONFIRM_AREA and directive.suggestion == "Barcelona"
 
 
 def test_changing_experience_keeps_the_platform_when_only_the_years_are_given():

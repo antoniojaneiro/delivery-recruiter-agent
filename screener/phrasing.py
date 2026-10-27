@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 
 from screener.directive import Directive, Kind
 from screener.extraction import clean_text
-from screener.language import fold
+from screener.language import fold, promises_pay_or_time
 from screener.llm import LLM, LLMError
 from screener.model import NO_CONSENT, Language, Outcome
 
@@ -29,8 +29,6 @@ _MONTHS = {
 _LANGUAGE = {Language.ES: "Spanish", Language.EN: "English"}
 
 _URL = re.compile(r"https?://|www\.", re.I)
-# A phrased question must never state pay, a hire or a clock time: those come from fixed texts only.
-_PROMISE = re.compile(r"[€$£]|\b(euros?|pesos|sueldo|salario|salary|wage|paga|pagamos|contratad[oa]|hired|offer|oferta|ganar[aá]s?|earn)\b|\b\d{1,2}\s*[:h]\s*\d{2}\b", re.I)
 _GREETING = re.compile(r"^[¡\s]*(?:hola|hey|hi|hello|buenas)(?:\s+there)?\s*[!,.]*\s*", re.IGNORECASE)
 _WELCOME = re.compile(r"^[¡\s]*(?:bienvenid[oa]s?|welcome)\b[^.!?¿]*[.!]\s*", re.IGNORECASE)
 
@@ -103,13 +101,13 @@ def _template(spec: "ScreeningSpec", directive: Directive, language: str) -> str
             return pick(spec.field(directive.field).ask, language)
         case Kind.FOLLOW_UP:
             return pick(pack.unclear, language) + pick(spec.field(directive.field).ask, language)
-        case Kind.CONFIRM_CITY:
-            return pick(pack.confirm_city, language).format(suggestion=directive.suggestion)
+        case Kind.CONFIRM_AREA:
+            return pick(pack.confirm_area, language).format(suggestion=directive.suggestion)
         case Kind.CONFIRM_CHANGE:
             return pick(pack.confirm_change, language).format(old=directive.options[0], new=directive.options[1])
         case Kind.CONFIRM_REJECTION:
-            city = " ".join((directive.suggestion or "").split())[:MAX_ECHO_CHARS]
-            return pick(spec.field(directive.field).confirm_rejection, language).format(city=city)
+            area = " ".join((directive.suggestion or "").split())[:MAX_ECHO_CHARS]
+            return pick(spec.field(directive.field).confirm_rejection, language).format(area=area)
         case Kind.OFFER_SLOTS:
             slots = pack.slots
             options = "\n".join(f"{i}) {label}" for i, label in enumerate(directive.options, start=1))
@@ -160,7 +158,7 @@ def _required(directive: Directive) -> list[str]:
 def _usable(text: str, directive: Directive, language: Language) -> bool:
     if not text or len(text) > MAX_REPLY_CHARS or "\n" in text or _URL.search(text):
         return False
-    if _PROMISE.search(text):
+    if promises_pay_or_time(text):
         return False
     if language == Language.EN and ("¿" in text or "¡" in text):
         return False  # the model answered in Spanish although the chat is in English
@@ -208,7 +206,7 @@ def _phrase(llm: LLM, spec: "ScreeningSpec", directive: Directive, language: str
         brief.append(f"What was unclear: {directive.reason}")
     if directive.kind == Kind.FOLLOW_UP:
         brief.append("Say politely that this information is necessary to move forward with the application.")
-    if directive.kind == Kind.CONFIRM_CITY:
+    if directive.kind == Kind.CONFIRM_AREA:
         brief.append(f"Ask whether they mean this place: {directive.suggestion}")
     elif directive.kind == Kind.CONFIRM_CHANGE:
         brief.append(f"Earlier they told you: {directive.options[0]}. Now they said: {directive.options[1]}. "

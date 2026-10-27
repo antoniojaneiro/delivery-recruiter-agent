@@ -11,7 +11,7 @@ class Waiting:
     is_open: bool
     rejection: str | None  # a field whose rejecting answer waits for the candidate's confirmation
     rejection_subject: str | None  # the candidate's own words for it, shown back to them
-    city: str | None  # a near-miss place waiting for "do you mean ...?"
+    area: str | None  # a near-miss place waiting for "do you mean ...?"
     change: tuple | None  # (field, candidate answer, old in words, new in words)
     blocked_on: str | None
     next_field: str | None
@@ -22,8 +22,8 @@ def directive_for(waiting: Waiting, unclear: tuple[str, str] | None, close: Dire
         return close
     if waiting.rejection:
         return Directive(Kind.CONFIRM_REJECTION, field=waiting.rejection, suggestion=waiting.rejection_subject)
-    if waiting.city:
-        return Directive(Kind.CONFIRM_CITY, suggestion=waiting.city)
+    if waiting.area:
+        return Directive(Kind.CONFIRM_AREA, suggestion=waiting.area)
     if waiting.change:
         field, _, old_text, new_text = waiting.change
         return Directive(Kind.CONFIRM_CHANGE, field=field, options=[old_text, new_text])

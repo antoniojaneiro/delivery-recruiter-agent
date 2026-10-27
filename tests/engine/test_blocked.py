@@ -73,7 +73,7 @@ def test_a_city_confirmation_declined_again_and_again_ends_up_blocked(consented)
     results = []
     for _ in range(6):
         consented.submit("city", "Guadalajra", TODAY)
-        results.append(consented.confirm_city(False).status)
+        results.append(consented.confirm_area(False).status)
     assert results == ["follow_up"] * 5 + ["blocked"]
     assert consented.decide().reasons == ["BLOCKED_ON_CITY"]
 
