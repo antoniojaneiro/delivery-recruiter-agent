@@ -9,6 +9,7 @@ from screener.extraction import StartDate, build_system_prompt
 from screener.model import Language, Outcome
 from sazon.fields import Field, Reason
 from screener.phrasing import echo
+from screener.language import fold
 from sazon.pack import PACK, bi
 from screener.spec import MISSING, FieldSpec, RecruiterTexts, Rule, ScreeningSpec, read_attribute
 
@@ -158,7 +159,7 @@ SAZON = ScreeningSpec(
                   what=bi("tu nombre y apellido", "your first and last name"),
                   label=bi("nombre", "name"), not_provided=bi("su nombre", "their name"),
                   validate=lambda value, today: validators.validate_name(value),
-                  same=lambda old, new: validators.fold(old) == validators.fold(new),
+                  same=lambda old, new: fold(old) == fold(new),
                   read=read_attribute("name"), schema={"name": (str | None, None)},
                   prompt="- name: full name as written"),
         FieldSpec(Field.EXPERIENCE,

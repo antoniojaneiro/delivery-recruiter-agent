@@ -2,9 +2,9 @@
 reaches the model before they have said yes. It is deliberately conservative: a reply it does not
 fully recognise is "unclear" and the question is asked again."""
 import re
-import unicodedata
 from dataclasses import dataclass
 
+from screener.language import plain, strip_accents
 from screener.model import Language
 
 MAX_YES_WORDS = 5
@@ -53,12 +53,6 @@ class ConsentReading:
     language: Language | None = None
 
 
-def _normalise(text: str) -> str:
-    decomposed = unicodedata.normalize("NFKD", text)
-    stripped = "".join(c for c in decomposed if not unicodedata.combining(c)).casefold()
-    return " ".join(re.sub(r"[^a-z0-9]+", " ", stripped).split())
-
-
 def _language(tokens: set[str]) -> Language | None:
     spanish, english = bool(tokens & _SPANISH_ONLY), bool(tokens & _ENGLISH_ONLY)
     if spanish == english:
@@ -73,18 +67,17 @@ _GREETING = re.compile(
 
 def _strip_greeting(text: str) -> str:
     """"hola, sí" is a yes: a greeting in front of the answer is not part of the answer."""
-    folded = "".join(c for c in unicodedata.normalize("NFKD", text) if not unicodedata.combining(c))
-    return _GREETING.sub("", folded, count=1)
+    return _GREETING.sub("", strip_accents(text), count=1)
 
 
 def read_consent(text: str) -> ConsentReading:
-    greeted = bool(_GREETING.match("".join(c for c in unicodedata.normalize("NFKD", text) if not unicodedata.combining(c))))
+    greeted = bool(_GREETING.match(strip_accents(text)))
     text = _strip_greeting(text)
     if greeted and not text.strip():
         return ConsentReading(None)
     if "?" in text:
         return ConsentReading(None)
-    norm = _normalise(text)
+    norm = plain(text)
     language = _language(set(norm.split()))
     if norm in _DECLINE_EXACT:
         return ConsentReading(False, language)
@@ -103,10 +96,10 @@ def read_consent(text: str) -> ConsentReading:
 
 
 def _leading_yes(text: str) -> bool:
-    folded = "".join(c for c in unicodedata.normalize("NFKD", text) if not unicodedata.combining(c)).casefold()
+    folded = strip_accents(text).casefold()
     if not _LEADING_YES.match(folded):
         return False
-    rest = _normalise(_LEADING_YES.sub("", folded, count=1)).split()
+    rest = plain(_LEADING_YES.sub("", folded, count=1)).split()
     return len(rest) <= MAX_TRAILING_WORDS and not set(rest) & _CONDITIONS
 
 
@@ -125,7 +118,7 @@ def is_stop_request(text: str) -> bool:
     """A clear request to stop, read in plain code so that opting out never depends on the model."""
     if "?" in text:
         return False
-    norm = _normalise(text)
+    norm = plain(text)
     if norm in _STOP_EXACT:
         return True
     for start in _STOP_STARTS:
@@ -146,7 +139,7 @@ MAX_HESITATION_WORDS = 4
 def is_hesitation(text: str) -> bool:
     """"mmm", "no sé", "jaja", "ok": a filler or a laugh. The model sometimes calls these off-topic;
     they are only an answer that did not answer."""
-    tokens = _normalise(text).split()
+    tokens = plain(text).split()
     if not tokens or len(tokens) > MAX_HESITATION_WORDS:
         return False
     return all(t in _HESITATION_WORDS or _HESITATION_SOUNDS.match(t) for t in tokens)
@@ -163,7 +156,7 @@ def is_resume_request(text: str) -> bool:
     """An explicit wish to carry on after withdrawing. A polite "vale" or "gracias" to the farewell is not one."""
     if "?" in text:
         return False
-    norm = _normalise(text)
+    norm = plain(text)
     if norm in _RESUME_EXACT:
         return True
     return any(norm == start or (norm.startswith(start + " ") and len(norm[len(start):].split()) <= MAX_WORDS_AFTER_STOP)

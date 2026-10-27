@@ -3,6 +3,7 @@ in a language, or with different {placeholders} in two languages, is refused whe
 from dataclasses import dataclass
 from string import Formatter
 
+from screener.language import pick
 from screener.model import Language
 from screener.pack import Text
 
@@ -37,4 +38,4 @@ class UiPack:
             text = self.texts[key]
         except KeyError:
             raise UiTextError(f"no text '{key}'") from None
-        return (text.get(language) or text[self.languages[0]]).format(**values)
+        return pick(text, language, self.languages[0]).format(**values)

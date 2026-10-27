@@ -6,7 +6,7 @@ from screener import validators
 from screener.consent import ConsentReading, is_hesitation, is_resume_request, read_consent
 from screener.extraction import ControlFlags
 from screener.model import CONSENT, NO_CONSENT, CityMatchStatus, EventType, Language, Outcome, Status
-from screener.language_hint import language_of
+from screener.language import language_of
 from screener.phrasing import Directive, Kind, consent_text_hash
 from screener.screening_changes import propose_change
 from screener.screening_precedence import Waiting, directive_for

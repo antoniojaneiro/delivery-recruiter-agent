@@ -3,7 +3,7 @@ from datetime import date
 
 import pytest
 
-from screener.language_hint import language_of
+from screener.language import language_of
 from screener.model import Language
 from sazon.spec import SAZON
 from screener.screening import Screening
@@ -57,3 +57,42 @@ def test_the_chat_switches_back_when_the_candidate_writes_in_the_other_language(
     s = chat_in(ES)
     s.apply(SAZON.extraction_model(), "I can work 2 days a week", TODAY)
     assert s.language == EN
+
+
+# --- the shared helpers (D70) -------------------------------------------------------------------------------------
+
+from screener.language import fold, pick, plain, strip_accents  # noqa: E402
+
+
+def test_accents_and_case_are_removed_in_one_way_everywhere():
+    assert strip_accents("Ñandú Álvarez") == "Nandu Alvarez"
+    assert fold("  Ñandú   ÁLVAREZ ") == "nandu alvarez"
+    assert plain("¡Sí, claro!  ¿Vale?") == "si claro vale"
+    assert plain("Part-Time") == "part time" and plain("") == ""
+
+
+def test_a_text_is_picked_in_the_language_asked_for_else_in_the_default():
+    text = {ES: "hola", EN: "hello"}
+    assert pick(text, EN, ES) == "hello" and pick(text, "es", EN) == "hola"
+    assert pick({ES: "hola"}, EN, ES) == "hola"      # no English: the client's default
+    assert pick({ES: "hola"}, None, ES) == "hola"    # no language known yet
+    with pytest.raises(KeyError):
+        pick({EN: "hello"}, ES, ES)                    # the default itself is missing: a spec problem, not a fallback
+
+
+def test_the_terminal_chat_apologises_in_the_clients_default_language_not_always_spanish(tmp_path, monkeypatch):
+    from datetime import datetime
+
+    from screener import chat, turn
+    from screener.store import Store
+    from tests.support.fakes import ScriptedLLM
+    from tests.support.toy_spec import TOY_CLIENT
+
+    def boom(*args, **kwargs):
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr(turn, "handle_message", boom)
+    lines, out = iter(["hello", "/quit"]), []
+    chat.run(ScriptedLLM(), Store(tmp_path / "t.db"), TOY_CLIENT, read=lambda prompt: next(lines), write=out.append,
+             clock=lambda: datetime(2026, 10, 26, 10, 0))
+    assert any("Something went wrong" in line for line in out)

@@ -2,12 +2,12 @@
 which text a directive needs, fills in the placeholders and keeps the model's rephrasing inside safe limits."""
 import hashlib
 import re
-import unicodedata
 from dataclasses import dataclass, field as dc_field
 from enum import StrEnum
 from typing import TYPE_CHECKING
 
 from screener.extraction import clean_text
+from screener.language import fold
 from screener.llm import LLM, LLMError
 from screener.model import NO_CONSENT, Language, Outcome
 
@@ -180,10 +180,6 @@ def _close(spec: "ScreeningSpec", directive: Directive, language: str) -> str:
     return pack.pick(pack.close.get(directive.outcome, pack.close_other), language)
 
 
-def _folded(text: str) -> str:
-    return "".join(c for c in unicodedata.normalize("NFKD", text) if not unicodedata.combining(c)).casefold()
-
-
 def _required(directive: Directive) -> list[str]:
     """What the message must still say, however the model words it: the place to confirm, both sides of a change."""
     if directive.kind == Kind.CONFIRM_CHANGE:
@@ -200,7 +196,7 @@ def _usable(text: str, directive: Directive, language: Language) -> bool:
         return False  # the model answered in Spanish although the chat is in English
     if text.count("?") > 1:
         return False
-    return all(_folded(fact) in _folded(text) for fact in _required(directive))
+    return all(fold(fact) in fold(text) for fact in _required(directive))
 
 
 # Kinds whose wording is exact and never the model's: promises, offers, reminders sent without a model, errors.

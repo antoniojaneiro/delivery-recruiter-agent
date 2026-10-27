@@ -7,6 +7,7 @@ from operator import eq
 from typing import Any, Callable
 
 from screener.extraction import ControlFlags, build_model
+from screener.language import pick
 from screener.model import NO_CONSENT, Language, Outcome
 from screener.pack import Pack, Text
 from screener.validators import Validation
@@ -116,11 +117,11 @@ class ScreeningSpec:
 
     def recruiter_texts(self, language: Language | None = None) -> RecruiterTexts:
         """The recruiter words in `language`, or in the pack's default language when that one is not listed."""
-        return self.recruiter.get(language) or self.recruiter[self.pack.default_language]
+        return pick(self.recruiter, language, self.pack.default_language)
 
     def say(self, text: Text, language: Language | None = None) -> str:
         """A recruiter-facing text in `language`, or in the default language."""
-        return text.get(language) or text[self.pack.default_language]
+        return pick(text, language, self.pack.default_language)
 
     def reason_text(self, code: str, language: Language | None = None) -> str:
         """A disqualifying or blocking reason in the recruiter's words."""

@@ -72,7 +72,7 @@ def test_a_few_days_a_week_is_part_time_never_weekends(llm, message):
 
 @pytest.mark.parametrize("message", ["Madrid", "Maria Lopez", "Madrid, Spain"])
 def test_a_bare_name_or_place_does_not_claim_a_language(llm, message):
-    from screener.language_hint import language_of
+    from screener.language import language_of
     from screener.model import Language
     claimed = ask(llm, message, Field.CITY).language
     assert language_of(message, claimed, Language.EN) == Language.EN  # whatever the model says, the chat stays

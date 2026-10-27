@@ -1,8 +1,7 @@
 """Reads the candidate's pick from the numbered slot list in plain code (D48). Picking books a real
 call, so a pick must be unambiguous: one valid option number and nothing else we do not recognise.
 Declining is safe (it falls back to the 48-hour promise), so it is read more generously."""
-import re
-import unicodedata
+from screener.language import plain
 
 
 class _NoSlot:
@@ -32,17 +31,11 @@ _FILLER = {
 }
 
 
-def _normalise(text: str) -> str:
-    decomposed = unicodedata.normalize("NFKD", text)
-    stripped = "".join(c for c in decomposed if not unicodedata.combining(c)).casefold()
-    return " ".join(re.sub(r"[^a-z0-9]+", " ", stripped).split())
-
-
 def read_slot_choice(text: str, options: int):
     """Returns the option number (1..options), NONE if they decline every option, or None if unclear."""
     if "?" in text:
         return None
-    norm = _normalise(text)
+    norm = plain(text)
     tokens = norm.split()
     if not tokens:
         return None

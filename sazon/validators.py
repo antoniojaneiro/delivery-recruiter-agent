@@ -2,7 +2,8 @@
 import math
 from datetime import date, timedelta
 
-from screener.validators import Validation, fold
+from screener.language import fold
+from screener.validators import Validation
 
 
 def validate_license(value: bool | None) -> Validation:

@@ -5,7 +5,7 @@ import re
 from screener.model import NO_CONSENT, Outcome, RecruiterStatus
 from screener.spec import ScreeningSpec
 from screener.store import Record
-from screener.validators import fold
+from screener.language import plain
 
 PAGE_SIZE = 50
 
@@ -22,18 +22,13 @@ def page_of(items: list, page: int, size: int = PAGE_SIZE) -> tuple[list, int, i
     return items[(page - 1) * size: page * size], pages, page
 
 
-def _plain(text: str) -> str:
-    """Lower case, no accents, and hyphens or apostrophes read as spaces."""
-    return " ".join(re.sub(r"[^a-z0-9]+", " ", fold(text)).split())
-
-
 def matches(record: Record, search: str, spec: ScreeningSpec) -> bool:
     """The search looks in the candidate's id, the answer that titles the summary and the area answer."""
-    needle = _plain(search)
+    needle = plain(search)
     if not needle:
         return True
     shown = [record.extracted.get(key) or "" for key in (spec.title_field, spec.area_field) if key]
-    return needle in _plain(" ".join([record.candidate_id, *shown]))
+    return needle in plain(" ".join([record.candidate_id, *shown]))
 
 
 def needs_review(record: Record) -> bool:

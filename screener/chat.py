@@ -9,7 +9,6 @@ from pathlib import Path
 from screener import turn
 from screener.client import Client
 from screener.llm import LLM
-from screener.model import Language
 from screener.phrasing import Directive, Kind, phrase
 from screener.store import Store
 
@@ -50,7 +49,7 @@ def run(llm: LLM, store: Store, client: Client, read=input, write=print,
             write(f"bot> {turn.handle_message(llm, store, client, candidate_id, line, clock())}")
         except Exception as error:
             report(error)
-            write("bot> " + phrase(llm, client.spec, Directive(Kind.TECHNICAL_ERROR), Language.ES))
+            write("bot> " + phrase(llm, client.spec, Directive(Kind.TECHNICAL_ERROR), client.spec.pack.default_language))
 
 
 def log_error(error: Exception, now: datetime, log_path: Path | None) -> str:

@@ -5,7 +5,7 @@ from screener.phrasing import slot_label
 from screener.store import Booking, Record, Slot
 from screener.summary import card_for
 from sazon.client import SAZON_CLIENT
-from sazon.spec import RECRUITER
+from sazon.spec import RECRUITER, SAZON
 from sazon.ui_pack import PACK
 
 ES = Language.ES
@@ -16,8 +16,7 @@ def status_label(status, language: Language = ES) -> str:
 
 
 def outcome_label(outcome, language: Language = ES) -> str:
-    labels = RECRUITER.get(language, RECRUITER[ES]).outcome_labels
-    return labels.get(outcome, str(outcome or ""))
+    return SAZON.recruiter_texts(language).outcome_labels.get(outcome, str(outcome or ""))
 
 
 def country_label(country: str, language: Language = ES) -> str:

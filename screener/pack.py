@@ -2,6 +2,7 @@
 model lives here, in every language the client supports; a missing text is a missing argument, not a runtime error."""
 from dataclasses import dataclass
 
+from screener.language import pick
 from screener.model import Language, Outcome
 
 Text = dict[Language, str]  # language -> wording; {placeholders} are filled in by the engine
@@ -39,4 +40,4 @@ class Pack:
     slots: SlotTexts | None = None
 
     def pick(self, text: Text, language) -> str:
-        return text.get(language) or text[self.default_language]
+        return pick(text, language, self.default_language)
