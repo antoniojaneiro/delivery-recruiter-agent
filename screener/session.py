@@ -20,14 +20,11 @@ def load(store: Store, candidate_id: str, client: Client) -> Screening:
 def commit(store: Store, candidate_id: str, screening: Screening, now: datetime,
            messages: list[tuple[str, str]] = (), outbox: list[str] = ()) -> None:
     decision = screening.decide()
-    previous = store.get(candidate_id)
     with screening.syncing_events() as new_events:
         events = [(str(kind), detail) for kind, detail in new_events]
-        if previous is None or previous.outcome != decision.outcome:
-            events.append(("decision", json.dumps({
-                "outcome": str(decision.outcome), "reasons": decision.reasons, "flags": decision.flags,
-            })))
-        screening.version = store.commit_turn(candidate_id, now, screening.to_state(), screening.extracted(),
-                          str(decision.outcome), events, list(messages),
-                          reasons=decision.reasons, flags=decision.flags, summary=summarise(screening),
-                          expected_version=screening.version, outbox=list(outbox))
+        screening.version = store.commit_turn(
+            candidate_id, now, screening.to_state(), screening.extracted(), str(decision.outcome), events,
+            list(messages), reasons=decision.reasons, flags=decision.flags, summary=summarise(screening),
+            expected_version=screening.version, outbox=list(outbox),
+            decision=json.dumps({"outcome": str(decision.outcome), "reasons": decision.reasons,
+                                 "flags": decision.flags}))

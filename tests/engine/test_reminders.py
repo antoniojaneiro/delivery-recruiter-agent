@@ -159,7 +159,7 @@ def test_a_candidate_whose_record_changed_meanwhile_is_skipped_and_the_others_st
             raise ConflictError(cid)
         return real_commit(store_, cid, screening, now, **kwargs)
 
-    monkeypatch.setattr(reminders.session, "commit", commit)
+    monkeypatch.setattr(session, "commit", commit)
     assert kinds(reminders.run_once(store, SAZON_CLIENT, T0 + 24 * HOUR)) == [("c2", "reminder")]
     assert [e.candidate_id for e in store.outbox_pending()] == ["c2"]
 

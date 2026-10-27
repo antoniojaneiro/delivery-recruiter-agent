@@ -54,12 +54,17 @@ class Store(SlotsMixin):
                     outcome: str, events: list[tuple[str, str]],
                     messages: list[tuple[str, str]], reasons: list[str] = (),
                     flags: list[str] = (), summary: str | None = None,
-                    expected_version: object = NO_CHECK, outbox: list[str] = ()) -> int:
+                    expected_version: object = NO_CHECK, outbox: list[str] = (),
+                    decision: str | None = None) -> int:
         """Saves one turn atomically. With `expected_version` (the version this copy was loaded at, or None for a
-        candidate that did not exist) the save is refused with ConflictError if the record changed or vanished."""
+        candidate that did not exist) the save is refused with ConflictError if the record changed or vanished.
+        With `decision` (the text of the decision event) it is logged when the outcome differs from the saved one,
+        which is read here, under the same write lock."""
         with self._connect() as db:
             db.execute("BEGIN IMMEDIATE")  # the version is read while holding the write lock, so nobody slips in
-            row = db.execute("SELECT version FROM candidates WHERE candidate_id = ?", (candidate_id,)).fetchone()
+            row = db.execute("SELECT version, outcome FROM candidates WHERE candidate_id = ?", (candidate_id,)).fetchone()
+            if decision is not None and (row is None or row[1] != outcome):
+                events = [*events, ("decision", decision)]
             if expected_version is not NO_CHECK:
                 if (expected_version is None and row is not None) or (
                         expected_version is not None and (row is None or row[0] != expected_version)):

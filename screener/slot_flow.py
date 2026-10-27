@@ -2,14 +2,15 @@
 single source of truth for a booking: the screening only remembers which slots are on offer."""
 from datetime import datetime
 
-from screener import session
+from screener import conversation
+from screener.conversation import SKIP, Turn
 from screener.client import Client
 from screener.consent import is_stop_request
 from screener.model import Outcome
 from screener.phrasing import Directive, Kind, slot_cancelled_message, slot_label
 from screener.screening import Screening
 from screener.slot_choice import NONE, read_slot_choice
-from screener.store import ConflictError, Store
+from screener.store import Store
 
 MAX_UNCLEAR_PICKS = 3  # re-offers of the same list before the 48-hour promise applies
 
@@ -58,13 +59,12 @@ def notify_cancelled(store: Store, client: Client, candidate_id: str, now: datet
     False when there is nobody to tell (erased) or the record changed meanwhile."""
     if store.get(candidate_id) is None:
         return False
-    screening = session.load(store, candidate_id, client)
-    text = slot_cancelled_message(client.spec, screening.language)
-    try:
-        session.commit(store, candidate_id, screening, now, messages=[("agent", text)], outbox=[text])
-    except ConflictError:
-        return False
-    return True
+
+    def work(screening: Screening) -> Turn:
+        text = slot_cancelled_message(client.spec, screening.language)
+        return Turn(True, messages=[("agent", text)], outbox=[text])
+
+    return conversation.run(store, client, candidate_id, now, work, on_conflict=SKIP, default=False)
 
 
 def on_idle(store: Store, client: Client, screening: Screening, now: datetime) -> tuple[str, Directive]:

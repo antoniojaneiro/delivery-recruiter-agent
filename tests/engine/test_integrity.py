@@ -197,7 +197,7 @@ def test_one_broken_candidate_does_not_stop_the_job_for_the_others(store, monkey
             raise ValueError("corrupt row")
         return real(store_, cid, areas)
 
-    monkeypatch.setattr(reminders.session, "load", load)
+    monkeypatch.setattr(session, "load", load)
     actions = reminders.run_once(store, SAZON_CLIENT, NOW + 24 * HOUR)
     assert {(a.candidate_id, a.kind) for a in actions} == {("c1", "error"), ("c2", "reminder")}
     assert [e.candidate_id for e in store.outbox_pending()] == ["c2"]
