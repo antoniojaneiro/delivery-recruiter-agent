@@ -52,6 +52,7 @@ PACK = UiPack((ES, EN), {
     "recruiters.delete_title": bi("Borrar un reclutador", "Delete a recruiter"),
     "recruiters.delete_pick": bi("Reclutador", "Recruiter"),
     "recruiters.delete_confirm": bi("Entiendo que pierde el acceso", "I understand they lose access"),
+    "recruiters.delete_calls": bi("Llamadas reservadas por delante: {n}. Cada una pasa a otro reclutador libre a esa hora o se avisa al candidato para que elija otra.", "Booked calls ahead: {n}. Each goes to another recruiter free then, or the candidate is told and can choose another time."),
     "recruiters.delete_button": bi("Borrar reclutador", "Delete recruiter"),
     "recruiters.deleted": bi("Reclutador borrado.", "Recruiter deleted."),
     "recruiters.delete_need_check": bi("Marca la casilla para confirmar.", "Tick the box to confirm."),
@@ -154,10 +155,10 @@ PACK = UiPack((ES, EN), {
     # slots page
     "slots.title": bi("Calendario de llamadas", "Call calendar"),
     "slots.caption": bi(
-        "El agente ofrece a cada candidato cualificado los tres próximos horarios libres de su país. La hora es la "
-        "del reloj del país: un candidato en México ve la hora de México.",
-        "The agent offers each qualified candidate the next free times in their country. The time is the country's "
-        "own clock: a candidate in Mexico sees Mexico's time."),
+        "Los candidatos cualificados reservan ellos mismos una llamada de 15 minutos con los reclutadores libres de su país. "
+        "La hora es la del reloj del país: un candidato en México ve la hora de México.",
+        "Qualified candidates book a 15-minute call themselves with the recruiters free in their country. The time is the "
+        "country's own clock: a candidate in Mexico sees Mexico's time."),
     "slots.add_title": bi("Añadir un horario", "Add a call time"),
     "slots.list_title": bi("Lista de horarios y cancelaciones", "List of times and cancellations"),
     "cal.scope": bi("Qué llamadas ver", "Which calls to show"),
@@ -218,10 +219,13 @@ PACK = UiPack((ES, EN), {
     "sched.new_day": bi("Día", "Day"),
     "sched.new_hour": bi("Hora", "Time"),
     "sched.submit_new": bi("Crear horario y reservar", "Create time and book"),
+    "sched.new_owner": bi("Reclutador que atiende esa hora", "Recruiter who takes that time"),
+    "sched.new_owner_none": bi("Una hora nueva solo la puede crear un reclutador del país del candidato (para sí mismo); el jefe de contratación elige uno de ese país.",
+                               "A new time can only be made by a recruiter of the candidate's country (for themselves); the hiring manager picks one from that country."),
+    "error.wrong_country": bi("Ese horario es de otro país distinto al del reclutador o del candidato.",
+                              "That time is in a different country than the recruiter's or the candidate's."),
     "sched.none": bi("No hay candidatos a los que organizar una llamada.", "There are no candidates to organise a call for."),
     "error.slot_unavailable": bi("Ese horario ya no está libre. Elige otro.", "That time is no longer free. Choose another."),
-    "error.wrong_country": bi("Ese horario es de otro país distinto al del candidato.",
-                              "That time is in a different country than the candidate's."),
     "slots.country": bi("País", "Country"),
     "slots.day": bi("Día", "Day"),
     "slots.hour": bi("Hora", "Time"),

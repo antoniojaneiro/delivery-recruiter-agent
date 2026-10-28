@@ -24,6 +24,7 @@ def db(tmp_path, monkeypatch):
     monkeypatch.setenv("SAZON_DB", str(path))
     monkeypatch.setenv("SAZON_ACCOUNTS", str(tmp_path / "recruiters.json"))
     seed_accounts(tmp_path / "recruiters.json")
+    seed_accounts(None, "Marta", country="MX")
     return Store(path, calendar=SAZON_CALENDAR)
 
 
@@ -36,12 +37,12 @@ def slot(store, country, when):
     return store.add_slot(country, when, f"Ana {country}", "Ana", NOW.astimezone())  # one country per recruiter
 
 
-def opened(language="es", week=MONDAY):
+def opened(language="es", week=MONDAY, name="Ana"):
     at = AppTest.from_file(APP, default_timeout=30)
     at.session_state["ui_language"] = language
     at.session_state["cal_week"] = week
     at.run()
-    login(at)
+    login(at, name)
     at.switch_page("views/slots.py").run()
     assert not at.exception, at.exception
     return at
@@ -199,11 +200,11 @@ def pick(at, cid):
     schedule_picker(at).select(next(o for o in schedule_picker(at).options if f"({cid})" in o)).run()
 
 
-def test_a_call_can_be_booked_at_a_new_time_which_is_created_in_the_candidates_country(db):
+def test_a_call_can_be_booked_at_a_new_time_the_recruiter_makes_in_their_own_country(db):
     add(db, "c1", "Madrid")
     add(db, "c2", "Guadalajara")
     slot(db, "ES", TUESDAY)  # some other time exists; this one is not used
-    at = opened()
+    at = opened(name="Marta")  # a recruiter in Mexico, for a candidate in Mexico
     pick(at, "c2")
     at.date_input(key="sched_new_day").set_value(TUESDAY.date() + timedelta(days=1))
     at.time_input(key="sched_new_hour").set_value(TUESDAY.time().replace(hour=9, minute=30))
@@ -211,8 +212,8 @@ def test_a_call_can_be_booked_at_a_new_time_which_is_created_in_the_candidates_c
     assert not at.exception, at.exception
     held = db.booking_of("c2")
     assert held.country == "MX" and held.starts_at == datetime(2027, 6, 16, 9, 30)
-    assert [e.actor for e in db.events("c2") if e.type == "slot_booked"] == ["recruiter:ana@sazon.test"]
-    assert len(db.outbox_pending("c2")) == 1 and at.success
+    assert [e.actor for e in db.events("c2") if e.type == "slot_booked"] == ["recruiter:marta@sazon.test"]
+    assert db.slot(held.slot_id).recruiter == "marta@sazon.test" and len(db.outbox_pending("c2")) == 1 and at.success
 
 
 def test_a_new_time_that_is_too_soon_is_refused_and_nothing_is_left_behind(db):
@@ -242,3 +243,20 @@ def test_when_the_candidate_cannot_be_told_the_booking_stands_and_the_recruiter_
     assert not at.exception, at.exception
     assert db.booking_of("c1").slot_id == chosen and at.success
     assert any("aviso" in str(w.value).lower() for w in at.warning)
+
+
+def test_nobody_can_make_a_time_for_someone_who_takes_no_calls_or_in_another_country(db, monkeypatch):
+    from tests.support.dash import login_manager, set_manager
+    add(db, "c1", "Madrid")
+    add(db, "c2", "Guadalajara")
+    spanish = opened()  # Ana is in Spain
+    pick(spanish, "c2")  # a Mexican candidate: no Spanish recruiter can make a time for them
+    assert spanish.button(key="sched_submit_new").disabled and any("país del candidato" in str(c.value) for c in spanish.caption)
+    set_manager(monkeypatch)
+    boss = AppTest.from_file(APP, default_timeout=30).run()
+    login_manager(boss)
+    boss.switch_page("views/slots.py").run()
+    pick(boss, "c2")
+    assert boss.selectbox(key="sched_new_owner").options == ["marta@sazon.test"]
+    pick(boss, "c1")  # the manager picks one of that country's recruiters, never themselves
+    assert boss.selectbox(key="sched_new_owner").options == ["ana@sazon.test", "luis@sazon.test"]

@@ -35,20 +35,20 @@ manage_box = st.container()
 
 with manage_box:
     with st.expander(t("slots.add_title")):
+        team = {r.email: r for r in store.recruiters()}
+        owners = list(team) if ui.is_manager() else [e for e in team if e == recruiter]  # a recruiter adds for themselves only
         with st.form("slot_form"):
-            countries = list(calendar.timezones)
-            country = st.selectbox(t("slots.country"), countries, format_func=lambda code: view.country_label(code),
-                                   key="slot_country")
+            caller = st.selectbox(t("slots.caller"), owners, key="slot_recruiter",
+                                  format_func=lambda e: f"{team[e].name} ({view.country_label(team[e].country)})")
             day = st.date_input(t("slots.day"), key="slot_date")
             hour = st.time_input(t("slots.hour"), value=time(10, 0), step=900, key="slot_time")
-            caller = st.text_input(t("slots.caller"), key="slot_recruiter")
-            save = st.form_submit_button(t("slots.add"), key="save_slot")
+            save = st.form_submit_button(t("slots.add"), key="save_slot", disabled=not owners)
 
         if save:
             try:
                 if not recruiter:
                     raise ValueError(t("common.need_name"))
-                store.add_slot(country, datetime.combine(day, hour), caller, recruiter, datetime.now().astimezone())
+                store.add_slot(team[caller].country, datetime.combine(day, hour), caller, recruiter, datetime.now().astimezone())
             except (ValueError, LookupError) as error:
                 st.error(view.explain_error(error))
             else:
@@ -161,14 +161,19 @@ with schedule_box:
                 organise(slot_id)
 
             st.markdown(f"**{t('sched.new_title')}**")
+            in_country = [r.email for r in store.recruiters() if r.country == where]  # only a recruiter of that country takes it
+            owner = (st.selectbox(t("sched.new_owner"), in_country, key="sched_new_owner", index=0 if in_country else None)
+                     if ui.is_manager() else (recruiter if recruiter in in_country else None))
+            if owner is None:
+                st.caption(t("sched.new_owner_none"))
             with st.container(horizontal=True, vertical_alignment="bottom"):
                 new_day = st.date_input(t("sched.new_day"), key="sched_new_day")
                 new_hour = st.time_input(t("sched.new_hour"), value=time(10, 0), step=900, key="sched_new_hour")
-                create = st.button(t("sched.submit_new"), key="sched_submit_new", disabled=where is None,
+                create = st.button(t("sched.submit_new"), key="sched_submit_new", disabled=owner is None,
                                    icon=":material/add_circle:")
             if create:
-                try:  # the time is made in the candidate's own country, then booked like any other
-                    new_slot = store.add_slot(where, datetime.combine(new_day, new_hour), recruiter, recruiter, now)
+                try:  # the time is the owner's, in the candidate's own country, then booked like any other
+                    new_slot = store.add_slot(where, datetime.combine(new_day, new_hour), owner, recruiter, now)
                 except (InputError, ValueError) as error:
                     st.error(view.explain_error(error))
                 else:
@@ -202,9 +207,9 @@ with avail_box:
                 on = st.checkbox(t(f"cal.day.{weekday}"), value=weekday in week_now, key=f"avail_on_{weekday}")
                 first, last = week_now.get(weekday, (calendar.default_start, calendar.default_end))
                 start_at = st.time_input(t("avail.start"), value=time(first // 60, first % 60), step=900,
-                                         key=f"avail_start_{weekday}", disabled=not on)
+                                         key=f"avail_start_{weekday}", disabled=not on, width=140)
                 end_at = st.time_input(t("avail.end"), value=time(last // 60, last % 60), step=900,
-                                       key=f"avail_end_{weekday}", disabled=not on)
+                                       key=f"avail_end_{weekday}", disabled=not on, width=140)
             if on:
                 picks.append((weekday, start_at.hour * 60 + start_at.minute, end_at.hour * 60 + end_at.minute))
 

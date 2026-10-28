@@ -218,3 +218,22 @@ def test_the_list_holds_booked_calls_and_hand_made_times_not_the_thousands_made_
     store.book_slot(store.free_slots_on("ES", MONDAY, NOW.astimezone())[0].id, "c0", NOW.astimezone())
     listed = store.listed_slots(NOW.astimezone())
     assert len(store.slots(NOW.astimezone())) > 500 and len(listed) == 2
+
+
+def test_free_times_that_have_passed_are_cleaned_up_each_day_and_offers_never_look_at_the_past(store):
+    hire(store, "Ana")
+    later = NOW + timedelta(days=30)
+    store.sync_availability(later.astimezone())
+    free = [s for s in store.slots(later.astimezone(), include_past=True) if s.candidate_id is None]
+    assert free and min(s.starts_at for s in free) >= datetime.combine(later.date() - timedelta(days=1), datetime.min.time())
+    assert store.free_slots("ES", later.astimezone(), 3)[0].starts_at > later  # the first offer is in the future
+    assert len(store.slots(later.astimezone(), include_past=True)) < 2000  # not a month of old rows kept forever
+
+
+def test_a_time_added_by_hand_for_a_recruiter_must_be_in_that_recruiters_own_country(store):
+    hire(store, "Ana", "ES")
+    when = datetime.combine(SATURDAY, datetime.min.time()).replace(hour=10)
+    with pytest.raises(InputError) as refused:
+        store.add_slot("MX", when, "ana@sazon.test", BOSS, NOW.astimezone())
+    assert refused.value.code == "wrong_country"
+    assert store.add_slot("ES", when, "ana@sazon.test", BOSS, NOW.astimezone()) > 0

@@ -97,8 +97,11 @@ class AvailabilityMixin:
             done = db.execute("SELECT value FROM settings WHERE key = 'availability_synced'").fetchone()
         if done and done[0] == today:
             return
+        yesterday = ((now if now.tzinfo else now.astimezone()).date() - timedelta(days=1)).isoformat()
         with self._connect() as db:
             db.execute("BEGIN IMMEDIATE")
+            db.execute("DELETE FROM slots WHERE candidate_id IS NULL AND cancelled_at IS NULL AND created_by = ? AND starts_at < ?",
+                       (MADE, yesterday))  # free times that have passed: nobody will ever be offered them
             for email, country in db.execute("SELECT email, country FROM recruiters").fetchall():
                 self._apply(db, email, country, now)
             db.execute("INSERT INTO settings (key, value) VALUES ('availability_synced', ?) "

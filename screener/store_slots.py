@@ -36,6 +36,9 @@ class SlotsMixin:
         calendar = self._calendar()
         if country not in calendar.timezones:
             raise InputError("unknown_country", f"unknown country {country}")
+        owner = self.get_recruiter(recruiter) if recruiter else None
+        if owner is not None and owner.country != country:
+            raise InputError("wrong_country", "a recruiter takes calls in their own country only")
         if not calendar.wall_time_exists(country, starts_at):
             raise InputError("clock_change", "that time does not exist on the day the clocks change")
         if not calendar.has_enough_notice(country, starts_at, now):
@@ -51,7 +54,8 @@ class SlotsMixin:
         if self.calendar is None:
             return []
         self.sync_availability(now)
-        free, floor = [], ""
+        here = (now if now.tzinfo else now.astimezone()).astimezone(self.calendar.zone(country)).replace(tzinfo=None)
+        free, floor = [], here.isoformat()  # never look at times that have passed
         while len(free) < limit:
             with self._connect() as db:
                 rows = db.execute("SELECT MIN(id), country, starts_at, recruiter, NULL, 0 FROM slots WHERE country = ? AND "

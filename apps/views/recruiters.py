@@ -3,6 +3,8 @@ from datetime import datetime
 
 import streamlit as st
 
+from screener import slot_flow
+
 from sazon import ui
 from sazon.client import SAZON_CLIENT
 from sazon.ui import t
@@ -17,6 +19,8 @@ if not ui.is_manager():  # the page is not even listed for a recruiter; this is 
     st.stop()
 st.caption(t("recruiters.caption"))
 
+if flash := st.session_state.pop("_recruiter_flash", None):
+    st.success(flash)
 recruiters = store.recruiters()
 countries = list(SAZON_CLIENT.calendar.timezones)
 
@@ -69,11 +73,15 @@ if recruiters:
         st.subheader(t("recruiters.delete_title"))
         gone = st.selectbox(t("recruiters.delete_pick"), emails, key="delete_who",
                             format_func=lambda e: f"{by_email[e].name} ({e})")
+        calls = store.future_calls(gone, datetime.now().astimezone())
+        st.caption(t("recruiters.delete_calls", n=len(calls)))  # what leaving would affect
         sure = st.checkbox(t("recruiters.delete_confirm"), key="delete_sure")
         if st.button(t("recruiters.delete_button"), key="delete_submit"):
             if not sure:
                 st.error(t("recruiters.delete_need_check"))
-            else:
+            else:  # each future call goes to another recruiter free then, or the candidate is told and can pick again
                 store.remove_recruiter(gone, actor, datetime.now())
-                st.success(t("recruiters.deleted"))
+                done = slot_flow.resolve_calls(store, SAZON_CLIENT, calls, actor, datetime.now())
+                st.session_state["_recruiter_flash"] = t("recruiters.deleted") + (
+                    " " + t("avail.effect", moved=done.moved, released=done.released) if calls else "")
                 st.rerun()

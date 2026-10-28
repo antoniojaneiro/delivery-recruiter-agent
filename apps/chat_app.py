@@ -20,6 +20,7 @@ from screener.store import Store
 
 from sazon import config, ui
 from sazon.client import SAZON_CLIENT
+from sazon.demo.team import ensure_demo_team
 from sazon.ui import t
 from sazon.ui_pack import PACK
 
@@ -38,6 +39,8 @@ def active_store() -> Store:
 
 
 store = active_store()
+if not st.session_state.get("share_with_dashboard"):  # the test database gets a fictional team; the real one never does
+    ensure_demo_team(store, datetime.now())
 language = ui.language()
 view = ui.view()
 

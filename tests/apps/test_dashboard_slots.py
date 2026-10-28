@@ -24,6 +24,7 @@ def db(tmp_path, monkeypatch):
     monkeypatch.setenv("SAZON_DB", str(path))
     monkeypatch.setenv("SAZON_ACCOUNTS", str(tmp_path / "recruiters.json"))
     seed_accounts(tmp_path / "recruiters.json")
+    seed_accounts(None, "Marta", country="MX")
     return Store(path, calendar=SAZON_CALENDAR)
 
 
@@ -53,12 +54,12 @@ def name_as(at, name="Ana"):
     return at
 
 
-def add_slot(at, when=None, country="ES", recruiter=""):
+def add_slot(at, when=None, recruiter="ana@sazon.test"):
+    """The form: whose time it is (a recruiter sees only themselves) and when; its country is the recruiter's."""
     when = when or datetime.combine(FUTURE, time(10, 0))
-    at.selectbox(key="slot_country").select(country)
+    at.selectbox(key="slot_recruiter").select(recruiter)
     at.date_input(key="slot_date").set_value(when.date())
     at.time_input(key="slot_time").set_value(when.time())
-    at.text_input(key="slot_recruiter").set_value(recruiter)
     at.form_submit_button(key="save_slot").click().run()
     assert not at.exception, at.exception
 
@@ -69,10 +70,10 @@ def test_the_slots_page_starts_empty_with_a_hint(db):
 
 
 def test_a_recruiter_can_add_a_slot_in_a_countrys_own_time(db):
-    at = name_as(slots_page(run()))
-    add_slot(at, datetime.combine(FUTURE, time(9, 30)), "MX", "Luis")
+    at = name_as(slots_page(run("Marta")), "Marta")
+    add_slot(at, datetime.combine(FUTURE, time(9, 30)), "marta@sazon.test")
     [slot] = db.slots(NOW)
-    assert (slot.country, slot.starts_at, slot.recruiter) == ("MX", datetime.combine(FUTURE, time(9, 30)), "Luis")
+    assert (slot.country, slot.starts_at, slot.recruiter) == ("MX", datetime.combine(FUTURE, time(9, 30)), "marta@sazon.test")
     table = at.dataframe[0].value
     assert list(table["País"]) == ["México"] and list(table["Estado"]) == ["Libre"]
 
@@ -84,7 +85,7 @@ def test_a_recruiter_can_add_a_slot_in_a_countrys_own_time(db):
 ])
 def test_a_past_or_impossible_time_is_refused_with_a_clear_message(db, when):
     at = name_as(slots_page(run()))
-    add_slot(at, when, "ES")
+    add_slot(at, when)
     assert at.error and db.slots(NOW, include_past=True) == []
 
 

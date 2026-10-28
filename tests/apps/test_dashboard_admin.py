@@ -346,3 +346,23 @@ def test_signing_out_clears_everything_the_previous_recruiter_had_open(db):
     login(at, "Luis")
     assert at.text_input(key="f_search").value == "" and at.session_state["recruiter"] == "luis@sazon.test"
     assert at.selectbox(key="candidate").value is None
+
+
+def test_deleting_a_recruiter_moves_or_releases_their_future_calls_and_says_how_many(db, monkeypatch):
+    for name in ("Ana", "Luis"):
+        db.reset_weekly(f"{name.lower()}@sazon.test", MANAGER_EMAIL, NOW)  # the default week: there are times to give
+    for cid in ("c1", "c2"):
+        candidate(db, cid, f"Persona {cid}")
+    day = min(db.free_days("ES", NOW.date(), NOW.astimezone()))
+    first = db.free_slots_on("ES", day, NOW.astimezone())[0]
+    db.book_slot(first.id, "c1", NOW.astimezone())  # Ana
+    db.book_slot(first.id, "c2", NOW.astimezone())  # Luis: both have a call at the same minute
+    at = open_recruiters(as_manager(monkeypatch))
+    at.selectbox(key="delete_who").select("ana@sazon.test").run()
+    assert any("Llamadas reservadas por delante: 1" in str(c.value) for c in at.caption)  # what leaving would affect
+    at.checkbox(key="delete_sure").check().run()
+    at.button(key="delete_submit").click().run()
+    assert db.get_recruiter("ana@sazon.test") is None and not at.exception, at.exception
+    assert db.booking_of("c1") is None and db.booking_of("c2") is not None  # Luis is busy then too: c1 is released, c2 is untouched
+    assert "ya no está disponible" in db.outbox_pending("c1")[0].text and db.outbox_pending("c2") == []
+    assert any("liberaron" in str(s.value) for s in at.success)
