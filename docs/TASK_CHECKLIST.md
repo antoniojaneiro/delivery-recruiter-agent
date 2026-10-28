@@ -28,7 +28,7 @@ Everything [TASK.md](TASK.md) asks for, whether we do it, and how, in plain word
 
 | What the task asks | Done? | How |
 | --- | --- | --- |
-| A 1 to 2 page document | Partially | [PHASE1_PROCESS_DESIGN.md](PHASE1_PROCESS_DESIGN.md) exists, but it is about 1400 words with tables, so it may run a little over 2 pages. |
+| A 1 to 2 page document | Yes | [PHASE1_PROCESS_DESIGN.md](PHASE1_PROCESS_DESIGN.md) is about 950 words and prints on 2 pages (A4, 10 pt). The reasons behind each choice are in DECISIONS.md. |
 | Conversation stages (order, branching) | Yes | Section 3: consent, seven questions, then a qualified or disqualified path. |
 | Agent personality | Yes | Section 2: the agent is Sofía, friendly, short, uses "tú" in Spanish, and says it is an AI. |
 | Data fields and validation rules | Yes | Section 4: a table of each field and its rule. |
@@ -66,7 +66,7 @@ Everything [TASK.md](TASK.md) asks for, whether we do it, and how, in plain word
 
 | Deliverable | Done? | How |
 | --- | --- | --- |
-| Phase 1 process design document | Partially | Written and kept in line with the code (see the length note above). |
+| Phase 1 process design document | Yes | Written, 2 pages, and kept in line with the code. |
 | Phase 2 code: agent and recruiter tool | Yes | `screener/` is the engine, `sazon/` is Grupo Sazón, and `apps/` holds the dashboard and the browser chat. About 1300 tests. |
 | Presentation of the work | No | The format has not been chosen yet. |
 
