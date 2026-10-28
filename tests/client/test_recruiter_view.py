@@ -49,7 +49,7 @@ def test_the_table_has_one_row_per_candidate_with_spanish_columns(store):
     rows = view_for("es").table_rows(store.list_candidates())
     row = next(r for r in rows if r["Id"] == "c2")
     assert row["Nombre"] == "María García-López" and row["Ciudad"] == "Guadalajara"
-    assert row["Agente"] == "Cualificado" and row["Reclutador"] == "Contactado"
+    assert row["Agente"] == "Cualificado" and row["Estado"] == "Contactado"
     assert row["Actualizado"] == "2026-10-26 09:30"
 
 
@@ -70,8 +70,10 @@ def test_search_ignores_accents_and_case_and_looks_at_name_city_and_id(store, te
 def test_filters_combine_outcome_status_and_search(store):
     records = store.list_candidates()
     assert sorted(ids(filter_records(records, outcomes=["QUALIFIED"], statuses=[], search="", spec=SAZON))) == ["c1", "c2"]
-    assert ids(filter_records(records, outcomes=["QUALIFIED"], statuses=["new"], search="", spec=SAZON)) == ["c1"]
+    assert ids(filter_records(records, outcomes=["QUALIFIED"], statuses=["qualified"], search="", spec=SAZON)) == ["c1"]
     assert ids(filter_records(records, outcomes=[], statuses=["contacted"], search="garcia", spec=SAZON)) == ["c2"]
+    assert sorted(ids(filter_records(records, outcomes=[], statuses=["contacted"], search="", spec=SAZON))) == ["c2", "c4", "c5"]
+    assert ids(filter_records(records, outcomes=[], statuses=["rejected"], search="", spec=SAZON)) == ["c3"]  # the status filter is the Estado shown
     assert len(filter_records(records, outcomes=[], statuses=[], search="", spec=SAZON)) == 5
 
 
@@ -165,3 +167,18 @@ def test_a_text_pack_that_lacks_a_text_the_screens_use_is_refused_when_the_view_
     with pytest.raises(UiTextError) as error:
         RecruiterView(SAZON_CLIENT, UiPack((Language.ES,), {"col.id": {Language.ES: "Id"}}))
     assert "status.new" in str(error.value)
+
+
+def test_the_estado_column_shows_the_state_the_system_derives_and_assigned_to_shows_who_holds_the_call(store):
+    from screener.model import STAGES
+    view = view_for("es")
+    rows = {r["Id"]: r for r in view.table_rows(store.list_candidates(), names={"ana@sazon.test": "Ana Ruiz"})}
+    assert [rows[c]["Estado"] for c in ("c1", "c2", "c3", "c4", "c5")] == [
+        "Cualificado", "Contactado", "Rechazado", "Contactado", "Contactado"]  # c2 was set by a recruiter, the rest follow the agent
+    assert all(r["Asignado a"] == "" for r in rows.values())
+    store.add_recruiter("ana@sazon.test", "Ana Ruiz", "ES", "contraseña-segura-1", "boss@sazon.test", T1)
+    slot = store.free_slots("ES", T1.astimezone())[0]
+    store.book_slot(slot.id, "c1", T1.astimezone())
+    row = next(r for r in view.table_rows(store.list_candidates(), names={"ana@sazon.test": "Ana Ruiz"}) if r["Id"] == "c1")
+    assert (row["Estado"], row["Asignado a"]) == ("Entrevista programada", "Ana Ruiz")
+    assert [view.status_label(s) for s in STAGES] == ["Contactado", "Cualificado", "Entrevista programada", "Contratado", "Rechazado"]

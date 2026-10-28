@@ -5,7 +5,7 @@ import sqlite3
 from datetime import datetime
 from pathlib import Path
 
-from screener.model import RECRUITER_STEPS, RecruiterStatus, reached_by
+from screener.model import RECRUITER_STEPS, RecruiterStatus, reached_by, stage_of
 from screener.recruiter_rules import AGENT_CLOSED, BLOCKED, NEEDS_REVIEW, STALLED, TO_CONTACT
 from screener.call_times import CallTimes
 from screener.store_db import BUSY_TIMEOUT_SECONDS, Database
@@ -17,7 +17,7 @@ from screener.store_types import (AGENT, NO_CHECK, AdminEntry, Booking, Conflict
 _REACHED_BY = {step.value: tuple(s.value for s in reached_by(step)) for step in RECRUITER_STEPS}
 
 _CANDIDATE_COLUMNS = ("c.candidate_id, c.state, c.extracted, c.summary, c.outcome, c.reasons, c.flags, "
-                      "c.updated_at, COALESCE(r.status, 'new'), r.assignee, "
+                      "c.updated_at, COALESCE(r.status, 'new'), "
                       "s.id, s.country, s.starts_at, s.recruiter, c.version")
 _CANDIDATE_JOINS = ("FROM candidates c LEFT JOIN recruiter r ON r.candidate_id = c.candidate_id "
                     "LEFT JOIN slots s ON s.candidate_id = c.candidate_id AND s.cancelled_at IS NULL")
@@ -131,15 +131,14 @@ class Store:
                                "updated_at = excluded.updated_at",
                                (candidate_id, status.value, stamp(now)))
 
-    def assign(self, candidate_id: str, assignee: str, recruiter: str, now: datetime) -> None:
-        assignee = assignee.strip()
-        if not assignee:
-            raise InputError("assignee_required", "an assignee name is required")
-        self._recruiter_action(candidate_id, recruiter, now, "recruiter_assigned", assignee,
-                               "INSERT INTO recruiter (candidate_id, assignee, updated_at) VALUES (?, ?, ?) "
-                               "ON CONFLICT(candidate_id) DO UPDATE SET assignee = excluded.assignee, "
-                               "updated_at = excluded.updated_at",
-                               (candidate_id, assignee, stamp(now)))
+    def set_stage(self, candidate_id: str, stage: RecruiterStatus, recruiter: str, now: datetime) -> None:
+        """A recruiter chooses the "Estado" (D92). Choosing the one the system already shows stores nothing: the state stays
+        automatic, so a booked call still moves it on and a released call moves it back."""
+        record = self.get(candidate_id)
+        if record is None:
+            raise LookupError(f"no candidate {candidate_id}")
+        automatic = stage_of(record.outcome, RecruiterStatus.NEW, record.booking is not None)
+        self.set_status(candidate_id, RecruiterStatus.NEW if RecruiterStatus(stage) == automatic else stage, recruiter, now)
 
     def add_note(self, candidate_id: str, text: str, author: str, now: datetime) -> None:
         text = text.strip()
@@ -280,11 +279,11 @@ class Store:
 
     def recruiter(self, candidate_id: str) -> RecruiterRecord:
         with self._connect() as db:
-            row = db.execute("SELECT status, assignee, updated_at FROM recruiter WHERE candidate_id = ?",
+            row = db.execute("SELECT status, updated_at FROM recruiter WHERE candidate_id = ?",
                              (candidate_id,)).fetchone()
         if row is None:
-            return RecruiterRecord(RecruiterStatus.NEW, None, None)
-        return RecruiterRecord(RecruiterStatus(row[0]), row[1], parse_stamp(row[2]))
+            return RecruiterRecord(RecruiterStatus.NEW, None)
+        return RecruiterRecord(RecruiterStatus(row[0]), parse_stamp(row[1]))
 
     def notes(self, candidate_id: str) -> list[Note]:
         with self._connect() as db:
@@ -312,12 +311,12 @@ class Store:
 
 
 def _record(row) -> Record:
-    (candidate_id, state, extracted, summary, outcome, reasons, flags, updated_at, status, assignee,
+    (candidate_id, state, extracted, summary, outcome, reasons, flags, updated_at, status,
      slot_id, country, starts_at, slot_recruiter, version) = row
     booking = Booking(slot_id, country, datetime.fromisoformat(starts_at), slot_recruiter) if slot_id else None
     return Record(candidate_id, json.loads(state), json.loads(extracted), summary, outcome,
                   parse_stamp(updated_at), json.loads(reasons), json.loads(flags),
-                  RecruiterStatus(status), assignee, booking, version)
+                  RecruiterStatus(status), booking, version)
 
 
 def _forwarded(part: str, cls: type, name: str):

@@ -75,7 +75,7 @@ def schedule_by_recruiter(store: Store, client: Client, candidate_id: str, slot_
     if record is None:
         raise LookupError(f"no candidate {candidate_id}")
     if not can_schedule(record):
-        raise InputError("not_schedulable", "only a candidate the agent qualified, and no recruiter has closed, gets a call")
+        raise InputError("not_schedulable", "only a candidate shown as qualified or with an interview gets a call")
     booking, before = store.move_booking(candidate_id, slot_id, recruiter, now.astimezone(),
                                          country=country_in(client, record.extracted))
     if before is not None and before.slot_id == booking.slot_id:

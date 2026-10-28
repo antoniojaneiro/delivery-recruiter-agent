@@ -1,6 +1,6 @@
 """Where a candidate is in the whole process, and whether they are still in it (D78). The process is the agent's screening
-(consent, each answer, qualified, a call when the client books calls) and then the recruiter's steps (contacted,
-interview, hired). Pure code over a saved screening, the agent's outcome, the recruiter's status and their history;
+(consent, each answer, qualified, an interview, the call, when the client books calls) and then the recruiter's one step,
+hired (D92). Pure code over a saved screening, the agent's outcome, the recruiter's status and their history;
 the screens only draw it."""
 from collections.abc import Iterable
 from dataclasses import dataclass
@@ -58,7 +58,7 @@ def mark_of(outcome: str | None, status: RecruiterStatus) -> Mark:
         return Mark.HIRED
     if status in CLOSED_BY_RECRUITER:
         return Mark.OUT
-    if status in RECRUITER_STEPS:
+    if status != RecruiterStatus.NEW:  # a recruiter put them in a state: contacted, qualified, interview scheduled
         return Mark.IN_PROCESS
     return _BY_OUTCOME.get(Outcome(outcome), Mark.IN_PROCESS) if outcome else Mark.IN_PROCESS
 
@@ -71,7 +71,7 @@ def count_marks(records: Iterable) -> dict[Mark, int]:
 
 
 def reached_rank(status: RecruiterStatus, history: Iterable[RecruiterStatus]) -> int:
-    """How far into the recruiter's steps the candidate ever got: 0 none, 1 contacted, 2 interview, 3 hired. A later
+    """How far into the recruiter's steps the candidate ever got: 0 none, 1 hired. A later
     rejection does not undo it, and a candidate set straight to hired has passed the steps before it."""
     return max((_RANK.get(RecruiterStatus(s), 0) for s in (*history, status)), default=0)
 
@@ -90,6 +90,8 @@ def path_of(screening: Screening, *, outcome: str | None, status: RecruiterStatu
     are not questions (started, consent, qualified, booked and the recruiter's); a question is named by the client's spec."""
     rank = reached_rank(status, history)
     mark = mark_of(outcome, status)
+    took_over = rank >= 1 or RecruiterStatus(status) in (RecruiterStatus.CONTACTED, RecruiterStatus.QUALIFIED,
+                                                          RecruiterStatus.INTERVIEW_SCHEDULED)
     agent = [("started", True), (CONSENT, screening.consent is True)]
     agent += [(key, key in screening.values) for key in spec.keys]
     agent += [(QUALIFIED_STEP, outcome == Outcome.QUALIFIED)]
@@ -105,7 +107,7 @@ def path_of(screening: Screening, *, outcome: str | None, status: RecruiterStatu
     for key, done, by_agent in steps:
         if done:
             state = StepState.DONE
-        elif rank >= 1 and by_agent:
+        elif took_over and by_agent:
             state = StepState.SKIPPED
         elif marked_pending or mark == Mark.HIRED:
             state = StepState.LEFT

@@ -60,7 +60,6 @@ with st.container(border=True):
         tooltip=[alt.Tooltip("stage:N", title=t("funnel.stage")), alt.Tooltip("count:Q", title=t("funnel.candidates"))])
     numbers = bars.mark_text(align="left", dx=4).encode(text="count:Q")
     st.altair_chart(bars + numbers, width="stretch", alt=t("funnel.how_far"))
-    st.caption(t("funnel.recruiter_note"))
     with st.expander(t("funnel.table")):
         st.dataframe([{t("funnel.stage"): name, t("funnel.candidates"): count} for name, count in all_stages],
                      hide_index=True, width="stretch", alt=t("funnel.how_far"))

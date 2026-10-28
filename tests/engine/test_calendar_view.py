@@ -17,7 +17,7 @@ def slot(n, country, when):
 
 
 def record(outcome="QUALIFIED", status=S.NEW, booking=None):
-    return Record("c", {}, {}, None, outcome, datetime(2026, 11, 1), [], [], status, None, booking)
+    return Record("c", {}, {}, None, outcome, datetime(2026, 11, 1), [], [], status, booking)
 
 
 @table("day,monday", [
@@ -40,11 +40,13 @@ def test_the_week_has_seven_days_and_holds_only_that_countrys_times_in_clock_ord
 
 
 @table("outcome,status,expected", [
-    ("QUALIFIED", S.NEW, True), ("QUALIFIED", S.CONTACTED, True), ("QUALIFIED", S.INTERVIEW_SCHEDULED, True),
+    ("QUALIFIED", S.NEW, True), ("QUALIFIED", S.QUALIFIED, True), ("QUALIFIED", S.INTERVIEW_SCHEDULED, True),
+    ("QUALIFIED", S.CONTACTED, False),  # a recruiter put them back to "conversation going"
     ("QUALIFIED", S.HIRED, False), ("QUALIFIED", S.REJECTED, False), ("QUALIFIED", S.UNREACHABLE, False),
-    ("DISQUALIFIED", S.NEW, False), ("DISQUALIFIED", S.CONTACTED, False), ("IN_PROGRESS", S.NEW, False),
+    ("DISQUALIFIED", S.NEW, False), ("DISQUALIFIED", S.CONTACTED, False), ("DISQUALIFIED", S.QUALIFIED, True),  # overruled
+    ("IN_PROGRESS", S.NEW, False),
     ("STALLED", S.NEW, False), ("BLOCKED", S.NEW, False), ("WITHDRAWN", S.NEW, False), (None, S.NEW, False)])
-def test_only_qualified_candidates_a_recruiter_has_not_closed_can_be_scheduled(outcome, status, expected):
+def test_a_call_can_be_organised_for_the_states_qualified_and_interview_scheduled_whoever_decided_it(outcome, status, expected):
     assert can_schedule(record(outcome, status)) is expected
 
 

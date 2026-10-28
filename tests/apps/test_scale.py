@@ -43,7 +43,6 @@ def test_the_revision_moves_when_anything_a_candidate_list_shows_changes(db):
     add(db, "c1"); moved("a new candidate")
     add(db, "c1", 1, "BLOCKED"); moved("a new turn")
     db.set_status("c1", RecruiterStatus.CONTACTED, "Ana", NOW); moved("a status")
-    db.assign("c1", "Luis", "Ana", NOW); moved("an assignee")
     slot = db.add_slot("ES", FUTURE, "Ana", "Ana", NOW.astimezone())
     book_as_candidate(db, slot, "c1"); moved("a booking")
     db.cancel_slot(slot, "Ana", NOW.astimezone()); moved("a cancelled booking")

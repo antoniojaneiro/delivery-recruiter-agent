@@ -44,18 +44,15 @@ def test_the_session_stores_the_decision_reasons_and_flags(store):
 
 def test_a_new_candidate_starts_with_the_new_status_and_nobody_assigned(store):
     turn(store)
-    recruiter = store.recruiter("c1")
-    assert recruiter.status == RecruiterStatus.NEW and recruiter.assignee is None
+    assert store.recruiter("c1").status == RecruiterStatus.NEW and store.get("c1").assignee is None
 
 
-def test_a_recruiter_can_set_a_status_assign_and_add_notes(store):
+def test_a_recruiter_can_set_a_status_and_add_notes(store):
     turn(store)
     store.set_status("c1", RecruiterStatus.CONTACTED, "Ana", T2)
-    store.assign("c1", "Ana", "Ana", T2)
     store.add_note("c1", "Llamé, volverá a llamar", "Ana", T2)
     store.add_note("c1", "Segunda llamada: confirmado", "Luis", T3)
-    recruiter = store.recruiter("c1")
-    assert (recruiter.status, recruiter.assignee) == (RecruiterStatus.CONTACTED, "Ana")
+    assert store.recruiter("c1").status == RecruiterStatus.CONTACTED
     assert [(n.author, n.text, n.at) for n in store.notes("c1")] == [
         ("Ana", "Llamé, volverá a llamar", T2), ("Luis", "Segunda llamada: confirmado", T3)]
 
@@ -92,11 +89,9 @@ def test_agent_events_carry_the_agent_as_actor(store):
 def test_every_recruiter_action_is_an_audit_event_with_who_and_when(store):
     turn(store)
     store.set_status("c1", RecruiterStatus.HIRED, "Ana", T2)
-    store.assign("c1", "Luis", "Ana", T2)
     store.add_note("c1", "contrato firmado", "Luis", T3)
     logged = [(e.type, e.actor) for e in store.events("c1") if e.actor != "agent"]
-    assert logged == [("recruiter_status", "recruiter:Ana"), ("recruiter_assigned", "recruiter:Ana"),
-                      ("recruiter_note", "recruiter:Luis")]
+    assert logged == [("recruiter_status", "recruiter:Ana"), ("recruiter_note", "recruiter:Luis")]
 
 
 def test_an_unknown_status_or_candidate_or_empty_name_is_refused(store):

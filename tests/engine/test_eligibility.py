@@ -34,6 +34,27 @@ def close(store, status, cid="c1"):
     store.set_status(cid, status, "Ana", NOW)
 
 
+def test_a_call_can_be_organised_exactly_for_the_states_qualified_and_interview_scheduled():
+    from screener.recruiter_rules import can_schedule
+
+    class Shown:
+        def __init__(self, stage):
+            self.stage = stage
+    assert {stage: can_schedule(Shown(stage)) for stage in S} == {
+        S.NEW: False, S.CONTACTED: False, S.QUALIFIED: True, S.INTERVIEW_SCHEDULED: True, S.HIRED: False,
+        S.REJECTED: False, S.UNREACHABLE: False}
+
+
+def test_a_recruiter_who_qualifies_someone_the_agent_turned_down_can_organise_their_call(store, slots):
+    turn.start(store, CLIENT, "c9", NOW)
+    store.commit_turn("c9", NOW, {}, {"name": "Ana Gil", "city": "Madrid"}, "DISQUALIFIED", [], [], reasons=["NO_LICENSE"])
+    with pytest.raises(InputError):
+        slot_flow.schedule_by_recruiter(store, CLIENT, "c9", slots[0], "Ana", NOW_AWARE)
+    store.set_stage("c9", S.QUALIFIED, "Ana", NOW)
+    assert slot_flow.schedule_by_recruiter(store, CLIENT, "c9", slots[0], "Ana", NOW_AWARE).booking.slot_id == slots[0]
+    assert store.get("c9").stage is S.INTERVIEW_SCHEDULED
+
+
 def test_only_a_qualified_candidate_nobody_closed_and_with_no_call_may_choose_a_time(store, slots):
     qualify(store, "c1")
     assert slot_flow.may_choose_time(store, CLIENT, "c1")

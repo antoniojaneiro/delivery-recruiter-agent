@@ -116,7 +116,7 @@ _RECRUITER_ES = RecruiterTexts(
     clarification=("aclaración", "aclaraciones"), asked_for_person="pidió hablar con una persona",
     reminder_sent="recordatorio enviado",
     started="Empezaron", consented="Dieron su consentimiento", answered="Respondieron: {label}",
-    qualified="Cualificaron", booked="Reservaron una llamada", consent_stage="consentimiento",
+    qualified="Cualificaron", booked="Entrevista programada", consent_stage="consentimiento",
     from_cv="Datos tomados del CV: {fields}",
 )
 
@@ -137,7 +137,7 @@ _RECRUITER_EN = RecruiterTexts(
     clarification=("clarification", "clarifications"), asked_for_person="asked to speak to a person",
     reminder_sent="reminder sent",
     started="Started", consented="Gave consent", answered="Answered: {label}",
-    qualified="Qualified", booked="Booked a call", consent_stage="consent",
+    qualified="Qualified", booked="Interview scheduled", consent_stage="consent",
     from_cv="Taken from the CV: {fields}",
 )
 

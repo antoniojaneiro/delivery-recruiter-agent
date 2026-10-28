@@ -300,19 +300,18 @@ def test_the_erase_confirmation_does_not_stay_ticked_for_the_next_candidate(db):
 
 # --- found by the architecture review ---------------------------------------------------------------------
 
-def test_a_status_and_assignee_saved_for_one_candidate_do_not_carry_over_to_the_next(db):
+def test_a_status_saved_for_one_candidate_does_not_carry_over_to_the_next(db):
     candidate(db, "c1", "Juan Pérez")
     candidate(db, "c2", "María García")
     at = signed_in()
     at.selectbox(key="candidate").select("c1").run()
     at.selectbox(key="new_status").select("hired")
     at.form_submit_button(key="save_status").click().run()
-    at.text_input(key="assignee").set_value("Luis")
-    at.form_submit_button(key="save_assignee").click().run()
+    assert db.recruiter("c1").status == RecruiterStatus.HIRED
     at.selectbox(key="candidate").select("c2").run()
-    assert at.selectbox(key="new_status").value == "new" and at.text_input(key="assignee").value == ""
-    at.form_submit_button(key="save_status").click().run()  # saving without touching anything
-    assert db.recruiter("c2").status == RecruiterStatus.NEW and db.recruiter("c2").assignee is None
+    assert at.selectbox(key="new_status").value == "qualified"  # c2's own Estado, not c1's
+    at.form_submit_button(key="save_status").click().run()  # saving without touching anything keeps it automatic
+    assert db.recruiter("c2").status == RecruiterStatus.NEW
 
 
 def test_a_note_typed_for_one_candidate_is_not_left_in_the_box_for_the_next(db):

@@ -45,7 +45,7 @@ def closed_by_recruiter(record) -> bool:
 
 
 def can_schedule(record) -> bool:
-    """A recruiter may book or move a call for a candidate the agent qualified, unless a recruiter has already closed
-    their case (hired, rejected, unreachable). A candidate who ignored the offer is still qualified (D58), so this is
-    the one who most needs it. Only qualified candidates are scheduled: a closed case stays with the agent's decision."""
-    return record.outcome == Outcome.QUALIFIED and not closed_by_recruiter(record)
+    """A call can be organised, booked or moved for a candidate whose Estado is Qualified or Interview scheduled (D92): the
+    agent qualified them, or a recruiter did, and nobody has hired or rejected them. A qualified candidate who ignored the
+    offer is the one who most needs it; one with a call can be moved. The page, the calendar and the chat ask this."""
+    return record.stage in (RecruiterStatus.QUALIFIED, RecruiterStatus.INTERVIEW_SCHEDULED)

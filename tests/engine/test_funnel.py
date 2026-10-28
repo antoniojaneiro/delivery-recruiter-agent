@@ -60,7 +60,7 @@ def test_the_stages_count_how_far_candidates_got(store):
     assert stages["Respondieron: nombre"] == 9               # c has consented but answered nothing
     assert stages["Respondieron: experiencia"] == 7          # d, e, g, h, i, j, k have fields >= 2
     assert stages["Respondieron: licencia"] == 3             # g, i, j answered all seven
-    assert stages["Cualificaron"] == 2 and stages["Reservaron una llamada"] == 1
+    assert stages["Cualificaron"] == 2 and stages["Entrevista programada"] == 1
 
 
 def test_the_stages_never_grow_as_the_conversation_goes_on(store):
@@ -128,19 +128,18 @@ def test_the_key_numbers_are_counted_by_the_database_too(store, monkeypatch):
 
 # --- the recruiter's steps (D78): counted from the audit history, cumulative --------------------------------
 
-RECRUITER_LABELS = {"contacted": "Contactados", "interview_scheduled": "Entrevista", "hired": "Contratados"}
+RECRUITER_LABELS = {"hired": "Contratados"}  # the interview step is the booked call, counted with the agent's stages
 
 
-def test_the_recruiters_steps_count_everyone_who_ever_got_that_far_even_if_they_were_rejected_later(store):
+def test_hired_counts_everyone_who_ever_was_hired_even_if_they_were_rejected_later(store):
     from screener.model import RecruiterStatus as S
     populate(store)
-    store.set_status("j", S.CONTACTED, "Ana", NOW)
-    store.set_status("j", S.INTERVIEW_SCHEDULED, "Ana", NOW)
-    store.set_status("j", S.REJECTED, "Ana", NOW)  # rejected after the interview: still reached it
-    store.set_status("i", S.HIRED, "Ana", NOW)     # straight to hired: it passed the steps before
-    store.set_status("k", S.UNREACHABLE, "Ana", NOW)
+    store.set_status("j", S.HIRED, "Ana", NOW)
+    store.set_status("j", S.REJECTED, "Ana", NOW)  # hired, then rejected: still counted as hired
+    store.set_status("i", S.HIRED, "Ana", NOW)
+    store.set_status("k", S.REJECTED, "Ana", NOW)  # never hired
     f = build_funnel(store, SAZON, recruiter_labels=RECRUITER_LABELS)
-    assert f.recruiter_stages == [("Contactados", 2), ("Entrevista", 2), ("Contratados", 1)]
+    assert f.recruiter_stages == [("Contratados", 2)]
 
 
 def test_an_erased_candidate_is_not_counted_in_the_recruiters_steps(store):
@@ -149,7 +148,7 @@ def test_an_erased_candidate_is_not_counted_in_the_recruiters_steps(store):
     store.set_status("i", S.HIRED, "Ana", NOW)
     store.erase_candidate("i", "recruiter:Ana", NOW, "request")
     f = build_funnel(store, SAZON, recruiter_labels=RECRUITER_LABELS)
-    assert f.recruiter_stages == [("Contactados", 0), ("Entrevista", 0), ("Contratados", 0)]
+    assert f.recruiter_stages == [("Contratados", 0)]
 
 
 def test_without_labels_the_funnel_has_only_the_agents_stages(store):

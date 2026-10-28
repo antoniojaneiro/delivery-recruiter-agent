@@ -16,7 +16,7 @@ from tests.support.dash import book_as_candidate, login, logout, email_of, seed_
 APP = str(DASHBOARD)
 SLOTS_PAGE = "views/slots.py"
 NOW = datetime.now().astimezone()
-FUTURE = date.today() + timedelta(days=10)  # inside the four weeks candidates can book
+FUTURE = date.today() - timedelta(days=date.today().weekday()) + timedelta(days=14)  # a Monday two weeks ahead: inside the four weeks, and the day after is in the same week
 
 
 @pytest.fixture

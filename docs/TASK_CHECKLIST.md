@@ -51,7 +51,7 @@ Everything [TASK.md](TASK.md) asks for, whether we do it, and how, in plain word
 | Save conversations and data as JSON or in a database | Yes | SQLite stores the messages, the extracted data and every event. |
 | Post-conversation summary with key data | Yes | The recruiter card is built by code from the checked data. |
 | Graceful failures, no crashes | Yes | A model failure sends a fixed apology and is logged. An error never ends the chat. Prompt-injection attempts are treated as data. |
-| Tool for recruiters to track candidates | Yes | A Streamlit dashboard shows the candidate table, status, assignee, notes, a funnel chart, call times and a review queue. |
+| Tool for recruiters to track candidates | Yes | A Streamlit dashboard shows the candidate table with one Estado (contacted, qualified, interview scheduled, hired, rejected), who holds the call, notes, a funnel chart, call times and a review queue. |
 | A product recruiters can start using | Partially | Both apps are joined, share one look, refresh themselves and were measured at 5,000 candidates. It runs locally with a prototype login. Still missing, and needs the client: single sign-on, a real channel, a paid model tier, and the real service areas ([HANDOVER.md](HANDOVER.md)). |
 
 ## Bonus
@@ -75,7 +75,7 @@ Everything [TASK.md](TASK.md) asks for, whether we do it, and how, in plain word
 | Rule | Done? | How |
 | --- | --- | --- |
 | Tell candidates they talk to an AI, and ask consent | Yes | The first message is fixed text. Nothing is asked before a yes. |
-| A person makes the final decision | Yes | The agent only screens. A recruiter sets every status and can overrule the agent. |
+| A person makes the final decision | Yes | The agent only screens and moves a candidate through contacted, qualified and interview scheduled. A recruiter or the hiring manager decides hired or rejected and can overrule any state. |
 | Log decisions and their data | Yes | Every decision is an event with its actor. |
 | Collect only what is needed, and allow erasure | Yes | Only the screening fields are collected. Erasure overwrites the data. |
 | No emotion or personality inference | Yes | Nothing like that is asked or stored. |
