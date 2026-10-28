@@ -1,11 +1,13 @@
 """The test doubles must fail like the real client, or tests prove nothing about failures."""
 import pytest
 
+from tests.support.tables import table
+
 from screener.llm import LLMError
 from tests.support.fakes import FakeLLM, ScriptedLLM
 
 
-@pytest.mark.parametrize("llm", [FakeLLM(), ScriptedLLM()])
+@table("llm", [FakeLLM(), ScriptedLLM()])
 def test_an_exhausted_fake_raises_llm_error_like_the_real_client(llm):
     with pytest.raises(LLMError):
         llm.complete("system", "user")

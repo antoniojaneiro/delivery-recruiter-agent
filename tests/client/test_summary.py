@@ -3,6 +3,8 @@ from datetime import date, datetime
 
 import pytest
 
+from tests.support.tables import table
+
 from tests.support.clients import client_for
 from sazon.spec import SAZON
 from screener import session
@@ -111,7 +113,7 @@ def test_clarifications_asked_are_counted():
     assert "2 aclaraciones" in summarise(s)
 
 
-@pytest.mark.parametrize("prepare,label", [
+@table("prepare,label", [
     (lambda s: s.withdraw(), "Se retiró"),
     (lambda s: (s.off_topic(), s.off_topic(), s.off_topic()), "Terminó fuera de tema"),
     (lambda s: (s.send_reminder(), s.mark_stalled()), "Sin respuesta"),

@@ -4,6 +4,8 @@ from datetime import date, datetime
 
 import pytest
 
+from tests.support.tables import table
+
 from sazon.client import SAZON_CLIENT
 from sazon.spec import SAZON
 from screener import turn
@@ -33,7 +35,7 @@ def test_full_time_is_the_whole_day_so_the_schedule_is_flexible_and_not_asked():
     assert s.next_field() == "start_date" and "schedule" not in s.missing_fields()
 
 
-@pytest.mark.parametrize("availability", [["part_time"], ["weekends"], ["part_time", "weekends"]])
+@table("availability", [["part_time"], ["weekends"], ["part_time", "weekends"]])
 def test_part_time_and_weekends_are_still_asked_which_part_of_the_day(availability):
     s = screening(availability)
     assert "schedule" not in s.values and s.next_field() == "schedule"

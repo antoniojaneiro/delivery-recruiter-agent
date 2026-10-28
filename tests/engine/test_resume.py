@@ -3,6 +3,8 @@ from datetime import datetime
 
 import pytest
 
+from tests.support.tables import table
+
 from sazon.spec import SAZON
 from sazon.client import SAZON_CALENDAR, SAZON_CLIENT
 from screener import turn
@@ -36,7 +38,7 @@ def outcome(store, cid="c1"):
 
 # --- who asks to come back --------------------------------------------------------------------------
 
-@pytest.mark.parametrize("text", [
+@table("text", [
     "continuar", "Continuar.", "quiero continuar", "retomar", "quiero retomar mi solicitud", "sigamos",
     "continue", "I want to continue", "resume", "let's continue",
 ])
@@ -44,7 +46,7 @@ def test_an_explicit_request_to_continue_is_recognised(text):
     assert is_resume_request(text) is True
 
 
-@pytest.mark.parametrize("text", ["", "vale", "ok", "gracias", "adiós", "hola", "sí", "no", "stop", "no quiero continuar",
+@table("text", ["", "vale", "ok", "gracias", "adiós", "hola", "sí", "no", "stop", "no quiero continuar",
                                   "I don't want to continue", "¿puedo continuar?"])
 def test_an_acknowledgement_or_a_refusal_is_not_a_request_to_continue(text):
     assert is_resume_request(text) is False

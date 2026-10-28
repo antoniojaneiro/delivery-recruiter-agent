@@ -4,6 +4,8 @@ from datetime import date
 
 import pytest
 
+from tests.support.tables import table
+
 from sazon.client import SAZON_CLIENT
 from sazon.spec import SAZON
 from screener.model import Language, RecruiterStatus
@@ -38,7 +40,7 @@ def states(p):
     return {step.key: step.state for step in p.steps}
 
 
-@pytest.mark.parametrize("outcome,status,expected", [
+@table("outcome,status,expected", [
     ("IN_PROGRESS", S.NEW, Mark.IN_PROCESS),
     (None, S.NEW, Mark.IN_PROCESS),
     ("QUALIFIED", S.NEW, Mark.IN_PROCESS),

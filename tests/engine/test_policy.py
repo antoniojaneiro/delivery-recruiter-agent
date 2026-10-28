@@ -3,6 +3,8 @@ from datetime import date, datetime
 
 import pytest
 
+from tests.support.tables import table
+
 from sazon.client import SAZON_CLIENT
 from screener import turn
 from sazon import config
@@ -34,7 +36,7 @@ def test_the_first_message_says_answers_go_to_an_external_ai_service_and_a_recru
 
 # --- D52: the agent does not present a rejection as final ------------------------------------------
 
-@pytest.mark.parametrize("reason,topic", [(Reason.NO_LICENSE, "licencia"), (Reason.OUT_OF_AREA, "zona")])
+@table("reason,topic", [(Reason.NO_LICENSE, "licencia"), (Reason.OUT_OF_AREA, "zona")])
 def test_a_rejection_says_the_automated_process_cannot_continue_and_a_recruiter_can_review(reason, topic):
     es = close(Outcome.DISQUALIFIED, reasons=[reason])
     assert topic in es and "proceso automático" in es and "revisar tu caso" in es

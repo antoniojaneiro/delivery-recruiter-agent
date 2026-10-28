@@ -2,10 +2,12 @@
 survive): then it only offers the update."""
 import pytest
 
+from tests.support.tables import table
+
 from screener.recruiter_view import refresh_action
 
 
-@pytest.mark.parametrize("seen,current,open_,expected", [
+@table("seen,current,open_,expected", [
     (5, 5, False, "none"),
     (5, 5, True, "none"),
     (5, 6, False, "reload"),

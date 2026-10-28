@@ -3,6 +3,8 @@ from datetime import date, datetime
 
 import pytest
 
+from tests.support.tables import table
+
 from sazon.client import SAZON_CLIENT
 from screener import turn
 from sazon import config
@@ -21,7 +23,7 @@ NOW = datetime(2026, 10, 25, 10, 0)
 
 # --- a greeting before the yes must not lose the whole conversation -------------------------------
 
-@pytest.mark.parametrize("text", [
+@table("text", [
     "hola, sí", "Hola! Sí", "hola sí", "Hola, vale", "buenas tardes, sí", "buenos días, claro", "hi, yes",
     "Hello, yes please", "hey yes", "hola, sí, no hay problema",
 ])
@@ -29,19 +31,19 @@ def test_a_greeting_before_a_clear_yes_is_still_a_yes(text):
     assert read_consent(text).answer is True
 
 
-@pytest.mark.parametrize("text", ["hola, no gracias", "Hello, no thanks", "buenas, no"])
+@table("text", ["hola, no gracias", "Hello, no thanks", "buenas, no"])
 def test_a_greeting_before_a_clear_no_is_still_a_no(text):
     assert read_consent(text).answer is False
 
 
-@pytest.mark.parametrize("text", ["hola", "Hola!", "buenos días", "hello", "hey", "hola, ¿quién eres?", "hola, soy Juan"])
+@table("text", ["hola", "Hola!", "buenos días", "hello", "hey", "hola, ¿quién eres?", "hola, soy Juan"])
 def test_a_greeting_alone_or_with_something_else_is_unclear(text):
     assert read_consent(text).answer is None
 
 
 # --- hesitation is not off-topic -------------------------------------------------------------------
 
-@pytest.mark.parametrize("filler", ["mmm", "no sé", "jaja", "ok", "pues", "eh", "bueno", "ni idea", "hmm", "idk", "lol"])
+@table("filler", ["mmm", "no sé", "jaja", "ok", "pues", "eh", "bueno", "ni idea", "hmm", "idk", "lol"])
 def test_hesitation_flagged_as_off_topic_by_the_model_does_not_count_as_off_topic(filler):
     s = Screening(config.AREAS, SAZON)
     s.record_consent(True)
@@ -76,7 +78,7 @@ def test_the_prompt_says_hesitation_is_not_off_topic():
 
 # --- no greeting in the middle of a conversation ------------------------------------------------
 
-@pytest.mark.parametrize("raw,expected", [
+@table("raw,expected", [
     ("¡Hola! ¿En qué ciudad vives? 🚚", "¿En qué ciudad vives? 🚚"),
     ("Hola, ¿cuál es tu ciudad?", "¿Cuál es tu ciudad?"),
     ("¡Hola! Bienvenido a Grupo Sazón. 🚚 ¿Cuándo podrías empezar?", "🚚 ¿Cuándo podrías empezar?"),
@@ -86,7 +88,7 @@ def test_a_leading_greeting_or_welcome_is_removed_from_a_phrased_question(raw, e
     assert phrase(FakeLLM(raw), SAZON, Directive(Kind.ASK, field=Field.CITY), "es") == expected
 
 
-@pytest.mark.parametrize("raw,expected", [
+@table("raw,expected", [
     ("Hey! What city do you live in?", "What city do you live in?"),
     ("Hi there! Which city do you live in?", "Which city do you live in?"),
     ("Hello, what is your city?", "What is your city?"),

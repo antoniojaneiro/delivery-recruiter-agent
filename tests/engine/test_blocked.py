@@ -4,6 +4,8 @@ from datetime import date, datetime
 
 import pytest
 
+from tests.support.tables import table
+
 from tests.support.clients import client_for
 from sazon.spec import SAZON
 from screener import session, turn
@@ -166,7 +168,7 @@ def test_a_blocked_candidate_is_reminded_and_can_stall(store):
 
 # --- phrasing ----------------------------------------------------------------
 
-@pytest.mark.parametrize("field,es,en", [
+@table("field,es,en", [
     (Field.NAME, "nombre", "name"), (Field.EXPERIENCE, "experiencia", "experience"),
     (Field.AVAILABILITY, "disponibilidad", "availability"), (Field.SCHEDULE, "horario", "schedule"),
     (Field.START_DATE, "empezar", "start"), (Field.CITY, "ciudad", "city"),

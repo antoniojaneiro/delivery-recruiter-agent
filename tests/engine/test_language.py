@@ -3,6 +3,8 @@ from datetime import date
 
 import pytest
 
+from tests.support.tables import table
+
 from screener.language import language_of
 from screener.model import Language
 from sazon.spec import SAZON
@@ -11,18 +13,18 @@ from screener.screening import Screening
 ES, EN = Language.ES, Language.EN
 
 
-@pytest.mark.parametrize("message", ["Madrid", "Madrid, Spain", "Maria Lopez", "Guadalajara", "42", "Zapopan", "CDMX"])
+@table("message", ["Madrid", "Madrid, Spain", "Maria Lopez", "Guadalajara", "42", "Zapopan", "CDMX"])
 def test_a_name_a_place_or_a_number_never_changes_the_language(message):
     assert language_of(message, ES, EN) == EN and language_of(message, EN, ES) == ES
 
 
-@pytest.mark.parametrize("message", ["I live in Madrid", "Full time please", "I can work 2 days a week",
+@table("message", ["I live in Madrid", "Full time please", "I can work 2 days a week",
                                      "I have three years of experience", "Part time", "next Monday please"])
 def test_english_words_switch_to_english_even_if_the_model_said_spanish(message):
     assert language_of(message, ES, ES) == EN and language_of(message, EN, ES) == EN
 
 
-@pytest.mark.parametrize("message", ["Vivo en Madrid", "Tiempo completo, por favor", "Tengo tres años de experiencia",
+@table("message", ["Vivo en Madrid", "Tiempo completo, por favor", "Tengo tres años de experiencia",
                                      "Puedo empezar el lunes", "Por las mañanas"])
 def test_spanish_words_switch_to_spanish_even_if_the_model_said_english(message):
     assert language_of(message, EN, EN) == ES and language_of(message, ES, EN) == ES
@@ -101,14 +103,14 @@ def test_the_terminal_chat_apologises_in_the_clients_default_language_not_always
 from screener.language import promises_pay_or_time  # noqa: E402
 
 
-@pytest.mark.parametrize("text", ["Ganarás 15 euros la hora", "You will earn 12$ an hour", "Te pagamos bien",
+@table("text", ["Ganarás 15 euros la hora", "You will earn 12$ an hour", "Te pagamos bien",
                                   "Estás contratado", "You are hired", "Tu sueldo será alto", "Great salary",
                                   "Te llamamos a las 10:30", "Call you at 9h30", "Una oferta increíble", "€20"])
 def test_a_text_that_mentions_pay_a_hire_or_a_clock_time_is_flagged(text):
     assert promises_pay_or_time(text)
 
 
-@pytest.mark.parametrize("text", ["¿Cómo te llamas?", "What city do you live in?", "¿Tienes licencia de conducir?",
+@table("text", ["¿Cómo te llamas?", "What city do you live in?", "¿Tienes licencia de conducir?",
                                   "Gracias, Juan. ¿Qué disponibilidad tienes?", "Do you have experience?"])
 def test_a_normal_question_is_not_flagged(text):
     assert not promises_pay_or_time(text)

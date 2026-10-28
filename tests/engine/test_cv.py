@@ -1,6 +1,8 @@
 """D71: reading an uploaded CV. A file that is not a usable PDF never crashes anything."""
 import pytest
 
+from tests.support.tables import table
+
 from screener.cv import MAX_BYTES, MAX_PAGES, MAX_TEXT_CHARS, CvProblem, read_pdf
 from tests.support.pdfs import pdf_with_text, pdf_without_text
 
@@ -11,7 +13,7 @@ def test_the_text_of_a_pdf_is_read():
     assert "Juan Perez Gil" in cv.text and "Glovo" in cv.text
 
 
-@pytest.mark.parametrize("data", [b"", b"hello", b"<html>%PDF-</html>", b"GIF89a" + b"x" * 50])
+@table("data", [b"", b"hello", b"<html>%PDF-</html>", b"GIF89a" + b"x" * 50])
 def test_a_file_that_does_not_start_like_a_pdf_is_refused(data):
     assert read_pdf(data).problem == CvProblem.NOT_A_PDF
 
@@ -20,7 +22,7 @@ def test_a_file_over_the_size_limit_is_refused():
     assert read_pdf(b"%PDF-1.4\n" + b"0" * MAX_BYTES).problem == CvProblem.TOO_BIG
 
 
-@pytest.mark.parametrize("data", [b"%PDF-1.4\nthis is not a real pdf", pdf_with_text("x")[:120]])
+@table("data", [b"%PDF-1.4\nthis is not a real pdf", pdf_with_text("x")[:120]])
 def test_a_broken_pdf_is_a_file_without_text_not_a_crash(data):
     assert read_pdf(data).problem == CvProblem.NO_TEXT
 

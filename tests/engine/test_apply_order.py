@@ -5,6 +5,8 @@ from datetime import date
 
 import pytest
 
+from tests.support.tables import table
+
 from sazon.spec import SAZON
 from screener.directive import Kind
 from screener.model import EventType, Outcome
@@ -87,7 +89,7 @@ ROWS = {
 }
 
 
-@pytest.mark.parametrize("name", list(ROWS))
+@table("name", list(ROWS))
 def test_the_next_directive_follows_the_order_of_the_steps(name):
     setup, fields, message, kind, field, notices = ROWS[name]
     s = setup()

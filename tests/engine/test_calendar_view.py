@@ -4,6 +4,8 @@ from datetime import date, datetime
 
 import pytest
 
+from tests.support.tables import table
+
 from screener.calendar_view import week_slots, week_start
 from screener.model import RecruiterStatus as S
 from screener.recruiter_rules import can_schedule
@@ -18,7 +20,7 @@ def record(outcome="QUALIFIED", status=S.NEW, booking=None):
     return Record("c", {}, {}, None, outcome, datetime(2026, 11, 1), [], [], status, None, booking)
 
 
-@pytest.mark.parametrize("day,monday", [
+@table("day,monday", [
     (date(2026, 11, 2), date(2026, 11, 2)), (date(2026, 11, 4), date(2026, 11, 2)), (date(2026, 11, 8), date(2026, 11, 2)),
     (date(2026, 11, 9), date(2026, 11, 9)), (date(2026, 1, 1), date(2025, 12, 29))])
 def test_a_week_starts_on_monday(day, monday):
@@ -37,7 +39,7 @@ def test_the_week_has_seven_days_and_holds_only_that_countrys_times_in_clock_ord
     assert week[date(2026, 11, 2)] == [] and sum(len(v) for v in week.values()) == 3
 
 
-@pytest.mark.parametrize("outcome,status,expected", [
+@table("outcome,status,expected", [
     ("QUALIFIED", S.NEW, True), ("QUALIFIED", S.CONTACTED, True), ("QUALIFIED", S.INTERVIEW_SCHEDULED, True),
     ("QUALIFIED", S.HIRED, False), ("QUALIFIED", S.REJECTED, False), ("QUALIFIED", S.UNREACHABLE, False),
     ("DISQUALIFIED", S.NEW, False), ("DISQUALIFIED", S.CONTACTED, False), ("IN_PROGRESS", S.NEW, False),
