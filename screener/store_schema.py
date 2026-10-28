@@ -74,6 +74,17 @@ CREATE TABLE IF NOT EXISTS cvs (
     sha256 TEXT NOT NULL,
     uploaded_at TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS tokens (
+    candidate_id TEXT PRIMARY KEY,
+    token_hash TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS replies (
+    candidate_id TEXT NOT NULL,
+    message_id TEXT NOT NULL,
+    claimed_at TEXT NOT NULL,
+    reply TEXT,
+    PRIMARY KEY (candidate_id, message_id)
+);
 CREATE TABLE IF NOT EXISTS notes (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     candidate_id TEXT NOT NULL,

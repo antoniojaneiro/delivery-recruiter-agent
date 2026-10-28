@@ -119,3 +119,11 @@ def stamp(now: datetime) -> str:
 
 def parse_stamp(text: str) -> datetime:
     return local_naive(datetime.fromisoformat(text))
+
+
+@dataclass(frozen=True)
+class Claim:
+    """The answer to claiming a message id: `new` (do the work), `busy` (someone is doing it now) or `done` (the
+    stored `reply` is the answer)."""
+    state: str
+    reply: str | None = None

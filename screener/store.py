@@ -9,6 +9,7 @@ from pathlib import Path
 from screener.model import RecruiterStatus
 from screener.recruiter_rules import AGENT_CLOSED, BLOCKED, NEEDS_REVIEW, STALLED, TO_CONTACT
 from screener.store_schema import prepare
+from screener.store_service import ServiceMixin
 from screener.store_slots import SlotsMixin
 from screener.store_types import (AGENT, NO_CHECK, AdminEntry, Booking, ConflictError, CvFile, Event, InputError, Message,  # noqa: F401
                                Note, OutboxEntry, Record, RecruiterRecord, Slot, parse_stamp, stamp)  # noqa: F401
@@ -22,7 +23,7 @@ _CANDIDATE_JOINS = ("FROM candidates c LEFT JOIN recruiter r ON r.candidate_id =
                     "LEFT JOIN slots s ON s.candidate_id = c.candidate_id AND s.cancelled_at IS NULL")
 
 
-class Store(SlotsMixin):
+class Store(SlotsMixin, ServiceMixin):
     def __init__(self, path: Path | str, calendar=None):
         self._path = str(path)
         self.calendar = calendar
@@ -97,7 +98,7 @@ class Store(SlotsMixin):
         with self._connect() as db:
             db.execute("PRAGMA secure_delete = ON")
             existed = db.execute("SELECT 1 FROM candidates WHERE candidate_id = ?", (candidate_id,)).fetchone()
-            for table in ("candidates", "events", "messages", "notes", "recruiter", "outbox", "cvs"):
+            for table in ("candidates", "events", "messages", "notes", "recruiter", "outbox", "cvs", "tokens", "replies"):
                 db.execute(f"DELETE FROM {table} WHERE candidate_id = ?", (candidate_id,))
             db.execute("UPDATE slots SET candidate_id = NULL, booked_at = NULL WHERE candidate_id = ?", (candidate_id,))
             if existed:

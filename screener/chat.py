@@ -55,19 +55,23 @@ def run(llm: LLM, store: Store, client: Client, read=input, write=print,
             write("bot> " + phrase(llm, client.spec, Directive(Kind.TECHNICAL_ERROR), client.spec.pack.default_language))
 
 
-def log_error(error: Exception, now: datetime, log_path: Path | None) -> str:
-    """Appends the error to the log (never the candidate's text) and returns the line to show the operator."""
+def write_error(error: Exception, now: datetime, log_path: Path | None) -> tuple[str, str]:
+    """Appends the error to the log (never the candidate's text). Returns its id and the line to show the operator."""
     error_id = uuid.uuid4().hex[:6]
     if log_path is None:
-        return f"[error {error_id}: not logged]"
+        return error_id, f"[error {error_id}: not logged]"
     detail = "".join(traceback.format_exception(error))
     try:
         log_path.parent.mkdir(parents=True, exist_ok=True)
         with open(log_path, "a", encoding="utf-8") as log:
             log.write(f"[{now.isoformat()}] {error_id} {type(error).__name__}\n{detail}\n")
     except OSError:
-        return f"[error {error_id}: could not write {log_path}]"
-    return f"[error {error_id}: see {log_path}]"
+        return error_id, f"[error {error_id}: could not write {log_path}]"
+    return error_id, f"[error {error_id}: see {log_path}]"
+
+
+def log_error(error: Exception, now: datetime, log_path: Path | None) -> str:
+    return write_error(error, now, log_path)[1]
 
 
 def _new(store, client, clock, write) -> str:
