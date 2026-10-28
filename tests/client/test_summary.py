@@ -41,7 +41,8 @@ def test_a_qualified_candidate_gets_a_complete_card():
                      "Horario preferido: mañana", "Inicio: 2026-11-01"]:
         assert expected in lines
     assert not any(line.startswith("Falta") for line in lines)
-    assert lines[-1] == "Resumen automático: la decisión final es del reclutador."
+    assert not any("decisión final" in line or "Resumen automático" in line for line in lines)  # the card ends with the chat line
+    assert lines[-1].startswith("Chat:")
 
 
 def test_no_experience_is_stated_plainly():

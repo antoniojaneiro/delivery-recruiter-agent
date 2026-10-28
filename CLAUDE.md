@@ -25,7 +25,7 @@ A candidate screening agent for Grupo Sazón (fictional): a restaurant chain hir
 - Opus is not used for routine edits or lookups.
 - The launch flags `claude --advisor opus --subagents haiku` come from a post. They are unverified here. If `claude --help` in your terminal confirms them, you can also start with them. The roles above work without the flags.
 
-**Last architecture review:** 2026-10-27 at commit `b485dd5` (whole product; all seven candidates built on branch `refactor/architecture-review-2`, D70). The one before was 2026-10-26 at `9cf9c2a` (reuse for another client, D63). Run `git rev-list --count b485dd5..HEAD` for the commits since. Update this line each time a review happens.
+**Last architecture review:** 2026-10-28 at commit `cee902a` (the booking and recruiter side; seven candidates built on branch `refactor/architecture-review-3`, D87 and D88). The one before was 2026-10-27 at `b485dd5` (whole product, D70). Run `git rev-list --count cee902a..HEAD` for the commits since. Update this line each time a review happens.
 
 ## Decisions
 

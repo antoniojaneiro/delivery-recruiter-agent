@@ -11,7 +11,7 @@ from tests.support.paths import DASHBOARD
 from sazon.client import SAZON_CALENDAR
 from screener.model import RecruiterStatus
 from screener.store import Store
-from tests.support.dash import MANAGER_EMAIL, PASSWORD, login, login_manager, logout, seed_accounts, set_manager
+from tests.support.dash import book_as_candidate, MANAGER_EMAIL, PASSWORD, login, login_manager, logout, seed_accounts, set_manager
 
 APP = str(DASHBOARD)
 NOW = datetime.now()
@@ -152,7 +152,7 @@ def test_the_manager_signs_in_from_the_environment_and_sees_the_recruiters_page(
     at = as_manager(monkeypatch)
     assert at.session_state["role"] == "manager" and at.session_state["recruiter"] == MANAGER_EMAIL
     assert not at.sidebar.expander or "contraseña" not in " ".join(str(e.label) for e in at.sidebar.expander).lower()
-    assert [r["Correo"] for r in open_recruiters(at).dataframe[0].value.to_dict("records")] == ["ana@sazon.test", "luis@sazon.test"]
+    assert [r["Correo"] for r in open_recruiters(at).dataframe[0].value.to_dict("records")] == ["ana@sazon.test", MANAGER_EMAIL, "luis@sazon.test"]  # the manager takes calls too
 
 
 def test_a_recruiter_does_not_get_the_recruiters_page(db, monkeypatch):
@@ -191,7 +191,18 @@ def test_the_manager_creates_a_recruiter_who_can_then_sign_in_and_it_is_logged(d
 def test_a_recruiter_that_is_wrong_is_refused_and_nothing_is_created(db, monkeypatch, fields, message):
     at = create(open_recruiters(as_manager(monkeypatch)), **fields)
     assert at.error and message in at.error[0].value
-    assert [r.email for r in db.recruiters()] == ["ana@sazon.test", "luis@sazon.test"]
+    assert [r.email for r in db.recruiters()] == ["ana@sazon.test", MANAGER_EMAIL, "luis@sazon.test"]
+
+
+def test_the_manager_takes_calls_so_they_have_hours_but_cannot_be_deleted_or_reset(db, monkeypatch):
+    at = as_manager(monkeypatch)
+    assert (db.get_recruiter(MANAGER_EMAIL).name, db.get_recruiter(MANAGER_EMAIL).country) == ("Hiring manager", "ES")
+    at.switch_page("views/slots.py").run()
+    assert any(MANAGER_EMAIL in label for label in at.selectbox(key="avail_who").options)  # their week can be edited
+    open_recruiters(at)
+    assert MANAGER_EMAIL in str(at.dataframe[0].value)
+    for key in ("delete_who", "reset_who"):  # the password is in .env, and removing the manager would remove their calls
+        assert not any(MANAGER_EMAIL in label for label in at.selectbox(key=key).options), key
 
 
 def test_the_manager_deletes_a_recruiter_only_after_ticking_the_box(db, monkeypatch):
@@ -289,19 +300,18 @@ def test_the_erase_confirmation_does_not_stay_ticked_for_the_next_candidate(db):
 
 # --- found by the architecture review ---------------------------------------------------------------------
 
-def test_a_status_and_assignee_saved_for_one_candidate_do_not_carry_over_to_the_next(db):
+def test_a_status_saved_for_one_candidate_does_not_carry_over_to_the_next(db):
     candidate(db, "c1", "Juan Pérez")
     candidate(db, "c2", "María García")
     at = signed_in()
     at.selectbox(key="candidate").select("c1").run()
     at.selectbox(key="new_status").select("hired")
     at.form_submit_button(key="save_status").click().run()
-    at.text_input(key="assignee").set_value("Luis")
-    at.form_submit_button(key="save_assignee").click().run()
+    assert db.recruiter("c1").status == RecruiterStatus.HIRED
     at.selectbox(key="candidate").select("c2").run()
-    assert at.selectbox(key="new_status").value == "new" and at.text_input(key="assignee").value == ""
-    at.form_submit_button(key="save_status").click().run()  # saving without touching anything
-    assert db.recruiter("c2").status == RecruiterStatus.NEW and db.recruiter("c2").assignee is None
+    assert at.selectbox(key="new_status").value == "qualified"  # c2's own Estado, not c1's
+    at.form_submit_button(key="save_status").click().run()  # saving without touching anything keeps it automatic
+    assert db.recruiter("c2").status == RecruiterStatus.NEW
 
 
 def test_a_note_typed_for_one_candidate_is_not_left_in_the_box_for_the_next(db):
@@ -355,9 +365,11 @@ def test_deleting_a_recruiter_moves_or_releases_their_future_calls_and_says_how_
         candidate(db, cid, f"Persona {cid}")
     day = min(db.free_days("ES", NOW.date(), NOW.astimezone()))
     first = db.free_slots_on("ES", day, NOW.astimezone())[0]
-    db.book_slot(first.id, "c1", NOW.astimezone())  # Ana
-    db.book_slot(first.id, "c2", NOW.astimezone())  # Luis: both have a call at the same minute
-    at = open_recruiters(as_manager(monkeypatch))
+    book_as_candidate(db, first.id, "c1")  # Ana
+    book_as_candidate(db, first.id, "c2")  # Luis: both have a call at the same minute
+    at = as_manager(monkeypatch)
+    db.set_weekly(MANAGER_EMAIL, [], MANAGER_EMAIL, NOW)  # the manager takes calls too; here they are not free then
+    open_recruiters(at)
     at.selectbox(key="delete_who").select("ana@sazon.test").run()
     assert any("Llamadas reservadas por delante: 1" in str(c.value) for c in at.caption)  # what leaving would affect
     at.checkbox(key="delete_sure").check().run()

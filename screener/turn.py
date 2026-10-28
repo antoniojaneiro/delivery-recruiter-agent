@@ -5,7 +5,7 @@ from dataclasses import replace
 from datetime import date, datetime
 
 from screener import conversation, session, slot_flow
-from screener.conversation import RETRY_ONCE, SKIP, Turn
+from screener.conversation import RETRY_ONCE, Turn
 from screener.client import Client
 from screener.consent import ConsentReading, is_stop_request, read_consent
 from screener.cv import CvProblem, extract_cv, read_pdf
@@ -14,6 +14,7 @@ from screener.llm import LLM, LLMError
 from screener.model import Outcome
 from screener.directive import Directive, Kind
 from screener.phrasing import closed_message, consent_message, fixed, phrase, technical_error_message
+from screener.recruiter_rules import can_schedule
 from screener.screening import ExtractionContext, Screening
 from screener.spec import ScreeningSpec
 from screener.store import ConflictError
@@ -22,30 +23,21 @@ NOT_STORED = "[message not stored: no consent]"
 CV_MARK = "[CV uploaded]"  # what the transcript shows of an upload; the file itself is kept apart
 
 
-def start(store, client: Client, candidate_id: str, now: datetime) -> str:
+def start(store, client: Client, candidate_id: str, now: datetime, buttons: bool = False) -> str:
+    """A new candidate and the disclosure they are shown first. `buttons`: the channel has a button to choose a time, so
+    the offer of times names it instead of numbering them (D90); it is saved with the candidate."""
     if not store.accepting_applications():
         return closed_message(client.spec)
     text = consent_message(client.spec)
+
+    def work(screening: Screening) -> Turn:
+        screening.buttons = buttons
+        return Turn(text, messages=[("agent", text)])
+
     try:
-        return conversation.run(store, client, candidate_id, now,
-                                lambda screening: Turn(text, messages=[("agent", text)]))
+        return conversation.run(store, client, candidate_id, now, work)
     except ConflictError:
         return technical_error_message(client.spec, client.spec.pack.default_language)
-
-
-def wait_24h(llm: LLM, store, client: Client, candidate_id: str, now: datetime) -> str | None:
-    """Simulates 24 hours of silence: first a reminder, then STALLED (D35)."""
-    if not store.accepting_applications():
-        return None
-    def work(screening: Screening) -> Turn:
-        if not screening.is_open:
-            return Turn(None, save=False)
-        directive = screening.on_silence()
-        reply = phrase(llm, client.spec, directive, screening.language) if directive else None
-        return Turn(reply, messages=[("agent", reply)] if reply else [])
-
-    # the record changed under us: skip this candidate for now
-    return conversation.run(store, client, candidate_id, now, work, on_conflict=SKIP)
 
 
 def handle_message(llm: LLM, store, client: Client, candidate_id: str, message: str,
@@ -69,7 +61,8 @@ def handle_slot(store, client: Client, candidate_id: str, slot_id: int, now: dat
         return ""
 
     def work(screening: Screening) -> Turn:
-        if screening.decide().outcome != Outcome.QUALIFIED or screening.spec.pack.slots is None:
+        if (screening.decide().outcome != Outcome.QUALIFIED or screening.spec.pack.slots is None
+                or not can_schedule(store.get(candidate_id))):
             return Turn("", save=False)
         chosen, directive = slot_flow.pick_slot(store, client, screening, candidate_id, slot_id, now)
         reply = fixed(client.spec, directive, screening.language)

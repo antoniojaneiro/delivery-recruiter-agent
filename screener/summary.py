@@ -30,7 +30,6 @@ def summarise(screening: Screening, language: Language | None = None) -> str:
     if taken:
         lines.append(texts.from_cv.format(fields=", ".join(taken)))
     lines.append(_chat_line(screening, language))
-    lines.append(texts.footer)
     return "\n".join(lines)
 
 

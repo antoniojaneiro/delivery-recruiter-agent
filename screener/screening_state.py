@@ -53,6 +53,7 @@ STATE_FIELDS = (
                load=lambda raw, spec: raw if raw else None),
     StateField("_slot_offer", "slot_offer", lambda spec: [], dump=list, load=lambda raw, spec: list(raw)),
     StateField("_slots_done", "slots_done", lambda spec: False),
+    StateField("buttons", "buttons", lambda spec: False),  # the channel has a button to choose a time (D90)
     StateField("_unclear_picks", "unclear_picks", lambda spec: 0),
     StateField("out_of_area", "out_of_area", lambda spec: False),
     StateField("withdrawn", "withdrawn", lambda spec: False),

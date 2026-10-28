@@ -6,7 +6,7 @@ import uuid
 from datetime import datetime
 from pathlib import Path
 
-from screener import dialog, turn
+from screener import dialog, reminders, turn
 from screener.client import Client
 from screener.cv import MAX_BYTES
 from screener.llm import LLM
@@ -104,7 +104,7 @@ def _command(command, arg, candidate_id, llm, store, client, clock, write) -> st
         if candidate_id is None:
             write("[no active candidate] Type /new to start one.")
             return candidate_id
-        reply = turn.wait_24h(llm, store, client, candidate_id, clock())
+        reply = reminders.wait_a_day(store, client, candidate_id, clock())
         write(f"bot> {reply}" if reply else "[no reply: stalled or already finished]")
         return candidate_id
     write(f"[unknown command {command}] {HELP}")

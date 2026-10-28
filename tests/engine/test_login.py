@@ -6,7 +6,7 @@ import pytest
 
 from tests.support.tables import table
 
-from screener.login import Identity, sign_in
+from screener.login import Identity, ensure_manager_takes_calls, sign_in
 from screener.recruiters import TooManyAttempts
 from screener.store import Store
 from sazon.client import SAZON_CALENDAR
@@ -61,3 +61,22 @@ def test_the_manager_is_not_a_recruiter_and_has_no_stored_password(store, tmp_pa
 
 def test_an_unconfigured_manager_with_an_empty_password_never_matches(store):
     assert sign_in(store, "boss@sazon.test", "", ("boss@sazon.test", ""), NOW) is None
+
+
+def test_the_hiring_manager_takes_calls_with_the_default_week_and_signs_in_only_with_the_environment_password(store):
+    ensure_manager_takes_calls(store, MANAGER, "ES", NOW)
+    ensure_manager_takes_calls(store, MANAGER, "ES", NOW)  # a second time changes nothing
+    [row] = [r for r in store.recruiters() if r.email == "boss@sazon.test"]
+    assert (row.name, row.country) == ("Hiring manager", "ES")
+    assert any(s.recruiter == "boss@sazon.test" and s.candidate_id is None for s in store.slots(NOW.astimezone()))  # their own times
+    who = sign_in(store, "boss@sazon.test", "manager-password-1", MANAGER, NOW)
+    assert (who.role, who.country) == ("manager", "ES")
+    assert sign_in(store, "boss@sazon.test", "anything-else-1", MANAGER, NOW) is None
+    assert sign_in(store, "boss@sazon.test", "manager-password-1", None, NOW) is None  # no manager in the environment: no way in
+
+
+@table("manager,country,rows", [(None, "ES", 1), (MANAGER, "MX", 2)])
+def test_the_manager_row_is_made_only_with_a_manager_and_in_the_chosen_country(store, manager, country, rows):
+    ensure_manager_takes_calls(store, manager, country, NOW)
+    assert len(store.recruiters()) == rows
+    assert not manager or store.get_recruiter("boss@sazon.test").country == country

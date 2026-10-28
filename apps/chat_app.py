@@ -1,46 +1,40 @@
 """A browser chat for trying Grupo Sazón's agent (D66). Run with: streamlit run apps/chat_app.py
 
-It runs the same turn code as the terminal chat and the real model. It saves into a demo database (SAZON_DEMO_DB,
-data/demo/chat.db by default), unless the switch in the sidebar sends new candidates to the recruiters' database
-(SAZON_DB) so they appear in the dashboard (D73). There is no login: it is meant to run on your own computer.
+It runs the same turn code as the terminal chat and the real model. It always saves into the recruiters' database
+(SAZON_DB), so every candidate appears in the dashboard and the recruiters' times are the ones offered (D91). There is
+no login: it is meant to run on your own computer.
 On the right, an inspector shows what the agent has understood, read from that database."""
 import calendar
 from datetime import date, datetime, timedelta
 
 import streamlit as st
+from dotenv import load_dotenv
 
-from screener import dialog, gemini, slot_flow, turn
+from screener import dialog, gemini, reminders, slot_flow, turn
+from screener.login import ensure_manager_takes_calls
 from screener.chat import log_error
 from screener.inspector import inspect
 from screener.language import language_of
 from screener.llm import LLMError
-from screener.model import Language, Outcome
+from screener.model import Language
 from screener.recruiter_view import OUTCOME_COLOR
 from screener.store import Store
 
 from sazon import config, ui
 from sazon.client import SAZON_CLIENT
-from sazon.demo.team import ensure_demo_team
-from sazon.ui import t
+from sazon.ui import open_store, t
 from sazon.ui_pack import PACK
 
+load_dotenv()  # the hiring manager, who takes calls, is named there
 st.set_page_config(page_title=t("chat.page_title"), page_icon=":material/chat:", layout="wide")
 
 
-@st.cache_resource
-def open_store(path: str) -> Store:
-    return Store(path, calendar=SAZON_CLIENT.calendar)
-
-
 def active_store() -> Store:
-    """The test database, or the recruiters' one while the sidebar switch is on."""
-    shared = st.session_state.get("share_with_dashboard")
-    return open_store(str(config.db_path() if shared else config.demo_db_path()))
+    return open_store(str(config.db_path()))
 
 
 store = active_store()
-if not st.session_state.get("share_with_dashboard"):  # the test database gets a fictional team; the real one never does
-    ensure_demo_team(store, datetime.now())
+ensure_manager_takes_calls(store, config.manager_credentials(), config.manager_country(), datetime.now())  # at least one person takes calls (D89)
 language = ui.language()
 view = ui.view()
 
@@ -57,14 +51,13 @@ llm = st.session_state["llm"]
 
 
 def new_candidate() -> None:
-    """Also runs when the switch changes, so one chat never splits across two databases."""
-    candidate_id, _ = dialog.new_candidate(active_store(), SAZON_CLIENT, datetime.now())  # the disclosure, once per candidate
+    candidate_id, _ = dialog.new_candidate(active_store(), SAZON_CLIENT, datetime.now(), buttons=True)  # the disclosure, once per candidate
     st.session_state["chat_id"] = candidate_id
     st.session_state.pop("flash", None)
 
 
 def wait_a_day() -> None:
-    reply = turn.wait_24h(llm, active_store(), SAZON_CLIENT, st.session_state["chat_id"], datetime.now())
+    reply = reminders.wait_a_day(active_store(), SAZON_CLIENT, st.session_state["chat_id"], datetime.now())
     st.session_state["flash"] = None if reply else "chat.wait_nothing"
 
 
@@ -72,13 +65,12 @@ def deliver_queued() -> None:
     dialog.deliver_queued(active_store(), st.session_state["chat_id"], datetime.now())
 
 
-if "chat_id" not in st.session_state:
-    new_candidate()
+if "chat_id" not in st.session_state or store.get(st.session_state["chat_id"]) is None:
+    new_candidate()  # also for an id left in a tab from another database or erased since: a new candidate, with the button
 candidate_id = st.session_state["chat_id"]
 
 with st.sidebar:
     ui.language_switch()
-    st.toggle(t("chat.share"), key="share_with_dashboard", on_change=new_candidate, help=t("chat.share_help"))
     st.button(t("chat.new"), key="new_candidate", on_click=new_candidate, icon=":material/person_add:",
               width="stretch")
     st.button(t("chat.wait"), key="wait_24h", on_click=wait_a_day, icon=":material/schedule:", width="stretch",
@@ -88,10 +80,7 @@ with st.sidebar:
     st.link_button(t("link.dashboard"), config.dashboard_url(), icon=":material/open_in_new:", width="stretch")
 
 st.title(t("chat.title"))
-if st.session_state.get("share_with_dashboard"):
-    st.warning(t("chat.shared_warning"))
-else:
-    st.caption(t("chat.notice"))
+st.caption(t("chat.notice"))
 if st.session_state.get("flash"):
     st.warning(t(st.session_state["flash"]))
 
@@ -131,13 +120,11 @@ with chat_side:
             if len(store.messages(candidate_id)) == saved_before:  # refused: the reply is not part of the chat
                 st.session_state["_cv_refused"] = reply
             st.rerun()
-    can_pick = (record is not None and record.outcome == Outcome.QUALIFIED and SAZON_CLIENT.calendar is not None
-                and store.booking_of(candidate_id) is None)
-    if can_pick:  # the button, then a month of days that have free times, then that day's 15-minute times
+    if slot_flow.may_choose_time(store, SAZON_CLIENT, candidate_id):  # the button, then a month of days that have free times, then that day's 15-minute times
         country = slot_flow.country_of(store, SAZON_CLIENT, candidate_id)
 
         def open_picker() -> None:
-            st.session_state.update(picker_open=True, picker_month=date.today().replace(day=1), picker_day=None)
+            st.session_state.update(picker_open=True, picker_month=(date.today() + timedelta(days=1)).replace(day=1), picker_day=None)
 
         def move_month(step: int) -> None:
             month = st.session_state["picker_month"]

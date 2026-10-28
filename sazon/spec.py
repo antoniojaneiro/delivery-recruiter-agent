@@ -112,12 +112,11 @@ _RECRUITER_ES = RecruiterTexts(
     no_name="Candidato sin nombre", reason_prefix="Motivo: ", missing_prefix="Falta: ",
     no_consent="no dio su consentimiento", blocked_on="no ha indicado ",
     flags={"START_DATE_FAR": "Aviso: la fecha de inicio está a más de 12 semanas"},
-    footer="Resumen automático: la decisión final es del reclutador.",
     chat_prefix="Chat: ", language_word="idioma", language_names={ES: "español", EN: "inglés"},
     clarification=("aclaración", "aclaraciones"), asked_for_person="pidió hablar con una persona",
     reminder_sent="recordatorio enviado",
     started="Empezaron", consented="Dieron su consentimiento", answered="Respondieron: {label}",
-    qualified="Cualificaron", booked="Reservaron una llamada", consent_stage="consentimiento",
+    qualified="Cualificaron", booked="Entrevista programada", consent_stage="consentimiento",
     from_cv="Datos tomados del CV: {fields}",
 )
 
@@ -134,12 +133,11 @@ _RECRUITER_EN = RecruiterTexts(
     no_name="Candidate without a name", reason_prefix="Reason: ", missing_prefix="Missing: ",
     no_consent="did not give consent", blocked_on="has not said ",
     flags={"START_DATE_FAR": "Warning: the start date is more than 12 weeks away"},
-    footer="Automatic summary: the recruiter makes the final decision.",
     chat_prefix="Chat: ", language_word="language", language_names={ES: "Spanish", EN: "English"},
     clarification=("clarification", "clarifications"), asked_for_person="asked to speak to a person",
     reminder_sent="reminder sent",
     started="Started", consented="Gave consent", answered="Answered: {label}",
-    qualified="Qualified", booked="Booked a call", consent_stage="consent",
+    qualified="Qualified", booked="Interview scheduled", consent_stage="consent",
     from_cv="Taken from the CV: {fields}",
 )
 

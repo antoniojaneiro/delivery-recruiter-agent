@@ -19,9 +19,9 @@ def say(store, message, *extractions, cid="c1"):
     return turn.handle_message(llm, store, client_for(AREAS), cid, message, NOW), llm
 
 
-def qualify(store, cid="c1", city="Madrid", language="sí", english=False):
+def qualify(store, cid="c1", city="Madrid", language="sí", english=False, buttons=False):
     """The candidate answers in Spanish, or in English when `english` (the chat language follows their words)."""
-    turn.start(store, client_for(AREAS), cid, NOW)
+    turn.start(store, client_for(AREAS), cid, NOW, buttons=buttons)
     es = [("Soy Juan Pérez", "2 años con Glovo", "tiempo completo", "mañanas", "ya mismo", "sí tengo"),
           ("I'm John Smith", "2 years with Glovo", "full time", "mornings", "right now", "yes I do")][english]
     say(store, language, cid=cid)
@@ -42,3 +42,9 @@ def add_slots(store, country="ES", times=ES_SLOTS):
 
 def booked(store, cid="c1"):
     return store.booking_of(cid)
+
+
+def hire(store, *names, country="ES"):
+    """Recruiters with the default week, named by their first name (ana@sazon.test), created by the hiring manager."""
+    for name in names:
+        store.add_recruiter(f"{name.lower()}@sazon.test", name, country, "contraseña-segura-1", "boss@sazon.test", NOW)

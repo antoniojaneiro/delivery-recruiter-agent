@@ -42,12 +42,9 @@ def populate(store):
     add(store, "stall", "STALLED", "name", "experience")                              # paused
     add(store, "nolic", "DISQUALIFIED", *list(ANSWERS)[:-1], reasons=["NO_LICENSE"])  # out
     add(store, "done", "QUALIFIED", *ANSWERS)                                         # hired
-    store.set_status("done", S.CONTACTED, "Ana", NOW)
     store.set_status("done", S.HIRED, "Ana", NOW)
-    add(store, "talk", "QUALIFIED", *ANSWERS)                                         # in process, contacted
-    store.set_status("talk", S.CONTACTED, "Ana", NOW)
-    add(store, "lost", "QUALIFIED", *ANSWERS)                                         # contacted, then rejected: out
-    store.set_status("lost", S.CONTACTED, "Ana", NOW)
+    add(store, "talk", "QUALIFIED", *ANSWERS)                                         # in process, no interview yet
+    add(store, "lost", "QUALIFIED", *ANSWERS)                                         # qualified, then rejected: out
     store.set_status("lost", S.REJECTED, "Ana", NOW)
 
 
@@ -72,8 +69,8 @@ def test_the_funnel_counts_where_everyone_is_and_the_chart_ends_with_the_recruit
         ["2", "1", "2", "1"]
     rows = [list(row) for frame in at.dataframe for row in frame.value.values.tolist()]
     names = [row[0] for row in rows]
-    assert names.index("Cualificaron") < names.index("Contactado") < names.index("Entrevista programada") < names.index("Contratado")
-    assert dict(rows)["Contactado"] == 3 and dict(rows)["Contratado"] == 1
+    assert names.index("Cualificaron") < names.index("Entrevista programada") < names.index("Contratado")
+    assert dict(rows)["Entrevista programada"] == 0 and dict(rows)["Contratado"] == 1  # nobody has booked: the chart ends with hired
     db.set_status("done", S.REJECTED, "Ana", NOW)  # hired, then the recruiter changed their mind: they did go through all of it
     at = opened()
     assert metric(at, "Recorrieron todo el proceso") == "1" and dict(row for frame in at.dataframe for row in frame.value.values.tolist())["Contratado"] == 1
@@ -88,7 +85,7 @@ def test_a_chosen_candidate_shows_the_steps_done_and_the_ones_left(db):
     assert "En proceso" in text and "check_circle" in text and "radio_button_unchecked" in text
     steps = [line for m in at.markdown for line in str(m.value).split("\n")]  # one line per step
     assert any("Nombre" in line and "check_circle" in line for line in steps)  # a step starts with a capital
-    assert any("Contactado" in line and "check_circle" in line for line in steps)
+    assert any("Cualificado" in line and "check_circle" in line for line in steps)
     assert any("Entrevista programada" in line and "ahora" in line for line in steps)  # the next step to happen
     assert any("Contratado" in line and "radio_button_unchecked" in line for line in steps)  # still ahead
 

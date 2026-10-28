@@ -49,7 +49,7 @@ def test_recruiter_actions_and_bookings_do_not_make_a_chat_turn_stale(store):
     s = session.load(store, "c1", SAZON_CLIENT)
     store.set_status("c1", "contacted", "Ana", NOW)
     store.add_note("c1", "llamar", "Ana", NOW)
-    slot = store.add_slot("ES", datetime(2027, 6, 15, 10, 0), "Ana", "Ana", NOW.astimezone())
+    slot = store.add_slot("ES", datetime(2026, 11, 10, 10, 0), "Ana", "Ana", NOW.astimezone())
     store.book_slot(slot, "c1", NOW.astimezone())
     s.submit("name", "Juan Pérez", NOW.date())
     session.commit(store, "c1", s, NOW)  # no ConflictError

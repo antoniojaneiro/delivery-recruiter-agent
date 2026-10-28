@@ -24,7 +24,6 @@ def test_the_addresses_can_be_set_from_the_environment(monkeypatch):
 
 @pytest.fixture
 def env(tmp_path, monkeypatch):
-    monkeypatch.setenv("SAZON_DEMO_DB", str(tmp_path / "demo.db"))
     monkeypatch.setenv("SAZON_DB", str(tmp_path / "real.db"))
     monkeypatch.setenv("SAZON_ACCOUNTS", str(tmp_path / "recruiters.json"))
     monkeypatch.setenv("SAZON_CHAT_URL", "http://chat.test")

@@ -11,12 +11,12 @@ from tests.support.paths import DASHBOARD
 from sazon.client import SAZON_CALENDAR
 from screener.calendar_view import week_start
 from screener.store import Store
-from tests.support.dash import login, logout, email_of, seed_accounts
+from tests.support.dash import book_as_candidate, login, logout, email_of, seed_accounts
 
 APP = str(DASHBOARD)
 SLOTS_PAGE = "views/slots.py"
 NOW = datetime.now().astimezone()
-FUTURE = date.today() + timedelta(days=40)
+FUTURE = date.today() - timedelta(days=date.today().weekday()) + timedelta(days=14)  # a Monday two weeks ahead: inside the four weeks, and the day after is in the same week
 
 
 @pytest.fixture
@@ -97,7 +97,7 @@ def test_the_list_shows_who_booked_each_slot(db):
     candidate(db, "c1", "Juan Pérez")
     free = db.add_slot("ES", datetime.combine(FUTURE, time(10, 0)), "Ana", "Ana", NOW)
     booked = db.add_slot("ES", datetime.combine(FUTURE + timedelta(days=1), time(10, 0)), "Ana", "Ana", NOW)
-    db.book_slot(booked, "c1", NOW)
+    book_as_candidate(db, booked, "c1")
     table = slots_page(run()).dataframe[0].value
     states = dict(zip(table["Id"], table["Estado"]))
     assert states[free] == "Libre" and "Juan Pérez" in states[booked]
@@ -115,7 +115,7 @@ def test_cancelling_a_free_slot_removes_it(db):
 def test_cancelling_a_booked_slot_tells_the_recruiter_to_warn_the_candidate(db):
     candidate(db, "c1", "Juan Pérez")
     slot_id = db.add_slot("ES", datetime.combine(FUTURE, time(10, 0)), "Ana", "Ana", NOW)
-    db.book_slot(slot_id, "c1", NOW)
+    book_as_candidate(db, slot_id, "c1")
     at = name_as(slots_page(run()))
     at.selectbox(key="cancel_slot").select(slot_id)
     at.button(key="confirm_cancel").click().run()
@@ -130,7 +130,7 @@ def test_the_candidate_page_and_table_show_the_booked_call(db):
     candidate(db, "c1", "Juan Pérez")
     candidate(db, "c2", "María García")
     slot_id = db.add_slot("ES", datetime.combine(FUTURE, time(10, 0)), "Ana", "Ana", NOW)
-    db.book_slot(slot_id, "c1", NOW)
+    book_as_candidate(db, slot_id, "c1")
     at = run()
     table = at.dataframe[0].value
     assert dict(zip(table["Id"], table["Llamada"]))["c2"] == ""

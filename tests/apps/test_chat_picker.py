@@ -19,10 +19,9 @@ ANSWERS = [("Soy Juan Pérez", {"name": "Juan Pérez"}), ("2 años con Glovo", {
 
 @pytest.fixture
 def chat(tmp_path, monkeypatch):
-    monkeypatch.setenv("SAZON_DEMO_DB", str(tmp_path / "demo.db"))
     monkeypatch.setenv("SAZON_DB", str(tmp_path / "real.db"))
     monkeypatch.setattr("screener.gemini.from_env", lambda: ScriptedLLM())
-    store = Store(tmp_path / "demo.db", calendar=SAZON_CLIENT.calendar)
+    store = Store(tmp_path / "real.db", calendar=SAZON_CLIENT.calendar)
     for name in ("Ana", "Luis"):
         store.add_recruiter(f"{name.lower()}@sazon.test", name, "ES", "contraseña-segura-1", "boss@sazon.test", datetime.now())
     return store
@@ -52,7 +51,9 @@ def enabled_days(at):
 def test_the_button_appears_when_the_candidate_qualifies_and_opens_a_month_with_only_the_free_days_clickable(chat):
     at = opened()
     assert not [b for b in at.button if b.key == "pick_open"]  # nothing to pick before they qualify
-    qualify_in_the_chat(at, chat)
+    cid = qualify_in_the_chat(at, chat)
+    offer = chat.messages(cid)[-1].text  # the message says to use the button; there is no numbered list beside it
+    assert "reserva una llamada" in offer and "1)" not in offer
     assert [b.label for b in at.button if b.key == "pick_open"] == ["Elegir día y hora"]
     at.button(key="pick_open").click().run()
     assert not at.exception, at.exception
@@ -105,28 +106,25 @@ def test_the_month_buttons_move_the_calendar(chat):
 
 @pytest.fixture
 def bare(tmp_path, monkeypatch):
-    """A chat whose test database has no recruiters at all, as on the first run."""
-    monkeypatch.setenv("SAZON_DEMO_DB", str(tmp_path / "demo.db"))
+    """A chat whose database has no recruiters at all, as on the first run."""
     monkeypatch.setenv("SAZON_DB", str(tmp_path / "real.db"))
     monkeypatch.setattr("screener.gemini.from_env", lambda: ScriptedLLM())
-    return Store(tmp_path / "demo.db", calendar=SAZON_CLIENT.calendar), tmp_path
+    return Store(tmp_path / "real.db", calendar=SAZON_CLIENT.calendar), tmp_path
 
 
-def test_the_chats_test_database_gets_a_fictional_demo_team_so_there_are_times_to_book(bare):
+def test_with_no_recruiters_yet_the_hiring_manager_takes_the_calls_so_there_are_times_to_book(bare, monkeypatch):
+    from tests.support.dash import MANAGER_EMAIL, set_manager
+    set_manager(monkeypatch)
     store, _ = bare
     at = opened()
-    assert sorted(r.email for r in store.recruiters()) == ["demo-es@demo.test", "demo-mx@demo.test"]
+    at.run()
+    assert [r.email for r in store.recruiters()] == [MANAGER_EMAIL]  # made once, a rerun does not add them again
     qualify_in_the_chat(at, store)
     at.button(key="pick_open").click().run()
     assert enabled_days(at)  # a candidate trying the chat can book a call straight away
 
 
-def test_the_demo_team_is_made_once_and_never_in_the_recruiters_own_database(bare):
-    store, tmp_path = bare
+def test_without_a_manager_and_without_recruiters_there_are_no_times_and_nobody_is_invented(bare):
+    store, _ = bare
     at = opened()
-    at.run()
-    assert len(store.recruiters()) == 2  # a rerun does not add them again
-    at.toggle(key="share_with_dashboard").set_value(True).run()
-    assert not at.exception, at.exception
-    real = Store(tmp_path / "real.db", calendar=SAZON_CLIENT.calendar)
-    assert real.recruiters() == []  # fictional people are never put among the real recruiters
+    assert store.recruiters() == []  # no fictional people are put among the real recruiters

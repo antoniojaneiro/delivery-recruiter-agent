@@ -126,6 +126,8 @@ def _template(spec: "ScreeningSpec", directive: Directive, language: str) -> str
             return pick(spec.field(directive.field).confirm_rejection, language).format(area=area)
         case Kind.OFFER_SLOTS:
             slots = pack.slots
+            if directive.buttons and directive.reason in slots.offer_button:
+                return pick(slots.offer_button[directive.reason], language)
             options = "\n".join(f"{i}) {label}" for i, label in enumerate(directive.options, start=1))
             return f"{pick(slots.offer[directive.reason], language)}\n{options}\n{pick(slots.offer_end, language)}"
         case Kind.SLOT_BOOKED:

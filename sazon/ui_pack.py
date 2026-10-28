@@ -1,12 +1,9 @@
 """Every word Grupo Sazón's recruiter dashboard shows, in Spanish and English (D66). Pages ask for a key."""
 from screener.model import Language
+from screener.pack import bi
 from screener.ui_texts import UiPack
 
 ES, EN = Language.ES, Language.EN
-
-
-def bi(es: str, en: str) -> dict:
-    return {ES: es, EN: en}
 
 
 PACK = UiPack((ES, EN), {
@@ -98,7 +95,7 @@ PACK = UiPack((ES, EN), {
     "kpi.blocked": bi("Bloqueados", "Blocked"),
     "kpi.stalled": bi("Sin respuesta", "No reply"),
     "filter.outcome": bi("Estado del agente", "Agent status"),
-    "filter.status": bi("Estado del reclutador", "Recruiter status"),
+    "filter.status": bi("Estado", "Status"),
     "filter.search": bi("Buscar por nombre, ciudad o id", "Search by name, city or id"),
     "filter.review": bi("Solo descartes por revisar", "Only rejections to review"),
     "cand.none_match": bi("Ningún candidato coincide con los filtros.", "No candidate matches the filters."),
@@ -113,7 +110,7 @@ PACK = UiPack((ES, EN), {
     "col.name": bi("Nombre", "Name"),
     "col.city": bi("Ciudad", "City"),
     "col.agent": bi("Agente", "Agent"),
-    "col.recruiter": bi("Reclutador", "Recruiter"),
+    "col.recruiter": bi("Estado", "Status"),
     "col.assigned": bi("Asignado a", "Assigned to"),
     "col.call": bi("Llamada", "Call"),
     "col.updated": bi("Actualizado", "Updated"),
@@ -130,8 +127,6 @@ PACK = UiPack((ES, EN), {
     "detail.manage": bi("Gestión del reclutador", "Recruiter actions"),
     "form.status": bi("Estado", "Status"),
     "form.save_status": bi("Guardar estado", "Save status"),
-    "form.assignee": bi("Asignado a", "Assigned to"),
-    "form.save_assignee": bi("Guardar asignación", "Save assignment"),
     "form.note": bi("Nota", "Note"),
     "form.save_note": bi("Añadir nota", "Add note"),
     "erase.need_check": bi("Marca la casilla de confirmación para borrar.", "Tick the confirmation box to erase."),
@@ -245,8 +240,7 @@ PACK = UiPack((ES, EN), {
     "slots.col_caller": bi("Llama", "Caller"),
     "slots.col_state": bi("Estado", "State"),
     "slot.booked": bi("Reservado: {name} ({id})", "Booked: {name} ({id})"),
-    "slot.too_close": bi("Ya no se ofrece (faltan menos de {hours} horas)",
-                         "No longer offered (less than {hours} hours away)"),
+    "slot.recruiters_only": bi("Libre, solo la reserva un reclutador", "Free, only a recruiter can book it"),
     "slot.free": bi("Libre", "Free"),
     "slot.no_name": bi("(sin nombre)", "(no name)"),
 
@@ -277,11 +271,6 @@ PACK = UiPack((ES, EN), {
     "funnel.marks_title": bi("Dónde están ahora", "Where they are now"),
     "funnel.whole": bi("Recorrieron todo el proceso", "Went through the whole process"),
     "funnel.whole_help": bi("Llegaron al último paso: contratados.", "Reached the last step: hired."),
-    "funnel.recruiter_note": bi(
-        "Los pasos del reclutador se cuentan desde el historial de estados, así que «Contactado» puede superar a "
-        "«Llamada reservada»: los reclutadores también llaman a candidatos sin reserva.",
-        "The recruiter's steps are counted from the status history, so “Contacted” can be higher than “Call booked”: "
-        "recruiters also phone candidates who did not book."),
     "mark.in_process": bi("En proceso", "In process"),
     "mark.paused": bi("En pausa", "Paused"),
     "mark.out": bi("Fuera del proceso", "Out of the process"),
@@ -289,7 +278,7 @@ PACK = UiPack((ES, EN), {
     "funnel.step.started": bi("Conversación iniciada", "Conversation started"),
     "funnel.step.consent": bi("Consentimiento", "Consent given"),
     "funnel.step.qualified": bi("Cualificado", "Qualified"),
-    "funnel.step.booked": bi("Llamada reservada", "Call booked"),
+    "funnel.step.booked": bi("Entrevista programada", "Interview scheduled"),
     "funnel.path_title": bi("Recorrido de un candidato", "One candidate's path"),
     "funnel.path_hint": bi("Elige un candidato para ver los pasos que ha dado y los que le quedan.",
                            "Choose a candidate to see the steps taken and the steps left."),
@@ -307,20 +296,10 @@ PACK = UiPack((ES, EN), {
     "chat.page_title": bi("Prueba el asistente · Grupo Sazón", "Try the assistant · Grupo Sazón"),
     "chat.title": bi("Prueba el asistente", "Try the assistant"),
     "chat.notice": bi(
-        "Demostración: las conversaciones se guardan en una base de datos de pruebas, no en la que ven los "
-        "reclutadores. Escribe como lo haría un candidato, en español o en inglés.",
-        "Demo: conversations are saved in a test database, not the one recruiters see. Write as a candidate would, "
-        "in Spanish or English."),
-    "chat.share": bi("Guardar en el panel de reclutadores", "Save to the recruiters' dashboard"),
-    "chat.share_help": bi("Activado, los candidatos nuevos se guardan en la base de datos del panel y aparecen allí. "
-                          "Al cambiarlo empieza un candidato nuevo.",
-                          "When on, new candidates are saved in the dashboard's database and appear there. "
-                          "Changing it starts a new candidate."),
-    "chat.shared_warning": bi(
-        "Estás guardando en el panel de reclutadores: este candidato aparecerá allí y los reclutadores lo verán. "
-        "Bórralo desde el panel cuando termines.",
-        "You are saving to the recruiters' dashboard: this candidate will appear there and recruiters will see it. "
-        "Erase it from the dashboard when you are done."),
+        "Demostración: las conversaciones se guardan en el panel de reclutadores y los reclutadores las ven. "
+        "Escribe como lo haría un candidato, en español o en inglés, y bórralas desde el panel cuando termines.",
+        "Demo: conversations are saved in the recruiters' dashboard and recruiters can see them. Write as a "
+        "candidate would, in Spanish or English, and erase them from the dashboard when you are done."),
     "filter.choose": bi("Elegir opciones", "Choose options"),
     "cand.updates": bi("Hay cambios nuevos: actualizar la lista", "There are new changes: refresh the list"),
     "link.dashboard": bi("Abrir el panel de reclutadores", "Open the recruiters' dashboard"),
@@ -367,6 +346,7 @@ PACK = UiPack((ES, EN), {
     # statuses, countries and refused inputs
     "status.new": bi("Nuevo", "New"),
     "status.contacted": bi("Contactado", "Contacted"),
+    "status.qualified": bi("Cualificado", "Qualified"),
     "status.interview_scheduled": bi("Entrevista programada", "Interview scheduled"),
     "status.hired": bi("Contratado", "Hired"),
     "status.rejected": bi("Rechazado", "Rejected"),
@@ -376,14 +356,13 @@ PACK = UiPack((ES, EN), {
     "error.name_required": bi("Inicia sesión con tu cuenta para registrar acciones.",
                               "Sign in with your account to record actions."),
     "error.unknown_status": bi("Ese estado no existe.", "That status does not exist."),
-    "error.assignee_required": bi("Escribe a quién se asigna.", "Type who it is assigned to."),
     "error.note_empty": bi("La nota no puede estar vacía.", "The note cannot be empty."),
     "error.unknown_country": bi("Ese país no existe.", "That country does not exist."),
     "error.clock_change": bi(
         "Esa hora no existe: ese día cambia la hora y se salta de las 02:00 a las 03:00. Elige otra.",
         "That time does not exist: the clocks change that day and 02:00 jumps to 03:00. Pick another."),
-    "error.too_soon": bi("Ese horario ya ha pasado o falta muy poco. Elige uno más adelante.",
-                         "That time has passed or is too soon. Pick a later one."),
+    "error.in_the_past": bi("Ese horario ya ha pasado. Elige uno más adelante.",
+                            "That time has already passed. Pick a later one."),
     "error.no_calendar": bi("Este cliente no reserva llamadas.", "This client does not book calls."),
     "error.gone": bi("Eso ya no existe: puede que lo hayan borrado o cancelado mientras tanto.",
                      "That no longer exists: it may have been erased or cancelled meanwhile."),

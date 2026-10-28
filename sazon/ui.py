@@ -11,17 +11,17 @@ from screener.store import Store
 
 
 @st.cache_resource
-def _open_store(path: str) -> Store:
+def open_store(path: str) -> Store:
     return Store(path, calendar=SAZON_CLIENT.calendar)
 
 
 def store() -> Store:
-    return _open_store(str(config.db_path()))
+    return open_store(str(config.db_path()))
 
 
 @st.cache_resource(max_entries=2)
 def _candidates(path: str, revision: int) -> list:
-    return _open_store(path).list_candidates()
+    return open_store(path).list_candidates()
 
 
 def candidates() -> list:

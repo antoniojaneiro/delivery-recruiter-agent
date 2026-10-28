@@ -18,7 +18,7 @@ Keep the dashboard and the chat on your own computer until the login is replaced
 | Item | Why it matters | Where it goes |
 | --- | --- | --- |
 | The real service areas (cities and nearby towns, per country) | The list in the code is a sample; candidates are accepted or rejected by it. | `sazon/config.py` |
-| Recruiters, their country and their hours | Call times come from recruiters' availability: the hiring manager creates them (Recruiters page); by default each works Monday to Friday, 9:00 to 17:00 in their country, and changes it in the Calendar page. | Dashboard (D80, D82) |
+| Recruiters, their country and their hours | Call times come from recruiters' availability: the hiring manager creates them (Recruiters page); by default each works Monday to Friday, 9:00 to 17:00 in their country, and changes it in the Calendar page. The hiring manager takes calls too (`HIRING_MANAGER_COUNTRY` in `.env`, Spain if empty; D89). | Dashboard (D80, D82) |
 | A paid model plan with a data-processing agreement | The free tier allows 15 requests a minute, may train on prompts, and cannot serve about 1000 applications a week. | `.env` (`GEMINI_API_KEY`, `LLM_MODEL`) |
 | Single sign-on for recruiters | The built-in login (email and password, recruiters created by the hiring manager from `.env`) is a prototype; keep the dashboard local until it is replaced. | Dashboard login (D80) |
 | A messaging channel (WhatsApp or similar) | Today candidates use the terminal or the test chat. The service is ready for an adapter. | `screener/service.py` (D75) |
@@ -31,7 +31,7 @@ The list below says *what* needs approval. A separate document with each text wo
 2. Every farewell, and the qualified message and the "write to us when you want to book" texts (the 48-hour promise is gone, D81).
 3. The CV upload notice and the read-back of what was taken from a CV.
 4. How long answers, transcripts, error logs and uploaded CVs may be kept. Today nothing is deleted automatically; erasure is on request from the dashboard.
-5. The messages a candidate gets when a recruiter books or moves their call, and when their call is no longer available and they can pick again (`scheduled`, `moved`, `cancelled`, `later` in `sazon/pack.py`).
+5. The messages a candidate gets when a recruiter books or moves their call, and when their call is no longer available and they can pick again (`scheduled`, `moved`, `cancelled`, `later` in `sazon/pack.py`), and the four "use the button" offers for the browser chat (`offer_button`, D90).
 6. Approved answers about pay.
 7. A sample of real conversations. The model's wording varies, so the fixed texts are not the whole picture.
 
@@ -43,7 +43,7 @@ The list below says *what* needs approval. A separate document with each text wo
 - A rejected candidate cannot reopen the chat; a recruiter can set a status.
 - One database file on one machine: no backup or failover.
 - A third language needs engine edits (word lists, day names, the extraction prompt).
-- Call times are 15 minutes, up to four weeks ahead, from each recruiter's weekly hours; a recruiter's country is fixed when the manager creates them.
-- Erasing a candidate from the dashboard deletes and overwrites their rows, but readable copies of earlier row versions can stay in the database file until it is rewritten (`VACUUM`); see DECISIONS, section 7.
+- Call times are 15 minutes, from each recruiter's weekly hours. A candidate books from tomorrow up to four weeks ahead (never the same day); a recruiter may book any time that has not started. A recruiter's country is fixed when the manager creates them (D87).
+- Erasing a candidate from the dashboard deletes and overwrites their rows, but readable copies of earlier row versions can stay in the database file until it is rewritten (`VACUUM`); see DECISIONS, section 9.
 - Streamlit's own text in the CV uploader ("Upload", "2MB per file") follows the candidate's browser language, not the page's switch.
 - A link to a candidate (`?candidate=ID`) does not survive the dashboard's login page.

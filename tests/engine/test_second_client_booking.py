@@ -42,9 +42,11 @@ def test_the_clients_own_countries_and_notice_rules_apply(store):
     assert error.value.code == "unknown_country"
     now = datetime(2026, 10, 26, 9, 0, tzinfo=timezone.utc)  # London is on GMT that day
     with pytest.raises(InputError) as error:
-        store.add_slot("GB", datetime(2026, 10, 26, 12, 0), None, "Ana", now)  # this client needs 4 hours' notice
-    assert error.value.code == "too_soon"
-    assert store.add_slot("GB", datetime(2026, 10, 26, 13, 0), None, "Ana", now) > 0
+        store.add_slot("GB", datetime(2026, 10, 26, 8, 30), None, "Ana", now)
+    assert error.value.code == "in_the_past"
+    store.add_slot("GB", datetime(2026, 10, 27, 12, 0), None, "Ana", now)
+    store.add_slot("GB", datetime(2026, 10, 28, 12, 0), None, "Ana", now)
+    assert [s.starts_at for s in store.free_slots("GB", now)] == [datetime(2026, 10, 28, 10, 0), datetime(2026, 10, 28, 12, 0)]  # this client books from two days on
 
 
 def test_a_qualified_candidate_is_offered_slots_in_their_towns_country_up_to_the_clients_offer_size(store):
@@ -127,3 +129,11 @@ def test_an_area_without_a_country_or_a_country_without_a_zone_is_refused():
     with pytest.raises(ClientError) as error:
         replace(TOY_UK, calendar=SlotCalendar(timezones={}, country_of=UK_CALENDAR.country_of))
     assert "GB" in str(error.value)
+
+
+def test_a_client_with_no_button_texts_keeps_the_numbered_list_whatever_the_channel(store):
+    store.add_slot("GB", datetime(2026, 10, 28, 10, 0), None, "Ana", NOW)
+    turn.start(store, TOY_UK, "c1", NOW, buttons=True)
+    llm = ScriptedLLM(extractions=[{"name": "Jo Smith"}, {"town": "Headingley"}, {"can_lift": True}])
+    last = talk(store, llm, "yes", "Jo Smith", "Headingley", "yes")[-1]
+    assert "1) Wed 28 Oct, 10:00" in last

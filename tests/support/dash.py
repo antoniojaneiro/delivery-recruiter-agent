@@ -1,7 +1,7 @@
 """Helpers shared by the dashboard tests: recruiters in the database, the hiring manager from the environment, and the real
 sign-in by email and password."""
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from sazon.client import SAZON_CALENDAR
 from screener.store import Store
@@ -49,3 +49,10 @@ def login_manager(at):
 def logout(at):
     at.sidebar.button(key="logout").click().run()
     return at
+
+
+def book_as_candidate(store, slot_id, candidate_id):
+    """Books a time the way the candidate's chat does, two days before it (a candidate only books from tomorrow, up to four
+    weeks ahead, so the test's fixed or far dates are reached by moving `now`, not by changing the rule)."""
+    slot = store.slot(slot_id)
+    return store.book_slot(slot_id, candidate_id, (slot.starts_at - timedelta(days=2)).astimezone())

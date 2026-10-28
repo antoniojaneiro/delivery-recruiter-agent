@@ -10,7 +10,7 @@ from sazon.client import SAZON_CALENDAR
 from screener import recruiter_view
 from screener.model import RecruiterStatus
 from screener.store import Store
-from tests.support.dash import login, seed_accounts
+from tests.support.dash import book_as_candidate, login, seed_accounts
 
 NOW = datetime(2026, 10, 25, 10, 0)
 FUTURE = datetime(2027, 6, 15, 10, 0)
@@ -43,9 +43,8 @@ def test_the_revision_moves_when_anything_a_candidate_list_shows_changes(db):
     add(db, "c1"); moved("a new candidate")
     add(db, "c1", 1, "BLOCKED"); moved("a new turn")
     db.set_status("c1", RecruiterStatus.CONTACTED, "Ana", NOW); moved("a status")
-    db.assign("c1", "Luis", "Ana", NOW); moved("an assignee")
     slot = db.add_slot("ES", FUTURE, "Ana", "Ana", NOW.astimezone())
-    db.book_slot(slot, "c1", NOW.astimezone()); moved("a booking")
+    book_as_candidate(db, slot, "c1"); moved("a booking")
     db.cancel_slot(slot, "Ana", NOW.astimezone()); moved("a cancelled booking")
     db.erase_candidate("c1", "recruiter:Ana", NOW, "request"); moved("an erase")
 

@@ -101,8 +101,7 @@ def test_a_second_client_runs_a_whole_conversation_in_its_own_words(tmp_path):
     record = store.get("c1")
     assert record.outcome == "QUALIFIED"
     assert record.summary.splitlines() == [
-        "Jo Smith · Qualified", "Shift: night", "Can lift 20 kg: yes", "Chat: language English",
-        "Automatic summary: the recruiter decides."]
+        "Jo Smith · Qualified", "Shift: night", "Can lift 20 kg: yes", "Chat: language English"]
 
 
 def test_a_second_client_disqualifies_by_its_own_rule_and_says_so_in_its_own_words(tmp_path):

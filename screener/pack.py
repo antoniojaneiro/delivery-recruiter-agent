@@ -1,11 +1,16 @@
 """The fixed wording a client gives the engine (D63). Everything the candidate reads that is not written by the
 model lives here, in every language the client supports; a missing text is a missing argument, not a runtime error."""
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from screener.language import pick
 from screener.model import Language, Outcome
 
 Text = dict[Language, str]  # language -> wording; {placeholders} are filled in by the engine
+
+
+def bi(es: str, en: str) -> Text:
+    """A text in Spanish and English, the two languages a pack is written in."""
+    return {Language.ES: es, Language.EN: en}
 
 
 @dataclass(frozen=True)
@@ -19,6 +24,7 @@ class SlotTexts:
     scheduled: Text  # {label}: a recruiter booked the call for the candidate
     moved: Text  # {label}: a recruiter moved the booked call
     later: Text  # they chose none of the times, or went quiet: write again whenever they want to book
+    offer_button: dict[str, Text] = field(default_factory=dict)  # the same four, for a channel with a button: no list; empty = keep the list
 
 
 @dataclass(frozen=True)

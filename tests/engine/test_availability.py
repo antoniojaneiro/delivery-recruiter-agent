@@ -44,6 +44,7 @@ def test_a_new_recruiter_is_available_monday_to_friday_nine_to_five_in_fifteen_m
 def test_times_are_made_for_four_weeks_ahead_and_not_beyond(store):
     hire(store, "Ana")
     assert times(store, NOW.date() + timedelta(days=25)) and times(store, NOW.date() + timedelta(days=29)) == []  # Friday the 27th; Tuesday Dec 1st
+    assert len(times(store, NOW.date() + timedelta(days=28))) == 32  # Monday Nov 30: the last day a candidate may book
 
 
 def test_two_recruiters_make_one_option_with_two_calls_of_capacity(store):

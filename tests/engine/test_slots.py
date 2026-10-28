@@ -7,6 +7,7 @@ from tests.support.tables import table
 
 from sazon.client import SAZON_CALENDAR
 from sazon import config
+from screener.call_times import CallTimes
 from screener.store import Store
 
 # An aware "now" keeps these tests independent of the machine's time zone.
@@ -58,11 +59,11 @@ def test_the_number_offered_is_limited(store):
 
 @table("country,when", [
     ("ES", datetime(2026, 10, 1, 10, 0)),            # in the past
-    ("ES", datetime(2026, 10, 26, 9, 0)),            # 09:00 Madrid is 08:00 UTC, less than the notice
+    ("ES", datetime(2026, 10, 26, 8, 59)),           # a minute ago: 09:00 Madrid is 08:00 UTC
     ("XX", datetime(2026, 11, 3, 10, 0)),            # unknown country
     ("ES", datetime(2027, 3, 28, 2, 30)),            # does not exist: Spain springs forward 02:00 -> 03:00
 ])
-def test_impossible_or_too_soon_slots_are_refused(store, country, when):
+def test_impossible_or_past_slots_are_refused(store, country, when):
     with pytest.raises(ValueError):
         store.add_slot(country, when, "Ana", "Ana", NOW)
     assert store.free_slots("ES", NOW) == [] and store.free_slots("MX", NOW) == []
@@ -72,11 +73,24 @@ def test_a_wall_time_that_exists_in_one_country_may_not_exist_in_the_other(store
     assert add(store, "MX", datetime(2027, 3, 28, 2, 30))  # Mexico has no clock change
 
 
-def test_the_notice_depends_on_the_slots_own_country_time_zone(store):
-    # 09:30 Mexico City is 15:30 UTC: well after NOW (08:00 UTC); 09:30 Madrid on the same day is 08:30 UTC.
-    assert add(store, "MX", datetime(2026, 10, 26, 9, 30))
+def test_a_time_that_has_not_started_may_be_added_today_by_the_clock_of_its_own_country(store):
+    # 09:30 Mexico City is 15:30 UTC: after NOW (08:00 UTC); 09:30 Madrid on the same day is 08:30 UTC, also after it.
+    assert add(store, "MX", datetime(2026, 10, 26, 9, 30), "Marta") and add(store, "ES", datetime(2026, 10, 26, 9, 30))
+    later = datetime(2026, 10, 26, 8, 45, tzinfo=timezone.utc)  # 09:45 in Madrid, 02:45 in Mexico City
     with pytest.raises(ValueError):
-        add(store, "ES", datetime(2026, 10, 26, 9, 30))
+        store.add_slot("ES", datetime(2026, 10, 26, 9, 30), "Luis", "Ana", later)
+    assert store.add_slot("MX", datetime(2026, 10, 26, 9, 30), "Pepe", "Ana", later)
+
+
+def test_candidates_are_offered_times_from_tomorrow_to_four_weeks_and_a_recruiter_may_still_book_today(store):
+    today, tomorrow, last, too_far = (add(store, when=datetime(2026, *day, 10, 0), recruiter=f"r{n}")
+                                      for n, day in enumerate([(10, 26), (10, 27), (11, 23), (11, 24)]))
+    for cid in ("c1", "c2"):
+        store.commit_turn(cid, datetime(2026, 10, 26, 9, 0), {}, {}, "QUALIFIED", [], [])
+    assert starts(store.free_slots("ES", NOW, limit=10)) == [datetime(2026, 10, 27, 10, 0), datetime(2026, 11, 23, 10, 0)]
+    assert store.book_slot(today, "c1", NOW) is None and store.book_slot(too_far, "c1", NOW) is None
+    assert store.move_booking("c1", today, "Ana", NOW)[0].slot_id == today  # a recruiter can book it
+    assert store.book_slot(last, "c2", NOW).slot_id == last
 
 
 def test_a_slot_needs_a_creator(store):
@@ -111,7 +125,7 @@ def test_a_candidate_never_holds_two_bookings_and_retrying_is_harmless(store):
     assert len([e for e in store.events("c1") if e.type == "slot_booked"]) == 1
 
 
-def test_a_slot_that_has_started_or_is_too_close_cannot_be_booked(store):
+def test_a_slot_on_the_same_day_cannot_be_booked_by_a_candidate(store):
     slot_id = add(store)
     assert store.book_slot(slot_id, "c1", datetime(2026, 11, 3, 8, 30, tzinfo=timezone.utc)) is None
     assert store.free_slots("ES", datetime(2026, 11, 3, 8, 30, tzinfo=timezone.utc)) == []
@@ -173,6 +187,6 @@ def test_a_booking_race_for_the_same_candidate_returns_the_existing_booking_inst
     first, second = add(store), add(store, when=datetime(2026, 11, 4, 10, 0))
     held = store.book_slot(first, "c1", NOW)
     # Another process booked for c1 between our check and our update: our check sees nothing.
-    monkeypatch.setattr(Store, "_held_booking", lambda self, db, candidate_id: None)
+    monkeypatch.setattr(CallTimes, "_held_booking", lambda self, db, candidate_id: None)
     again = store.book_slot(second, "c1", NOW)
     assert again.slot_id == held.slot_id and store.booking_of("c1").slot_id == held.slot_id

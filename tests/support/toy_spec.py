@@ -67,7 +67,6 @@ RECRUITER = RecruiterTexts(
     },
     no_name="Unnamed candidate", reason_prefix="Reason: ", missing_prefix="Missing: ",
     no_consent="did not consent", blocked_on="has not said ", flags={},
-    footer="Automatic summary: the recruiter decides.",
     chat_prefix="Chat: ", language_word="language", language_names={EN: "English"},
     clarification=("clarification", "clarifications"), asked_for_person="asked for a person",
     reminder_sent="reminder sent",
@@ -137,5 +136,5 @@ TOY_UK_SPEC = replace(
                             close=say("We do not hire in your town yet."), summary=say("outside the hiring towns"))),
 )
 UK_CALENDAR = SlotCalendar(timezones={"GB": "Europe/London"}, country_of={"Leeds": "GB", "London": "GB"},
-                           min_notice=timedelta(hours=4), offer_size=2)
+                           book_from_days=2, offer_size=2)
 TOY_UK = Client(spec=TOY_UK_SPEC, areas={"Leeds": ["Headingley"], "London": []}, calendar=UK_CALENDAR)

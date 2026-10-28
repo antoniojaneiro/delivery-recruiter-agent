@@ -3,7 +3,7 @@ whole table in SQL (`sql`, used by the counters), so the table filter, the numbe
 Only outcomes, a recruiter status and a reason that are named here ever reach the SQL text."""
 from dataclasses import dataclass, replace
 
-from screener.model import NO_CONSENT, Outcome, RecruiterStatus
+from screener.model import CLOSED_BY_RECRUITER, NO_CONSENT, Outcome, RecruiterStatus
 
 
 @dataclass(frozen=True)
@@ -40,11 +40,12 @@ TO_CONTACT = Rule((Outcome.QUALIFIED,), status=RecruiterStatus.NEW, unbooked=Tru
 BLOCKED = Rule((Outcome.BLOCKED,))
 STALLED = Rule((Outcome.STALLED,))
 
-_CLOSED_BY_RECRUITER = (RecruiterStatus.HIRED, RecruiterStatus.REJECTED, RecruiterStatus.UNREACHABLE)
+def closed_by_recruiter(record) -> bool:
+    return record.status in CLOSED_BY_RECRUITER
 
 
 def can_schedule(record) -> bool:
-    """A recruiter may book or move a call for a candidate the agent qualified, unless a recruiter has already closed
-    their case (hired, rejected, unreachable). A candidate who ignored the offer is still qualified (D58), so this is
-    the one who most needs it. Only qualified candidates are scheduled: a closed case stays with the agent's decision."""
-    return record.outcome == Outcome.QUALIFIED and record.status not in _CLOSED_BY_RECRUITER
+    """A call can be organised, booked or moved for a candidate whose Estado is Qualified or Interview scheduled (D92): the
+    agent qualified them, or a recruiter did, and nobody has hired or rejected them. A qualified candidate who ignored the
+    offer is the one who most needs it; one with a call can be moved. The page, the calendar and the chat ask this."""
+    return record.stage in (RecruiterStatus.QUALIFIED, RecruiterStatus.INTERVIEW_SCHEDULED)

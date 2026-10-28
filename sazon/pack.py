@@ -1,10 +1,6 @@
 """Grupo Sazón's fixed wording, Spanish and English (D63)."""
 from screener.model import Language, Outcome
-from screener.pack import CvTexts, Pack, SlotTexts, Text
-
-
-def bi(es: str, en: str) -> Text:
-    return {Language.ES: es, Language.EN: en}
+from screener.pack import CvTexts, Pack, SlotTexts, bi
 
 
 SLOTS = SlotTexts(
@@ -16,6 +12,16 @@ SLOTS = SlotTexts(
         "unclear": bi("No me quedó claro. Elige una opción:", "I didn't quite get that. Pick an option:"),
         "reminder": bi("Te recuerdo las horas disponibles para tu llamada:",
                        "A reminder of the times available for your call:"),
+    },
+    offer_button={
+        "first": bi("¡Genial, tu perfil encaja! Por favor, reserva una llamada para hablar con un reclutador.",
+                    "Great, your profile fits! Please book a call to talk with a recruiter."),
+        "taken": bi("Ese horario ya no está libre. Elige otro con el botón de abajo.",
+                    "That time is no longer free. Please pick another with the button below."),
+        "unclear": bi("No me quedó claro. Usa el botón de abajo para reservar tu llamada.",
+                      "I didn't quite get that. Please use the button below to book your call."),
+        "reminder": bi("Te recuerdo que puedes reservar tu llamada con el botón de abajo. Si prefieres hacerlo más tarde, escribe «ninguna».",
+                       "A reminder: you can book your call with the button below. If you'd rather do it later, write 'none'."),
     },
     offer_end=bi(
         "Responde con el número. Si ninguna te viene bien, responde 'ninguna' y podrás reservar más adelante escribiéndonos otra vez.",

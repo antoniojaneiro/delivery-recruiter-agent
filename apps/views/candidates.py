@@ -4,7 +4,7 @@ import streamlit as st
 
 from sazon import ui
 from sazon.ui import t
-from screener.model import Outcome, RecruiterStatus
+from screener.model import STAGES, Outcome, RecruiterStatus
 from screener.recruiter_rules import TO_CONTACT
 from screener.recruiter_view import (OUTCOME_COLOR, PAGE_SIZE, STATUS_COLOR, escape_markdown, filter_records, page_of,
                                      table_height)
@@ -33,10 +33,12 @@ with st.container(horizontal=True):
     st.metric(t("kpi.blocked"), numbers["blocked"], border=True)
     st.metric(t("kpi.stalled"), numbers["stalled"], border=True)
 
+stage_values = [s.value for s in STAGES]
+st.session_state["f_status"] = [v for v in st.session_state.get("f_status", []) if v in stage_values]  # a tab open since the states changed
 with st.container(horizontal=True, vertical_alignment="bottom"):
     outcomes = st.multiselect(t("filter.outcome"), [o.value for o in Outcome], key="f_outcome", placeholder=t("filter.choose"),
                               format_func=lambda value: view.outcome_label(value))
-    statuses = st.multiselect(t("filter.status"), [s.value for s in RecruiterStatus], key="f_status", placeholder=t("filter.choose"),
+    statuses = st.multiselect(t("filter.status"), stage_values, key="f_status", placeholder=t("filter.choose"),
                               format_func=lambda value: view.status_label(value))
     search = st.text_input(t("filter.search"), key="f_search")
     review_only = st.checkbox(t("filter.review"), key="f_review")
@@ -52,7 +54,7 @@ page = st.number_input(t("cand.page"), min_value=1, step=1, value=1, key="page",
 on_page, pages, page = page_of(shown, page)
 columns = {title: st.column_config.MultiselectColumn(title, options=options, color=colors)
            for title, (options, colors) in view.badge_columns().items()}
-picked = st.dataframe(view.badge_rows(view.table_rows(on_page)), hide_index=True, width="stretch",
+picked = st.dataframe(view.badge_rows(view.table_rows(on_page, {r.email: r.name for r in store.recruiters()})), hide_index=True, width="stretch",
                       height=table_height(len(on_page)),  # as tall as its rows up to a limit, then it scrolls inside
                       column_config=columns, on_select="rerun", selection_mode="single-row",
                       key="candidate_table", alt=t("cand.title"))
@@ -88,7 +90,7 @@ st.subheader(escape_markdown(view.name_of(record)))
 with st.container(horizontal=True):
     if record.outcome:
         st.badge(view.outcome_label(record.outcome), color=OUTCOME_COLOR[record.outcome])
-    st.badge(view.status_label(record.status), color=STATUS_COLOR[record.status])
+    st.badge(view.status_label(record.stage), color=STATUS_COLOR[record.stage])
 info_side, manage_side = st.columns(2, gap="medium")
 
 with info_side:
@@ -105,7 +107,8 @@ with info_side:
 
         st.markdown(f"**{t('detail.call')}**")
         if record.booking:
-            caller = t("detail.caller", name=record.booking.recruiter) if record.booking.recruiter else ""
+            holder = store.get_recruiter(record.booking.recruiter) if record.booking.recruiter else None
+            caller = t("detail.caller", name=holder.name if holder else record.booking.recruiter) if record.booking.recruiter else ""
             st.markdown(t("detail.call_line", label=view.call_label(record.booking), caller=caller))
         else:
             hint = t("detail.qualified_hint") if TO_CONTACT.matches(record) else ""
@@ -116,31 +119,25 @@ with manage_side:
         st.markdown(f"**{t('detail.manage')}**")
         if not recruiter:
             st.warning(t("common.need_name"))
-        statuses_all = [s.value for s in RecruiterStatus]
+        statuses_all = stage_values
         if st.session_state.get("_forms_for") != selected_id:
             # Widget keys keep their value when another candidate is chosen: start the forms from this one's data.
-            st.session_state.update(new_status=record.status.value, assignee=record.assignee or "", note="",
-                                    confirm_erase=False, _forms_for=selected_id)
+            st.session_state.update(new_status=record.stage.value, note="", confirm_erase=False, _forms_for=selected_id)
         with st.form("status_form"):
-            new_status = st.selectbox(t("form.status"), statuses_all, index=statuses_all.index(record.status.value),
+            new_status = st.selectbox(t("form.status"), statuses_all, index=statuses_all.index(record.stage.value),
                                       format_func=lambda value: view.status_label(value), key="new_status")
             save_status = st.form_submit_button(t("form.save_status"), key="save_status")
-        with st.form("assign_form"):
-            assignee = st.text_input(t("form.assignee"), value=record.assignee or "", key="assignee")
-            save_assignee = st.form_submit_button(t("form.save_assignee"), key="save_assignee")
         with st.form("note_form", clear_on_submit=True):
             note = st.text_area(t("form.note"), key="note")
             save_note = st.form_submit_button(t("form.save_note"), key="save_note")
 
-        if save_status or save_assignee or save_note:
+        if save_status or save_note:
             try:
                 if not recruiter:
                     raise ValueError(t("common.need_name"))
                 now = datetime.now()
                 if save_status:
-                    store.set_status(selected_id, RecruiterStatus(new_status), recruiter, now)
-                if save_assignee:
-                    store.assign(selected_id, assignee, recruiter, now)
+                    store.set_stage(selected_id, RecruiterStatus(new_status), recruiter, now)
                 if save_note:
                     store.add_note(selected_id, note, recruiter, now)
             except (ValueError, LookupError) as error:

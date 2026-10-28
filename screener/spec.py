@@ -67,7 +67,6 @@ class RecruiterTexts:
     no_consent: str  # the reason when consent was declined
     blocked_on: str  # "has not said " + the field's not_provided text
     flags: dict[str, str]  # validation flag -> warning line
-    footer: str
     chat_prefix: str
     language_word: str
     language_names: dict[Language, str]

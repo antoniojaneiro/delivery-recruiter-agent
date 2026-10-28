@@ -36,8 +36,7 @@ def screening(**overrides):
 def test_the_card_in_english_says_the_same_things_as_the_spanish_one():
     assert summarise(screening(), EN).splitlines() == [
         "Juan Pérez · Madrid · Qualified", "License: yes", "Experience: 2 years (glovo, uber eats)",
-        "Availability: full-time", "Preferred schedule: morning", "Start: 2026-11-01", "Chat: language Spanish",
-        "Automatic summary: the recruiter makes the final decision."]
+        "Availability: full-time", "Preferred schedule: morning", "Start: 2026-11-01", "Chat: language Spanish"]
 
 
 def test_the_default_card_is_still_the_spanish_one():

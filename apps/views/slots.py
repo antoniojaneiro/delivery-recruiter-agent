@@ -138,7 +138,7 @@ with schedule_box:
         if chosen is not None:
             record = by_id[chosen]
             where = calendar.country_of.get(record.extracted.get(spec.area_field))
-            free = store.free_slots(where, now, FREE_TIMES_SHOWN) if where else []
+            free = store.free_slots(where, now, FREE_TIMES_SHOWN, as_recruiter=True) if where else []
             if record.booking:  # the time they already have is not an option to move to
                 free = [s for s in free if s.id != record.booking.slot_id]
             if not free:
@@ -148,12 +148,11 @@ with schedule_box:
                                    format_func=lambda sid: slot_label(next(s.starts_at for s in free if s.id == sid), language))
             moving = record.booking is not None
 
-            def organise(wanted_slot: int) -> None:
+            def organise(book) -> None:
                 """Books or moves the call and says what happened; a refused booking says why."""
                 try:
-                    done = slot_flow.schedule_by_recruiter(store, SAZON_CLIENT, chosen, wanted_slot, recruiter,
-                                                           datetime.now())
-                except (InputError, LookupError) as error:
+                    done = book()
+                except (InputError, LookupError, ValueError) as error:
                     st.error(view.explain_error(error))
                     return
                 st.success(t("sched.moved" if done.before else "sched.done", name=escape_markdown(view.name_of(record)),
@@ -163,7 +162,7 @@ with schedule_box:
 
             if st.button(t("sched.submit_move") if moving else t("sched.submit"), key="sched_submit",
                          disabled=slot_id is None, icon=":material/event_available:"):
-                organise(slot_id)
+                organise(lambda: slot_flow.schedule_by_recruiter(store, SAZON_CLIENT, chosen, slot_id, recruiter, datetime.now()))
 
             st.markdown(f"**{t('sched.new_title')}**")
             in_country = [r.email for r in store.recruiters() if r.country == where]  # only a recruiter of that country takes it
@@ -176,15 +175,9 @@ with schedule_box:
                 new_hour = st.time_input(t("sched.new_hour"), value=time(10, 0), step=900, key="sched_new_hour")
                 create = st.button(t("sched.submit_new"), key="sched_submit_new", disabled=owner is None,
                                    icon=":material/add_circle:")
-            if create:
-                try:  # the time is the owner's, in the candidate's own country, then booked like any other
-                    new_slot = store.add_slot(where, datetime.combine(new_day, new_hour), owner, recruiter, now)
-                except (InputError, ValueError) as error:
-                    st.error(view.explain_error(error))
-                else:
-                    organise(new_slot)
-                    if store.booking_of(chosen) is None or store.booking_of(chosen).slot_id != new_slot:
-                        store.cancel_slot(new_slot, recruiter, now)  # not booked after all: do not leave the time behind
+            if create:  # the time is the owner's, in the candidate's own country, then booked like any other
+                organise(lambda: slot_flow.schedule_new_time(store, SAZON_CLIENT, chosen, where, datetime.combine(new_day, new_hour),
+                                                             owner, recruiter, datetime.now()))
 
 # --- a recruiter's own week and days off ---------------------------------------------------------------------------------
 with avail_box:
@@ -218,8 +211,8 @@ with avail_box:
             if on:
                 picks.append((weekday, start_at.hour * 60 + start_at.minute, end_at.hour * 60 + end_at.minute))
 
-        def changed(conflicts) -> None:
-            done = slot_flow.resolve_calls(store, SAZON_CLIENT, conflicts, recruiter, datetime.now())
+        def changed(change) -> None:
+            done = change()
             text = t("avail.saved")
             if done.moved or done.released:
                 text += " " + t("avail.effect", moved=done.moved, released=done.released)
@@ -231,19 +224,19 @@ with avail_box:
         with st.container(horizontal=True):
             if st.button(t("avail.save"), key="avail_save", icon=":material/save:", type="primary"):
                 try:
-                    changed(store.set_weekly(who, picks, recruiter, datetime.now()))
+                    changed(lambda: slot_flow.save_week(store, SAZON_CLIENT, who, picks, recruiter, datetime.now()))
                 except InputError as error:
                     st.error(view.explain_error(error))
             if st.button(t("avail.reset"), key="avail_reset"):
-                changed(store.reset_weekly(who, recruiter, datetime.now()))
+                changed(lambda: slot_flow.reset_week(store, SAZON_CLIENT, who, recruiter, datetime.now()))
         with st.container(horizontal=True, vertical_alignment="bottom"):
             off_day = st.date_input(t("avail.off_day"), key="off_day")
             if st.button(t("avail.off_add"), key="off_add"):
-                changed(store.set_day_off(who, off_day, True, recruiter, datetime.now()))
+                changed(lambda: slot_flow.set_day_off(store, SAZON_CLIENT, who, off_day, True, recruiter, datetime.now()))
         for day_off in store.days_off(who):
             if day_off >= date.today() and st.button(t("avail.off_remove", day=f"{day_off:%d/%m/%Y}"),
                                                      key=f"off_remove_{day_off.isoformat()}", icon=":material/close:"):
-                changed(store.set_day_off(who, day_off, False, recruiter, datetime.now()))
+                changed(lambda day_off=day_off: slot_flow.set_day_off(store, SAZON_CLIENT, who, day_off, False, recruiter, datetime.now()))
 
 # --- the week grid (drawn above, filled last so it shows everything just changed) ---------------------------------------
 def shift_week(days: int | None) -> None:
@@ -276,7 +269,7 @@ with grid_box:
                 who = f" · {names.get(item.recruiter, item.recruiter or '')}" if everyone else ""
                 label = f"{item.starts_at:%H:%M} · {escape_markdown(view.name_of(booked)) if booked else '?'}{who}"
                 st.markdown(f":gray-badge[{label}]" if item.starts_at < local_now else f":blue-badge[{label}]")
-            free_count = len(store.free_slots_on(shown_country, day, now)) if day >= date.today() else 0
+            free_count = len(store.free_slots_on(shown_country, day, now, as_recruiter=True)) if day >= date.today() else 0
             if free_count:
                 st.caption(t("cal.free", n=free_count))
     st.caption(t("cal.legend"))

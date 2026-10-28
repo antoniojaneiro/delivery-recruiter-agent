@@ -1,59 +1,50 @@
+import functools
 import hashlib
 import json
 import sqlite3
-import time
-from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
 
-from screener.model import RecruiterStatus
+from screener.model import RECRUITER_STEPS, RecruiterStatus, reached_by, stage_of
 from screener.recruiter_rules import AGENT_CLOSED, BLOCKED, NEEDS_REVIEW, STALLED, TO_CONTACT
-from screener.store_schema import prepare
-from screener.store_availability import AvailabilityMixin
-from screener.store_recruiters import RecruitersMixin
-from screener.store_service import ServiceMixin
-from screener.store_slots import SlotsMixin
+from screener.call_times import CallTimes
+from screener.store_db import BUSY_TIMEOUT_SECONDS, Database
+from screener.store_service import ServiceState
 from screener.store_types import (AGENT, NO_CHECK, AdminEntry, Booking, ConflictError, CvFile, Event, InputError, Message,  # noqa: F401
                                Note, OutboxEntry, Record, RecruiterRecord, Slot, parse_stamp, stamp)  # noqa: F401
 
-BUSY_TIMEOUT_SECONDS = 10
 # A candidate has reached a recruiter step if they ever had that status or a later one (history, not today's status).
-_REACHED_BY = {"contacted": ("contacted", "interview_scheduled", "hired"),
-               "interview_scheduled": ("interview_scheduled", "hired"), "hired": ("hired",)}
+_REACHED_BY = {step.value: tuple(s.value for s in reached_by(step)) for step in RECRUITER_STEPS}
 
 _CANDIDATE_COLUMNS = ("c.candidate_id, c.state, c.extracted, c.summary, c.outcome, c.reasons, c.flags, "
-                      "c.updated_at, COALESCE(r.status, 'new'), r.assignee, "
+                      "c.updated_at, COALESCE(r.status, 'new'), "
                       "s.id, s.country, s.starts_at, s.recruiter, c.version")
 _CANDIDATE_JOINS = ("FROM candidates c LEFT JOIN recruiter r ON r.candidate_id = c.candidate_id "
                     "LEFT JOIN slots s ON s.candidate_id = c.candidate_id AND s.cancelled_at IS NULL")
 
 
-class Store(SlotsMixin, ServiceMixin, RecruitersMixin, AvailabilityMixin):
+class Store:
+    """The candidates and what recruiters do with them, and the two parts the rest of the store is made of: the call times
+    (`times`) and the service's records (`service`). Callers use one object: a method of a part is also a method of the
+    store, under the same name (D88)."""
+
     def __init__(self, path: Path | str, calendar=None):
-        self._path = str(path)
-        self.calendar = calendar
-        Path(path).parent.mkdir(parents=True, exist_ok=True)
-        for attempt in range(40):  # several processes may open a new or old file at the same moment
-            try:
-                self._prepare()
-                return
-            except sqlite3.OperationalError as error:
-                if "locked" not in str(error) or attempt == 39:
-                    raise
-                time.sleep(0.25)
+        self.db = Database(path, calendar)
+        self.times = CallTimes(self.db)
+        self.service = ServiceState(self.db)
 
-    def _prepare(self) -> None:
-        with self._connect() as db:
-            prepare(db)
+    @property
+    def calendar(self):
+        return self.db.calendar
 
-    @contextmanager
+    @property
+    def _path(self) -> str:
+        return self.db.path
+
     def _connect(self):
-        db = sqlite3.connect(self._path, timeout=BUSY_TIMEOUT_SECONDS)
-        try:
-            with db:
-                yield db
-        finally:
-            db.close()
+        return self.db.connect()
+
+    _log = staticmethod(Database.log)
 
     # -- written by the agent ------------------------------------------------
 
@@ -140,15 +131,14 @@ class Store(SlotsMixin, ServiceMixin, RecruitersMixin, AvailabilityMixin):
                                "updated_at = excluded.updated_at",
                                (candidate_id, status.value, stamp(now)))
 
-    def assign(self, candidate_id: str, assignee: str, recruiter: str, now: datetime) -> None:
-        assignee = assignee.strip()
-        if not assignee:
-            raise InputError("assignee_required", "an assignee name is required")
-        self._recruiter_action(candidate_id, recruiter, now, "recruiter_assigned", assignee,
-                               "INSERT INTO recruiter (candidate_id, assignee, updated_at) VALUES (?, ?, ?) "
-                               "ON CONFLICT(candidate_id) DO UPDATE SET assignee = excluded.assignee, "
-                               "updated_at = excluded.updated_at",
-                               (candidate_id, assignee, stamp(now)))
+    def set_stage(self, candidate_id: str, stage: RecruiterStatus, recruiter: str, now: datetime) -> None:
+        """A recruiter chooses the "Estado" (D92). Choosing the one the system already shows stores nothing: the state stays
+        automatic, so a booked call still moves it on and a released call moves it back."""
+        record = self.get(candidate_id)
+        if record is None:
+            raise LookupError(f"no candidate {candidate_id}")
+        automatic = stage_of(record.outcome, RecruiterStatus.NEW, record.booking is not None)
+        self.set_status(candidate_id, RecruiterStatus.NEW if RecruiterStatus(stage) == automatic else stage, recruiter, now)
 
     def add_note(self, candidate_id: str, text: str, author: str, now: datetime) -> None:
         text = text.strip()
@@ -226,11 +216,6 @@ class Store(SlotsMixin, ServiceMixin, RecruitersMixin, AvailabilityMixin):
             rows = db.execute("SELECT at, actor, action, detail FROM admin_log ORDER BY id").fetchall()
         return [AdminEntry(parse_stamp(at), actor, action, detail) for at, actor, action, detail in rows]
 
-    @staticmethod
-    def _log(db, actor: str, action: str, detail: str, now: datetime) -> int:
-        return db.execute("INSERT INTO admin_log (at, actor, action, detail) VALUES (?, ?, ?, ?)",
-                          (stamp(now), actor, action, detail)).lastrowid
-
     # -- reads ---------------------------------------------------------------
 
     def get(self, candidate_id: str) -> Record | None:
@@ -294,11 +279,11 @@ class Store(SlotsMixin, ServiceMixin, RecruitersMixin, AvailabilityMixin):
 
     def recruiter(self, candidate_id: str) -> RecruiterRecord:
         with self._connect() as db:
-            row = db.execute("SELECT status, assignee, updated_at FROM recruiter WHERE candidate_id = ?",
+            row = db.execute("SELECT status, updated_at FROM recruiter WHERE candidate_id = ?",
                              (candidate_id,)).fetchone()
         if row is None:
-            return RecruiterRecord(RecruiterStatus.NEW, None, None)
-        return RecruiterRecord(RecruiterStatus(row[0]), row[1], parse_stamp(row[2]))
+            return RecruiterRecord(RecruiterStatus.NEW, None)
+        return RecruiterRecord(RecruiterStatus(row[0]), parse_stamp(row[1]))
 
     def notes(self, candidate_id: str) -> list[Note]:
         with self._connect() as db:
@@ -326,9 +311,24 @@ class Store(SlotsMixin, ServiceMixin, RecruitersMixin, AvailabilityMixin):
 
 
 def _record(row) -> Record:
-    (candidate_id, state, extracted, summary, outcome, reasons, flags, updated_at, status, assignee,
+    (candidate_id, state, extracted, summary, outcome, reasons, flags, updated_at, status,
      slot_id, country, starts_at, slot_recruiter, version) = row
     booking = Booking(slot_id, country, datetime.fromisoformat(starts_at), slot_recruiter) if slot_id else None
     return Record(candidate_id, json.loads(state), json.loads(extracted), summary, outcome,
                   parse_stamp(updated_at), json.loads(reasons), json.loads(flags),
-                  RecruiterStatus(status), assignee, booking, version)
+                  RecruiterStatus(status), booking, version)
+
+
+def _forwarded(part: str, cls: type, name: str):
+    method = getattr(cls, name)
+
+    @functools.wraps(method)
+    def call(self, *args, **kwargs):
+        return getattr(getattr(self, part), name)(*args, **kwargs)
+    return call
+
+
+for _part, _class in (("times", CallTimes), ("service", ServiceState)):
+    for _name, _member in vars(_class).items():
+        if not _name.startswith("_") and callable(_member):
+            setattr(Store, _name, _forwarded(_part, _class, _name))

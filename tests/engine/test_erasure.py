@@ -48,7 +48,7 @@ def raw_bytes(path):
 
 def test_erasing_removes_the_candidate_from_every_table(store, path):
     fill(store)
-    slot = store.add_slot("ES", datetime(2027, 6, 15, 10, 0), "Ana", "Ana", NOW.astimezone())
+    slot = store.add_slot("ES", datetime(2026, 11, 10, 10, 0), "Ana", "Ana", NOW.astimezone())
     store.book_slot(slot, "c1", NOW.astimezone())
     assert store.erase_candidate("c1", "recruiter:Ana", NOW, "request") is True
     for table in ("candidates", "events", "messages", "notes", "recruiter"):

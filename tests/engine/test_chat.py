@@ -55,9 +55,14 @@ def test_blank_lines_are_ignored_and_end_of_input_exits_cleanly(store):
 
 
 def test_wait24h_prints_the_reminder_then_stalls(store):
-    run(store, ["/wait24h", "/wait24h", "/quit"])
-    record = store.list_candidates()[0]
-    assert record.outcome == "STALLED"
+    out = run(store, ["sí", "/wait24h", "/wait24h", "/quit"])
+    assert any(line.startswith("bot>") and "sigues interesado" in line for line in out)
+    assert store.list_candidates()[0].outcome == "STALLED"
+
+
+def test_wait24h_leaves_alone_someone_who_has_not_answered_the_consent_question(store):
+    run(store, ["/wait24h", "/quit"])  # the job never contacts them either
+    assert store.list_candidates()[0].outcome == "IN_PROGRESS"
 
 
 def test_resume_continues_an_existing_candidate_and_unknown_ids_are_reported(store):
@@ -110,7 +115,7 @@ def test_an_unexpected_error_in_a_message_apologises_logs_and_shows_an_error_id(
 
 def test_a_failing_wait24h_is_reported_and_the_loop_carries_on(store, tmp_path, monkeypatch):
     log = tmp_path / "sazon.log"
-    monkeypatch.setattr(chat.turn, "wait_24h", boom)
+    monkeypatch.setattr(chat.reminders, "wait_a_day", boom)
     out = run(store, ["/wait24h", "hola", "/quit"], log_path=log)
     assert error_id(out) in log.read_text(encoding="utf-8")
     assert any(line.startswith("bot>") for line in out[out.index(next(l for l in out if "[error" in l)):])

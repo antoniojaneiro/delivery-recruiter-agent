@@ -76,7 +76,7 @@ def test_the_key_numbers_and_the_candidate_table_are_shown(db):
     assert metrics(at) == {"Candidatos": "4", "Cualificados por contactar": "1", "Descartes por revisar": "1",
                            "Bloqueados": "1", "Sin respuesta": "0"}
     assert sorted(rows(at)["Id"]) == ["c1", "c2", "c3", "c4"]
-    assert set(rows(at).columns) >= {"Id", "Nombre", "Ciudad", "Agente", "Reclutador", "Asignado a", "Actualizado"}
+    assert set(rows(at).columns) >= {"Id", "Nombre", "Ciudad", "Agente", "Estado", "Asignado a", "Actualizado"}
 
 
 def test_filtering_by_the_agents_outcome_and_the_recruiters_status(db):
@@ -84,8 +84,18 @@ def test_filtering_by_the_agents_outcome_and_the_recruiters_status(db):
     at = run()
     at.multiselect(key="f_outcome").select("QUALIFIED").run()
     assert sorted(rows(at)["Id"]) == ["c1", "c2"]
-    at.multiselect(key="f_status").select("new").run()
+    at.multiselect(key="f_status").select("qualified").run()  # the Estado shown: c2 was set to contacted by a recruiter
     assert list(rows(at)["Id"]) == ["c1"]
+
+
+def test_a_tab_open_since_the_states_changed_does_not_break_on_a_filter_value_that_no_longer_exists(db):
+    seed(db)
+    at = AppTest.from_file(APP, default_timeout=10).run()
+    login(at, "Ana")
+    at.session_state["f_status"] = ["new", "unreachable", "qualified"]  # old values left in the session
+    at.run()
+    assert not at.exception, at.exception
+    assert at.multiselect(key="f_status").value == ["qualified"]
 
 
 def test_search_ignores_accents_and_case(db):
@@ -126,16 +136,14 @@ def test_a_recruiter_can_change_the_status_and_it_is_logged_with_their_name(db):
     assert metrics(at)["Cualificados por contactar"] == "0"
 
 
-def test_a_recruiter_can_assign_and_add_notes(db):
+def test_a_recruiter_can_add_notes_and_there_is_no_assign_form_because_the_booked_call_assigns(db):
     seed(db)
     at = run()
     choose(at, "c1")
-    at.text_input(key="assignee").set_value("Luis")
-    at.form_submit_button(key="save_assignee").click().run()
+    assert not [w for w in at.text_input if w.key == "assignee"]
     at.text_area(key="note").set_value("Llamé, volverá a llamar")
     at.form_submit_button(key="save_note").click().run()
     assert not at.exception, at.exception
-    assert db.recruiter("c1").assignee == "Luis"
     assert [(n.author, n.text) for n in db.notes("c1")] == [("ana@sazon.test", "Llamé, volverá a llamar")]
     assert "Llamé, volverá a llamar" in texts(at)
 
@@ -204,7 +212,7 @@ def test_the_selected_candidate_shows_colored_status_badges(db):
     seed(db)
     at = choose(run(), "c2")
     markdown = " ".join(str(m.value) for m in at.markdown)
-    assert ":green-badge[Cualificado]" in markdown and ":violet-badge[Contactado]" in markdown
+    assert ":green-badge[Cualificado]" in markdown and ":blue-badge[Contactado]" in markdown
 
 
 def click_row(at, row):

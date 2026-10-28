@@ -1,7 +1,9 @@
-"""D75: what the service keeps in the store. A mixin of Store; it uses the store's `_connect`."""
+"""D75: what the service keeps in the store: each candidate's token hash and the reply to each message id (D88: a part of
+the store with its own tables)."""
 import hmac
 from datetime import datetime, timedelta
 
+from screener.store_db import Part
 from screener.store_types import Claim, stamp
 
 CLAIM_STALE_AFTER = timedelta(minutes=5)  # longer than the worst turn (model calls of 20 s with retries); then a dead process's claim is taken over
@@ -16,7 +18,7 @@ def _judge(row, now: datetime) -> Claim | None:
     return Claim("busy") if now - datetime.fromisoformat(row[0]) <= CLAIM_STALE_AFTER else None
 
 
-class ServiceMixin:
+class ServiceState(Part):
     def set_token(self, candidate_id: str, token_hash: str) -> None:
         with self._connect() as db:
             db.execute("INSERT OR REPLACE INTO tokens (candidate_id, token_hash) VALUES (?, ?)",

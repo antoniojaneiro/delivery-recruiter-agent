@@ -8,7 +8,7 @@ from tests.support.tables import table
 
 from tests.support.clients import client_for
 from sazon.spec import SAZON
-from screener import session, turn
+from screener import reminders, session, turn
 from screener.llm import LLMError
 from screener.llm import NO_MODEL
 from screener.directive import Directive, Kind
@@ -161,8 +161,8 @@ def test_a_blocked_candidate_is_reminded_and_can_stall(store):
     consented_chat(store)
     for _ in range(6):
         say(store, "Juan", {"name": "Juan"})
-    assert turn.wait_24h(ScriptedLLM(), store, client_for(AREAS), "c1", NOW)
-    assert turn.wait_24h(ScriptedLLM(), store, client_for(AREAS), "c1", NOW) is None
+    assert reminders.wait_a_day(store, client_for(AREAS), "c1", NOW)
+    assert reminders.wait_a_day(store, client_for(AREAS), "c1", NOW) is None
     assert store.get("c1").outcome == "STALLED"
 
 

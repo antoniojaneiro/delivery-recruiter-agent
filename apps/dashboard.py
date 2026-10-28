@@ -10,7 +10,7 @@ from datetime import datetime
 import streamlit as st
 from dotenv import load_dotenv
 
-from screener.login import sign_in
+from screener.login import ensure_manager_takes_calls, sign_in
 from screener.recruiters import TooManyAttempts
 from screener.store import InputError
 
@@ -20,6 +20,7 @@ from sazon.ui import t
 load_dotenv()  # the hiring manager's email and password
 st.set_page_config(page_title=t("app.page_title"), page_icon=":material/groups:", layout="wide")
 store = ui.store()
+ensure_manager_takes_calls(store, config.manager_credentials(), config.manager_country(), datetime.now())
 
 if not st.session_state.get("recruiter"):  # only a successful sign-in below ever sets this
     ui.language_switch()

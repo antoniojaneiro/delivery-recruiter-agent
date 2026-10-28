@@ -2,7 +2,7 @@
 from dataclasses import dataclass
 from datetime import datetime
 
-from screener.model import RecruiterStatus
+from screener.model import RecruiterStatus, stage_of
 
 AGENT = "agent"
 NO_CHECK = object()  # commit_turn without a version check (tests and tools that own the whole record)
@@ -46,10 +46,19 @@ class Record:
     updated_at: datetime
     reasons: list
     flags: list
-    status: RecruiterStatus
-    assignee: str | None
+    status: RecruiterStatus  # what a recruiter decided; NEW when nobody did
     booking: "Booking | None" = None
     version: int = 0
+
+    @property
+    def stage(self) -> RecruiterStatus:
+        """The one word shown as "Estado" (D92)."""
+        return stage_of(self.outcome, self.status, self.booking is not None)
+
+    @property
+    def assignee(self) -> str | None:
+        """The recruiter who holds the candidate's call: they are assigned when the candidate books (D92)."""
+        return self.booking.recruiter if self.booking else None
 
 
 @dataclass(frozen=True)
@@ -63,7 +72,6 @@ class Event:
 @dataclass(frozen=True)
 class RecruiterRecord:
     status: RecruiterStatus
-    assignee: str | None
     updated_at: datetime | None
 
 

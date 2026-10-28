@@ -190,7 +190,7 @@ def create_app(client: Client, store, llm: LLM, *, api_key: str | None = None, l
     def start(x_api_key: str | None = Header(None)):
         if api_key is not None and not is_adapter(x_api_key):
             raise HTTPException(401, "api key needed")
-        candidate_id, reply = dialog.new_candidate(store, client, clock())
+        candidate_id, reply = dialog.new_candidate(store, client, clock(), buttons=True)
         if store.get(candidate_id) is None:  # applications are closed: nothing was created
             return JSONResponse({"reply": reply}, status_code=503)
         token = secrets.token_urlsafe(32)
@@ -227,7 +227,7 @@ def create_app(client: Client, store, llm: LLM, *, api_key: str | None = None, l
     def times(candidate_id: str = Depends(candidate), month: str | None = None, day: str | None = None):
         """For the picker: `month=YYYY-MM` gives the days with free times, `day=YYYY-MM-DD` that day's times. Only the
         times of the candidate's own country are shown."""
-        country = slot_flow.country_of(store, client, candidate_id)
+        country = slot_flow.country_of(store, client, candidate_id) if slot_flow.may_choose_time(store, client, candidate_id) else None
         try:
             if month is not None:
                 first = date.fromisoformat(month + "-01")

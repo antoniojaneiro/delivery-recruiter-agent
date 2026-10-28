@@ -7,7 +7,7 @@ from tests.support.tables import table
 
 from sazon.spec import SAZON
 from sazon.client import SAZON_CALENDAR, SAZON_CLIENT
-from screener import turn
+from screener import reminders, turn
 from screener.consent import is_resume_request
 from screener.phrasing import closed_message, consent_message
 from screener.store import Store
@@ -129,8 +129,8 @@ def test_the_off_topic_exit_stays_closed_even_if_the_candidate_asks_to_continue(
 
 def test_a_stalled_or_blocked_candidate_returns_by_just_writing(store):
     started(store)
-    turn.wait_24h(ScriptedLLM(), store, SAZON_CLIENT, "c1", NOW)
-    turn.wait_24h(ScriptedLLM(), store, SAZON_CLIENT, "c1", NOW)
+    reminders.wait_a_day(store, SAZON_CLIENT, "c1", NOW)
+    reminders.wait_a_day(store, SAZON_CLIENT, "c1", NOW)
     assert outcome(store) == "STALLED"
     say(store, "Juan Pérez", {"name": "Juan Pérez"})
     assert outcome(store) == "IN_PROGRESS"
@@ -152,7 +152,7 @@ def test_closing_applications_stops_new_and_current_candidates_without_touching_
     assert (store.get("c1").state, len(store.messages("c1"))) == before
     assert turn.start(store, SAZON_CLIENT, "new", NOW) == closed_message(SAZON)
     assert store.get("new") is None
-    assert turn.wait_24h(ScriptedLLM(), store, SAZON_CLIENT, "c1", NOW) is None
+    assert reminders.wait_a_day(store, SAZON_CLIENT, "c1", NOW) is None
 
 
 def test_reopening_lets_everyone_continue_from_where_they_were(store):

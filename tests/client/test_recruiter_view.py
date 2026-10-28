@@ -49,7 +49,7 @@ def test_the_table_has_one_row_per_candidate_with_spanish_columns(store):
     rows = view_for("es").table_rows(store.list_candidates())
     row = next(r for r in rows if r["Id"] == "c2")
     assert row["Nombre"] == "María García-López" and row["Ciudad"] == "Guadalajara"
-    assert row["Agente"] == "Cualificado" and row["Reclutador"] == "Contactado"
+    assert row["Agente"] == "Cualificado" and row["Estado"] == "Contactado"
     assert row["Actualizado"] == "2026-10-26 09:30"
 
 
@@ -70,8 +70,10 @@ def test_search_ignores_accents_and_case_and_looks_at_name_city_and_id(store, te
 def test_filters_combine_outcome_status_and_search(store):
     records = store.list_candidates()
     assert sorted(ids(filter_records(records, outcomes=["QUALIFIED"], statuses=[], search="", spec=SAZON))) == ["c1", "c2"]
-    assert ids(filter_records(records, outcomes=["QUALIFIED"], statuses=["new"], search="", spec=SAZON)) == ["c1"]
+    assert ids(filter_records(records, outcomes=["QUALIFIED"], statuses=["qualified"], search="", spec=SAZON)) == ["c1"]
     assert ids(filter_records(records, outcomes=[], statuses=["contacted"], search="garcia", spec=SAZON)) == ["c2"]
+    assert sorted(ids(filter_records(records, outcomes=[], statuses=["contacted"], search="", spec=SAZON))) == ["c2", "c4", "c5"]
+    assert ids(filter_records(records, outcomes=[], statuses=["rejected"], search="", spec=SAZON)) == ["c3"]  # the status filter is the Estado shown
     assert len(filter_records(records, outcomes=[], statuses=[], search="", spec=SAZON)) == 5
 
 
@@ -83,19 +85,19 @@ def test_the_key_numbers_count_what_a_recruiter_must_act_on(store):
 def test_a_booked_call_shows_in_the_table_and_leaves_the_to_contact_number(store):
     view = view_for("es")
     store.commit_turn("c1", T1, {}, {"name": "Juan Pérez"}, "QUALIFIED", [], [])
-    slot_id = store.add_slot("ES", datetime(2027, 6, 15, 10, 0), "Ana", "Ana", T1.astimezone())
+    slot_id = store.add_slot("ES", datetime(2026, 11, 10, 10, 0), "Ana", "Ana", T1.astimezone())
     before = store.kpi_counts()["to_contact"]
     store.book_slot(slot_id, "c1", T1.astimezone())
     records = store.list_candidates()
     row = next(r for r in view.table_rows(records) if r["Id"] == "c1")
-    assert row["Llamada"] == "mar 15 jun, 10:00 (España)"
+    assert row["Llamada"] == "mar 10 nov, 10:00 (España)"
     assert store.kpi_counts()["to_contact"] == before - 1
-    assert view.call_label(next(r for r in records if r.candidate_id == "c1").booking) == "mar 15 jun, 10:00 (España)"
+    assert view.call_label(next(r for r in records if r.candidate_id == "c1").booking) == "mar 10 nov, 10:00 (España)"
     assert view.call_label(None) == ""
     assert next(r for r in view.table_rows(records) if r["Id"] == "c2")["Llamada"] == ""
 
 
-def test_the_slot_state_says_when_a_free_slot_is_too_close_to_be_offered():
+def test_the_slot_state_says_when_a_free_time_is_only_for_recruiters():
     from screener.store import Slot
     slot_state = view_for("es").slot_state
     soon = Slot(1, "ES", datetime(2026, 10, 26, 10, 30), None, None, False)
@@ -103,7 +105,7 @@ def test_the_slot_state_says_when_a_free_slot_is_too_close_to_be_offered():
     taken = Slot(3, "ES", datetime(2026, 11, 3, 11, 0), None, "c1", False)
     now = datetime(2026, 10, 26, 8, 0, tzinfo=timezone.utc)  # a fixed instant, independent of this machine's zone
     assert slot_state(later, None, now) == "Libre"
-    assert slot_state(soon, None, now) == "Ya no se ofrece (faltan menos de 2 horas)"
+    assert slot_state(soon, None, now) == "Libre, solo la reserva un reclutador"
     assert slot_state(taken, "Juan Pérez", now) == "Reservado: Juan Pérez (c1)"
 
 
@@ -136,16 +138,6 @@ def test_markdown_in_a_name_is_shown_as_text():
     assert escape_markdown("María García-López") == "María García-López"
 
 
-def test_the_notice_period_shown_to_recruiters_comes_from_the_one_rule():
-    from sazon.client import SAZON_CALENDAR
-    from screener.store import Slot
-    slot_state = view_for("es").slot_state
-    soon = Slot(1, "ES", datetime(2026, 10, 26, 10, 30), None, None, False)
-    now = datetime(2026, 10, 26, 8, 0, tzinfo=timezone.utc)
-    hours = int(SAZON_CALENDAR.min_notice.total_seconds() // 3600)
-    assert f"menos de {hours} horas" in slot_state(soon, None, now)
-
-
 # --- badges (D66) ---------------------------------------------------------------------------------------------
 
 def test_every_outcome_and_status_has_a_badge_color_and_the_colors_tell_good_from_bad():
@@ -175,3 +167,18 @@ def test_a_text_pack_that_lacks_a_text_the_screens_use_is_refused_when_the_view_
     with pytest.raises(UiTextError) as error:
         RecruiterView(SAZON_CLIENT, UiPack((Language.ES,), {"col.id": {Language.ES: "Id"}}))
     assert "status.new" in str(error.value)
+
+
+def test_the_estado_column_shows_the_state_the_system_derives_and_assigned_to_shows_who_holds_the_call(store):
+    from screener.model import STAGES
+    view = view_for("es")
+    rows = {r["Id"]: r for r in view.table_rows(store.list_candidates(), names={"ana@sazon.test": "Ana Ruiz"})}
+    assert [rows[c]["Estado"] for c in ("c1", "c2", "c3", "c4", "c5")] == [
+        "Cualificado", "Contactado", "Rechazado", "Contactado", "Contactado"]  # c2 was set by a recruiter, the rest follow the agent
+    assert all(r["Asignado a"] == "" for r in rows.values())
+    store.add_recruiter("ana@sazon.test", "Ana Ruiz", "ES", "contraseña-segura-1", "boss@sazon.test", T1)
+    slot = store.free_slots("ES", T1.astimezone())[0]
+    store.book_slot(slot.id, "c1", T1.astimezone())
+    row = next(r for r in view.table_rows(store.list_candidates(), names={"ana@sazon.test": "Ana Ruiz"}) if r["Id"] == "c1")
+    assert (row["Estado"], row["Asignado a"]) == ("Entrevista programada", "Ana Ruiz")
+    assert [view.status_label(s) for s in STAGES] == ["Contactado", "Cualificado", "Entrevista programada", "Contratado", "Rechazado"]
