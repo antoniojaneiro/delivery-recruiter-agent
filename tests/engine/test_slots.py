@@ -7,6 +7,7 @@ from tests.support.tables import table
 
 from sazon.client import SAZON_CALENDAR
 from sazon import config
+from screener.call_times import CallTimes
 from screener.store import Store
 
 # An aware "now" keeps these tests independent of the machine's time zone.
@@ -186,6 +187,6 @@ def test_a_booking_race_for_the_same_candidate_returns_the_existing_booking_inst
     first, second = add(store), add(store, when=datetime(2026, 11, 4, 10, 0))
     held = store.book_slot(first, "c1", NOW)
     # Another process booked for c1 between our check and our update: our check sees nothing.
-    monkeypatch.setattr(Store, "_held_booking", lambda self, db, candidate_id: None)
+    monkeypatch.setattr(CallTimes, "_held_booking", lambda self, db, candidate_id: None)
     again = store.book_slot(second, "c1", NOW)
     assert again.slot_id == held.slot_id and store.booking_of("c1").slot_id == held.slot_id

@@ -1,22 +1,18 @@
+import functools
 import hashlib
 import json
 import sqlite3
-import time
-from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
 
 from screener.model import RECRUITER_STEPS, RecruiterStatus, reached_by
 from screener.recruiter_rules import AGENT_CLOSED, BLOCKED, NEEDS_REVIEW, STALLED, TO_CONTACT
-from screener.store_schema import prepare
-from screener.store_availability import AvailabilityMixin
-from screener.store_recruiters import RecruitersMixin
-from screener.store_service import ServiceMixin
-from screener.store_slots import SlotsMixin
+from screener.call_times import CallTimes
+from screener.store_db import BUSY_TIMEOUT_SECONDS, Database
+from screener.store_service import ServiceState
 from screener.store_types import (AGENT, NO_CHECK, AdminEntry, Booking, ConflictError, CvFile, Event, InputError, Message,  # noqa: F401
                                Note, OutboxEntry, Record, RecruiterRecord, Slot, parse_stamp, stamp)  # noqa: F401
 
-BUSY_TIMEOUT_SECONDS = 10
 # A candidate has reached a recruiter step if they ever had that status or a later one (history, not today's status).
 _REACHED_BY = {step.value: tuple(s.value for s in reached_by(step)) for step in RECRUITER_STEPS}
 
@@ -27,32 +23,28 @@ _CANDIDATE_JOINS = ("FROM candidates c LEFT JOIN recruiter r ON r.candidate_id =
                     "LEFT JOIN slots s ON s.candidate_id = c.candidate_id AND s.cancelled_at IS NULL")
 
 
-class Store(SlotsMixin, ServiceMixin, RecruitersMixin, AvailabilityMixin):
+class Store:
+    """The candidates and what recruiters do with them, and the two parts the rest of the store is made of: the call times
+    (`times`) and the service's records (`service`). Callers use one object: a method of a part is also a method of the
+    store, under the same name (D88)."""
+
     def __init__(self, path: Path | str, calendar=None):
-        self._path = str(path)
-        self.calendar = calendar
-        Path(path).parent.mkdir(parents=True, exist_ok=True)
-        for attempt in range(40):  # several processes may open a new or old file at the same moment
-            try:
-                self._prepare()
-                return
-            except sqlite3.OperationalError as error:
-                if "locked" not in str(error) or attempt == 39:
-                    raise
-                time.sleep(0.25)
+        self.db = Database(path, calendar)
+        self.times = CallTimes(self.db)
+        self.service = ServiceState(self.db)
 
-    def _prepare(self) -> None:
-        with self._connect() as db:
-            prepare(db)
+    @property
+    def calendar(self):
+        return self.db.calendar
 
-    @contextmanager
+    @property
+    def _path(self) -> str:
+        return self.db.path
+
     def _connect(self):
-        db = sqlite3.connect(self._path, timeout=BUSY_TIMEOUT_SECONDS)
-        try:
-            with db:
-                yield db
-        finally:
-            db.close()
+        return self.db.connect()
+
+    _log = staticmethod(Database.log)
 
     # -- written by the agent ------------------------------------------------
 
@@ -225,11 +217,6 @@ class Store(SlotsMixin, ServiceMixin, RecruitersMixin, AvailabilityMixin):
             rows = db.execute("SELECT at, actor, action, detail FROM admin_log ORDER BY id").fetchall()
         return [AdminEntry(parse_stamp(at), actor, action, detail) for at, actor, action, detail in rows]
 
-    @staticmethod
-    def _log(db, actor: str, action: str, detail: str, now: datetime) -> int:
-        return db.execute("INSERT INTO admin_log (at, actor, action, detail) VALUES (?, ?, ?, ?)",
-                          (stamp(now), actor, action, detail)).lastrowid
-
     # -- reads ---------------------------------------------------------------
 
     def get(self, candidate_id: str) -> Record | None:
@@ -331,3 +318,18 @@ def _record(row) -> Record:
     return Record(candidate_id, json.loads(state), json.loads(extracted), summary, outcome,
                   parse_stamp(updated_at), json.loads(reasons), json.loads(flags),
                   RecruiterStatus(status), assignee, booking, version)
+
+
+def _forwarded(part: str, cls: type, name: str):
+    method = getattr(cls, name)
+
+    @functools.wraps(method)
+    def call(self, *args, **kwargs):
+        return getattr(getattr(self, part), name)(*args, **kwargs)
+    return call
+
+
+for _part, _class in (("times", CallTimes), ("service", ServiceState)):
+    for _name, _member in vars(_class).items():
+        if not _name.startswith("_") and callable(_member):
+            setattr(Store, _name, _forwarded(_part, _class, _name))
