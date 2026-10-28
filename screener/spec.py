@@ -38,6 +38,7 @@ class FieldSpec:
     partial: Callable[[Any], dict] | None = None  # what to keep of an unclear answer to combine with the next
     schema: dict[str, tuple] = field(default_factory=dict)  # the attributes this field adds to the model's reply
     prompt: str = ""  # the lines describing those attributes to the model
+    cv_prompt: str = ""  # the same for reading a CV; empty: this field is never taken from a CV
     decode_value: Callable[[Any], Any] | None = None  # a saved value read back from JSON
     decode_candidate: Callable[[Any], Any] | None = None  # a pending change read back from JSON
     describe: Callable[[Any, Language], str] | None = None  # a value in the candidate's words, for a change question
@@ -77,6 +78,7 @@ class RecruiterTexts:
     qualified: str
     booked: str
     consent_stage: str
+    from_cv: str = ""  # {fields}: the card line naming the answers taken from the candidate's CV (D71)
 
 
 @dataclass(frozen=True)
@@ -217,6 +219,20 @@ def check_spec(spec: "ScreeningSpec") -> None:
             need_text(f"pack.slots.offer[{name}]", pack.slots.offer.get(name))
         for name in ("offer_end", "booked", "already_booked", "cancelled"):
             need_text(f"pack.slots.{name}", getattr(pack.slots, name))
+    from_cv = [f.key for f in spec.fields if f.cv_prompt]
+    if pack.cv is None and from_cv:
+        problems.append(f"fields {', '.join(from_cv)} are read from a CV but the pack has no pack.cv texts")
+    if pack.cv is not None:
+        if not from_cv:
+            problems.append("the pack has CV texts but no field has a cv_prompt, so nothing could be read from a CV")
+        for name in ("offer", "notice", "read_back", "unreadable", "invalid", "not_now"):
+            need_text(f"pack.cv.{name}", getattr(pack.cv, name))
+        if "{items}" not in (pack.cv.read_back or {}).get(default, "{items}"):
+            problems.append("pack.cv.read_back has no {items} to list what was taken from the CV")
+    if pack.cv is not None:
+        for language, texts in spec.recruiter.items():
+            if "{fields}" not in texts.from_cv:
+                problems.append(f"recruiter[{language}].from_cv has no {{fields}} for the answers taken from a CV")
     for language, texts in spec.recruiter.items():
         for outcome in Outcome:
             if outcome not in texts.outcome_labels:

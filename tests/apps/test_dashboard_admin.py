@@ -68,17 +68,84 @@ def test_a_wrong_login_is_refused_with_one_generic_message(db, name, password):
     assert "recruiter" not in at.session_state and not at.dataframe
 
 
-def test_with_no_accounts_the_dashboard_refuses_everyone_and_explains_how_to_create_one(db, tmp_path):
+def test_with_no_accounts_the_login_becomes_a_form_to_create_the_first_one_and_shows_nothing_else(db, tmp_path):
     (tmp_path / "recruiters.json").unlink()
+    candidate(db, "c1", "Juan Pérez")
     at = fresh()
-    assert at.error and "sazon.accounts add" in at.error[0].value
-    assert not at.text_input and not at.dataframe
+    assert at.text_input(key="setup_name") and at.text_input(key="setup_password").proto.type == 1
+    assert "login_name" not in keys(at) and not at.dataframe and not at.metric
+    assert "Juan" not in " ".join(str(e.value) for e in [*at.markdown, *at.text, *at.caption, *at.title])
+
+
+def keys(at):
+    return [box.key for box in at.text_input]
+
+
+def create_first(at, name="Ana", password=PASSWORD, confirm=None):
+    at.text_input(key="setup_name").set_value(name)
+    at.text_input(key="setup_password").set_value(password)
+    at.text_input(key="setup_confirm").set_value(password if confirm is None else confirm)
+    at.form_submit_button(key="setup_submit").click().run()
+    assert not at.exception, at.exception
+    return at
+
+
+def test_creating_the_first_account_signs_that_person_in_and_is_logged(db, tmp_path):
+    from screener import accounts
+    (tmp_path / "recruiters.json").unlink()
+    at = create_first(fresh(), "Ana")
+    assert at.session_state["recruiter"] == "Ana" and "setup_name" not in keys(at)
+    assert accounts.verify(tmp_path / "recruiters.json", "Ana", PASSWORD) == "Ana"
+    [entry] = [e for e in db.admin_log() if e.action == "account_created"]
+    assert (entry.actor, entry.detail) == ("setup", "Ana")
+
+
+@pytest.mark.parametrize("name,password,confirm,message", [
+    ("Ana", PASSWORD, "otra-distinta-123", "no coinciden"), ("", PASSWORD, None, "nombre"), ("Ana", "corta", None, "al menos"),
+])
+def test_a_first_account_that_is_wrong_is_refused_and_nothing_is_created(db, tmp_path, name, password, confirm, message):
+    from screener import accounts
+    (tmp_path / "recruiters.json").unlink()
+    at = create_first(fresh(), name, password, confirm)
+    assert at.error and message in at.error[0].value and "recruiter" not in at.session_state
+    assert not accounts.has_accounts(tmp_path / "recruiters.json")
+
+
+def test_once_an_account_exists_the_login_page_offers_no_way_to_create_another(db):
+    at = fresh()
+    assert "setup_name" not in keys(at) and "login_name" in keys(at)
+
+
+def add_recruiter(at, name, password=PASSWORD, confirm=None):
+    at.sidebar.text_input(key="new_account_name").set_value(name)
+    at.sidebar.text_input(key="new_account_password").set_value(password)
+    at.sidebar.text_input(key="new_account_confirm").set_value(password if confirm is None else confirm)
+    at.sidebar.button(key="new_account_submit").click().run()
+    assert not at.exception, at.exception
+    return at
+
+
+def test_a_signed_in_recruiter_can_add_another_account_who_can_then_sign_in_and_it_is_logged(db):
+    at = add_recruiter(signed_in("Ana"), "Marta")
+    assert any("Marta" in str(s.value) for s in at.sidebar.success)
+    assert [e.detail for e in db.admin_log() if e.actor == "recruiter:Ana" and e.action == "account_created"] == ["Marta"]
+    assert signed_in("Marta").session_state["recruiter"] == "Marta"
+
+
+@pytest.mark.parametrize("name,password,confirm,message", [
+    ("ana", PASSWORD, None, "Ya hay una cuenta"), ("Marta", PASSWORD, "otra-distinta-123", "no coinciden"),
+    ("Marta", "corta", None, "al menos"), ("", PASSWORD, None, "nombre"),
+])
+def test_adding_an_account_that_is_wrong_is_refused_and_nothing_is_logged(db, name, password, confirm, message):
+    at = add_recruiter(signed_in("Ana"), name, password, confirm)
+    assert any(message in str(e.value) for e in at.sidebar.error)
+    assert not [e for e in db.admin_log() if e.action == "account_created"]
 
 
 def test_the_free_text_name_box_is_gone_and_the_session_name_is_the_one_logged(db):
     candidate(db, "c1", "Juan Pérez")
     at = signed_in("Luis")
-    assert not at.sidebar.text_input
+    assert all(box.key.startswith("new_account_") for box in at.sidebar.text_input)  # none to type who you are
     at.selectbox(key="candidate").select("c1").run()
     at.text_area(key="note").set_value("llamar mañana")
     at.form_submit_button(key="save_note").click().run()

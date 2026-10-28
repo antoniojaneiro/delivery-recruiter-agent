@@ -103,7 +103,7 @@ def test_a_candidate_erased_during_a_turn_is_not_recreated_and_starts_fresh_next
     reply = turn.handle_message(ScriptedLLM([{"name": "Juan Pérez"}]), store, SAZON_CLIENT, "c1", "Juan Pérez", NOW)
     assert "problema técnico" in reply and store.get("c1") is None
     monkeypatch.undo()
-    assert turn.handle_message(ScriptedLLM(), store, SAZON_CLIENT, "c1", "hola", NOW).startswith("Hola, soy el asistente")
+    assert turn.handle_message(ScriptedLLM(), store, SAZON_CLIENT, "c1", "hola", NOW).startswith("Hola, soy Sofía, la asistente")
 
 
 def test_a_database_from_before_versions_is_upgraded_in_place(tmp_path):

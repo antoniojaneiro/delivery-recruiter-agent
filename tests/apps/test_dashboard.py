@@ -233,3 +233,19 @@ def test_changing_the_filters_after_a_click_does_not_open_another_candidate(db):
     assert at.selectbox(key="candidate").value in (None, opened)  # never somebody the recruiter did not click
     at.multiselect(key="f_outcome").set_value(["QUALIFIED"]).run()
     assert at.selectbox(key="candidate").value in (None, opened)
+
+
+# --- the candidate's CV (D71) ----------------------------------------------------------------------------------
+
+def test_a_recruiter_can_download_the_cv_a_candidate_uploaded(db):
+    seed(db)
+    db.commit_turn("c1", T1, {}, {"name": "Juan Pérez", "city": "Madrid"}, "QUALIFIED", [], [], cv=b"%PDF-1.4 the file")
+    at = choose(run(), "c1")
+    [button] = at.get("download_button")
+    assert button.proto.url and "CV" in button.proto.label
+
+
+def test_a_candidate_without_a_cv_has_no_download(db):
+    seed(db)
+    at = choose(run(), "c1")
+    assert at.get("download_button") == []

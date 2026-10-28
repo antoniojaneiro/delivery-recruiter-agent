@@ -26,6 +26,9 @@ def summarise(screening: Screening, language: Language | None = None) -> str:
         if missing and decision.outcome not in (Outcome.DISQUALIFIED, Outcome.WITHDRAWN):
             lines.append(texts.missing_prefix + ", ".join(missing))
     lines += [texts.flags[flag] for flag in decision.flags if flag in texts.flags]
+    taken = [spec.say(spec.field(key).label, language) for key in spec.keys if screening.sources.get(key) == "cv"]
+    if taken:
+        lines.append(texts.from_cv.format(fields=", ".join(taken)))
     lines.append(_chat_line(screening, language))
     lines.append(texts.footer)
     return "\n".join(lines)

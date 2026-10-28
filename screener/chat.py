@@ -8,12 +8,13 @@ from pathlib import Path
 
 from screener import dialog, turn
 from screener.client import Client
+from screener.cv import MAX_BYTES
 from screener.llm import LLM
 from screener.directive import Directive, Kind
 from screener.phrasing import phrase
 from screener.store import Store
 
-HELP = "Commands: /new, /resume <id>, /state, /inbox, /wait24h, /help, /quit"
+HELP = "Commands: /new, /resume <id>, /cv <pdf path>, /state, /inbox, /wait24h, /help, /quit"
 
 
 def run(llm: LLM, store: Store, client: Client, read=input, write=print,
@@ -48,6 +49,7 @@ def run(llm: LLM, store: Store, client: Client, read=input, write=print,
             continue
         try:
             write(f"bot> {turn.handle_message(llm, store, client, candidate_id, line, clock())}")
+            _show_cv_notice(store, client, candidate_id, write)
         except Exception as error:
             report(error)
             write("bot> " + phrase(llm, client.spec, Directive(Kind.TECHNICAL_ERROR), client.spec.pack.default_language))
@@ -83,7 +85,10 @@ def _command(command, arg, candidate_id, llm, store, client, clock, write) -> st
             write(f"[candidate {arg or '?'} not found]")
             return candidate_id
         write(f"[resumed {arg}]")
+        _show_cv_notice(store, client, arg, write)
         return arg
+    if command == "/cv":
+        return _upload_cv(arg, candidate_id, llm, store, client, clock, write)
     if command == "/help":
         write(HELP)
         return candidate_id
@@ -99,6 +104,38 @@ def _command(command, arg, candidate_id, llm, store, client, clock, write) -> st
         write(f"bot> {reply}" if reply else "[no reply: stalled or already finished]")
         return candidate_id
     write(f"[unknown command {command}] {HELP}")
+    return candidate_id
+
+
+def _show_cv_notice(store, client, candidate_id, write) -> None:
+    """Uploading counts as agreeing to the notice, so it is shown as soon as the upload is offered."""
+    record = store.get(candidate_id)
+    if record is not None and (record.state or {}).get("cv") == "offered":
+        language = (record.state or {}).get("language") or client.spec.pack.default_language
+        write(f"[cv] {client.spec.pack.pick(client.spec.pack.cv.notice, language)}")
+
+
+def _upload_cv(arg, candidate_id, llm, store, client, clock, write) -> str | None:
+    """Reads a PDF from disk for the active candidate. The browser chat has an uploader for the same thing."""
+    if candidate_id is None:
+        write("[no active candidate] Type /new to start one.")
+        return candidate_id
+    if client.spec.pack.cv is None:
+        write("[cv] this client takes no CVs")
+        return candidate_id
+    path = Path(arg.strip().strip('"'))
+    if not arg.strip():
+        write("[cv] usage: /cv <path to a PDF>")
+        return candidate_id
+    try:
+        if path.stat().st_size > MAX_BYTES:
+            write(f"[cv] the file is over {MAX_BYTES // (1024 * 1024)} MB")
+            return candidate_id
+        data = path.read_bytes()
+    except OSError:
+        write(f"[cv] cannot read {path}")
+        return candidate_id
+    write(f"bot> {turn.handle_cv(llm, store, client, candidate_id, data, clock())}")
     return candidate_id
 
 

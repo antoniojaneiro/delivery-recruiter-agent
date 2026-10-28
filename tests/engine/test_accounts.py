@@ -105,3 +105,42 @@ def test_the_command_refuses_passwords_that_do_not_match(path, monkeypatch):
     with pytest.raises(SystemExit):
         sazon_accounts.main(["add", "Ana"])
     assert accounts.has_accounts(path) is False
+
+
+# --- creating accounts from the dashboard ------------------------------------------------------------------------
+
+def test_the_first_account_can_be_created_only_while_there_are_no_accounts(path):
+    assert accounts.create_first(path, "  Ana  ", PASSWORD) == "Ana"
+    with pytest.raises(accounts.AccountError) as error:
+        accounts.create_first(path, "Intruso", PASSWORD)
+    assert error.value.code == "not_first" and accounts.list_names(path) == ["Ana"]
+
+
+@pytest.mark.parametrize("name,password,code", [("", PASSWORD, "name_required"), ("   ", PASSWORD, "name_required"),
+                                                ("Ana", "corta", "password_short"), ("Ana", "", "password_short")])
+def test_an_account_with_no_name_or_a_short_password_is_refused_with_a_code(path, name, password, code):
+    with pytest.raises(accounts.AccountError) as error:
+        accounts.add_account(path, name, password)
+    assert error.value.code == code and not accounts.has_accounts(path)
+
+
+def test_a_second_account_with_the_same_name_is_refused_with_a_code(path):
+    accounts.add_account(path, "Ana", PASSWORD)
+    with pytest.raises(accounts.AccountError) as error:
+        accounts.add_account(path, "ana", PASSWORD)
+    assert error.value.code == "exists"
+
+
+def test_add_account_returns_the_name_as_stored_and_account_errors_are_still_value_errors(path):
+    assert accounts.add_account(path, "  Luis   Gil ", PASSWORD) == "Luis Gil"
+    with pytest.raises(ValueError):
+        accounts.add_account(path, "", PASSWORD)
+
+
+def test_the_store_can_log_an_admin_action_with_its_actor(tmp_path):
+    from datetime import datetime
+    from screener.store import Store
+    store = Store(tmp_path / "s.db")
+    store.log_admin("recruiter:Ana", "account_created", "Luis", datetime(2026, 10, 28, 10, 0))
+    [entry] = store.admin_log()
+    assert (entry.actor, entry.action, entry.detail) == ("recruiter:Ana", "account_created", "Luis")

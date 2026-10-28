@@ -89,6 +89,11 @@ with detail_side:
         st.text(view.card(record) or t("detail.no_summary"))
         with st.expander(t("detail.json")):
             st.json(record.extracted)
+        cv = store.cv(selected_id)
+        if cv is not None:  # the file is never drawn on the page: a recruiter downloads and opens it
+            st.download_button(t("detail.cv_download", size=max(1, cv.size // 1024)), data=cv.data,
+                               file_name=f"cv-{selected_id}.pdf", mime="application/pdf", icon=":material/description:",
+                               key="download_cv")
 
         st.markdown(f"**{t('detail.call')}**")
         if record.booking:

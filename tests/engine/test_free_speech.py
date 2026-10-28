@@ -83,7 +83,7 @@ def test_every_notice_is_the_clients_fixed_words_in_front_and_the_model_is_told_
     assert out == "De acuerdo, lo dejo como estaba. ¿Qué disponibilidad tienes?"
     assert "do not repeat it" in llm.calls[0]["user"] and "lo dejo como estaba" in llm.calls[0]["user"]
     out = say(FakeLLM("¿Cómo te llamas?"), Directive(Kind.ASK, field=Field.NAME, notices=("human", "pay")))
-    assert out.startswith("Soy un asistente virtual:") and "Sobre el sueldo" in out and out.endswith("¿Cómo te llamas?")
+    assert out.startswith("Soy Sofía, una asistente virtual:") and "Sobre el sueldo" in out and out.endswith("¿Cómo te llamas?")
 
 
 def test_when_the_model_fails_the_notice_and_the_fixed_question_are_sent():

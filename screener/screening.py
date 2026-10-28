@@ -8,7 +8,7 @@ from screener.extraction import ControlFlags
 from screener.model import CONSENT, NO_CONSENT, AreaMatchStatus, EventType, Language, Outcome, Status
 from screener.language import language_of
 from screener.directive import Directive, Kind
-from screener.phrasing import consent_text_hash
+from screener.phrasing import consent_text_hash, cv_notice_hash, describe_value
 from screener.screening_changes import propose_change
 from screener.screening_precedence import Waiting, directive_for
 from screener.screening_state import STATE_FIELDS, jsonable_values
@@ -180,7 +180,66 @@ class Screening:
         self.record_consent(reading.answer)
         if not reading.answer:
             return self.close_directive()
-        return Directive(Kind.ASK, field=self.next_field())
+        return self._after_consent()
+
+    def _after_consent(self) -> Directive:
+        if self.spec.pack.cv is None:
+            return Directive(Kind.ASK, field=self.next_field())
+        self._cv = "offered"
+        return Directive(Kind.CV_OFFER)
+
+    # -- an optional CV (D71) --------------------------------------------------
+
+    @property
+    def cv_offered(self) -> bool:
+        return self._cv == "offered"
+
+    def skip_cv(self) -> None:
+        """Whatever the candidate typed instead of uploading is the end of the offer."""
+        if self.cv_offered:
+            self._cv = "skipped"
+            self.events.append((EventType.CV_SKIPPED, ""))
+
+    def _record_upload(self, size: int, digest: str) -> None:
+        self.events.append((EventType.CV_UPLOADED,
+                            f"size={size} sha256={digest} notice_sha256={cv_notice_hash(self.spec)}"))
+
+    def cv_unreadable(self, size: int, digest: str) -> Directive:
+        self._cv = "unreadable"
+        self._record_upload(size, digest)
+        self.events.append((EventType.CV_UNREADABLE, ""))
+        return self._directive_now(None)
+
+    def apply_cv(self, ex: ControlFlags, today: date, size: int, digest: str) -> tuple[list[str], Directive]:
+        """Takes the clear answers a CV gives for the fields the client allows, and nothing else: what the reading says
+        about the conversation is ignored. A value that would end the screening, or a near-miss place, waits for the
+        candidate through the usual questions, one at a time. Returns what was taken, in words, and what to say next."""
+        self._cv = "uploaded"
+        self._record_upload(size, digest)
+        taken, fields = [], []
+        for key in self.spec.keys:
+            field = self.spec.field(key)
+            if not field.cv_prompt or key in self.values:
+                continue
+            value = field.read(ex, today, None)
+            if value is _MISSING or not self._usable_from_cv(key, value, today):
+                continue
+            result = self.submit(key, value, today)
+            if result.status != Status.OK:
+                break  # a confirmation now waits for the candidate
+            self.sources[key] = "cv"
+            fields.append(key)
+            label = self.spec.say(field.label, self.language)
+            taken.append(f"{label}: {describe_value(self.spec, key, self.values[key], self.language)}")
+        if fields:
+            self.events.append((EventType.CV_PREFILLED, ",".join(fields)))
+        return taken, self._directive_now(None)
+
+    def _usable_from_cv(self, key: str, value: object, today: date) -> bool:
+        """Clear means the client's own check accepts it (or, for the place, it is text the area matching can judge)."""
+        if key == self.spec.area_field:
+            return isinstance(value, str) and bool(value.strip())
+        return self.spec.field(key).validate(value, today).ok
 
     def returning(self, message: str) -> Directive | None:
         """A candidate coming back to a closed chat (D56). Only two closes can be undone by the candidate:
@@ -191,7 +250,7 @@ class Screening:
                 return self.close_directive()
             self._hear_language(reading.language)
             self.record_consent(True)
-            return Directive(Kind.ASK, field=self.next_field())
+            return self._after_consent()
         if self.withdrawn:
             if not is_resume_request(message):
                 return self.close_directive()
@@ -354,6 +413,7 @@ class Screening:
         self._pending_change = None
         self._pending_reject = None
         self._pending_area = None
+        self.skip_cv()  # nothing more is accepted from someone who left
         self.events.append((EventType.WITHDRAWN, ""))
 
     def human_requested(self) -> None:
@@ -439,6 +499,7 @@ class Screening:
             if field == self.spec.area_field:
                 self.out_of_area = False
             self.values[field] = result.value
+            self.sources.pop(field, None)
             if self.blocked_on == field:
                 self.blocked_on = None
             self._follow_ups.pop(field, None)

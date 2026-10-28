@@ -118,6 +118,7 @@ _RECRUITER_ES = RecruiterTexts(
     reminder_sent="recordatorio enviado",
     started="Empezaron", consented="Dieron su consentimiento", answered="Respondieron: {label}",
     qualified="Cualificaron", booked="Reservaron una llamada", consent_stage="consentimiento",
+    from_cv="Datos tomados del CV: {fields}",
 )
 
 _RECRUITER_EN = RecruiterTexts(
@@ -139,13 +140,14 @@ _RECRUITER_EN = RecruiterTexts(
     reminder_sent="reminder sent",
     started="Started", consented="Gave consent", answered="Answered: {label}",
     qualified="Qualified", booked="Booked a call", consent_stage="consent",
+    from_cv="Taken from the CV: {fields}",
 )
 
 RECRUITER = {ES: _RECRUITER_ES, EN: _RECRUITER_EN}
 
 SAZON = ScreeningSpec(
     role="delivery-driver",
-    persona=("Warm, direct and respectful, like a friendly recruiter chatting on a phone. Short messages, one question at "
+    persona=("Your name is Sofía. Warm, direct and respectful, like a friendly recruiter chatting on a phone. Short messages, one question at "
              "a time, at most one emoji, no jargon. In Spanish use the informal tú. Acknowledge what the candidate "
              "just said in a few words before asking the next thing, and vary your wording; never repeat a sentence "
              "you already wrote."),
@@ -161,7 +163,8 @@ SAZON = ScreeningSpec(
                   validate=lambda value, today: validators.validate_name(value),
                   same=lambda old, new: fold(old) == fold(new),
                   read=read_attribute("name"), schema={"name": (str | None, None)},
-                  prompt="- name: full name as written"),
+                  prompt="- name: full name as written",
+                  cv_prompt="- name: the applicant's full name, from the top of the CV"),
         FieldSpec(Field.EXPERIENCE,
                   ask=bi("¿Tienes experiencia repartiendo? Dime cuántos años y en qué plataforma.",
                          "Do you have delivery experience? Tell me how many years and on which platform."),
@@ -177,7 +180,10 @@ SAZON = ScreeningSpec(
                   prompt="- experience_years: the number of years of delivery experience they state; null when they give "
                          "no number (a plain yes is not a number)\n"
                          "- no_experience: true only if they say they have no delivery experience; never for a plain yes\n"
-                         "- platforms: delivery platforms mentioned, as written (e.g. Glovo, Uber Eats)"),
+                         "- platforms: delivery platforms mentioned, as written (e.g. Glovo, Uber Eats)",
+                  cv_prompt="- experience_years: the total years of delivery work the CV shows (Glovo, Uber Eats, Just Eat, "
+                            "Rappi...); null when it shows no delivery work\n"
+                            "- platforms: the delivery platforms the CV names, as written"),
         FieldSpec(Field.AVAILABILITY,
                   ask=bi("¿Qué disponibilidad tienes: tiempo completo, medio tiempo o fines de semana?",
                          "What's your availability: full-time, part-time or weekends?"),
@@ -220,7 +226,8 @@ SAZON = ScreeningSpec(
                   confirm_rejection=bi("Solo para confirmar: ¿es correcto que vives en {area}?",
                                        "Just to confirm: is it right that you live in {area}?"),
                   read=read_attribute("city"), schema={"city": (str | None, None)},
-                  prompt="- city: the city or zone exactly as written, never mapped or corrected"),
+                  prompt="- city: the city or zone exactly as written, never mapped or corrected",
+                  cv_prompt="- city: the city where the applicant lives, exactly as written in the CV"),
         FieldSpec(Field.LICENSE, ask=bi("¿Tienes licencia de conducir?", "Do you have a driver's license?"),
                   what=bi("si tienes licencia de conducir (sí o no)", "whether you have a driver's license (yes or no)"),
                   label=bi("licencia", "license"), not_provided=bi("si tiene licencia de conducir", "whether they hold a driver's license"),
@@ -233,7 +240,10 @@ SAZON = ScreeningSpec(
                   schema={"has_license": (bool | None, None)},
                   prompt="- has_license: true/false only if they clearly state whether they hold a driver's license. "
                          "A license is not a car,\n  motorbike, bike or any vehicle: not owning a vehicle says nothing "
-                         "about the license (leave it null)"),
+                         "about the license (leave it null)",
+                  cv_prompt="- has_license: true only if the CV says the applicant holds a driver's license; null otherwise "
+                            "(a CV that does not mention one says nothing, so never false). Owning a motorbike, car or bike is NOT "
+                            "a license: if no license or permit is written, leave it null"),
     ),
     rules=(
         Rule(Reason.NO_LICENSE, applies=lambda screening: screening.values.get(Field.LICENSE) is False,

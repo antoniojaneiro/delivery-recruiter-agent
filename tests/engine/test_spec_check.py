@@ -85,3 +85,43 @@ def test_a_spec_that_is_incomplete_cannot_even_be_built():
     with pytest.raises(SpecError):
         ScreeningSpec(fields=(), pack=TOY.pack, recruiter=TOY.recruiter, area_field="city")
     assert say("x") == {EN: "x"}
+
+
+# --- CV upload (D71) -------------------------------------------------------------------------------------------
+
+def toy_with_cv(recruiter=True, **cv_changes):
+    """The changes that give the toy spec a complete CV setup, with any CV text replaced."""
+    from screener.pack import CvTexts
+    texts = {name: say(name) for name in ("offer", "notice", "unreadable", "invalid", "not_now")}
+    texts["read_back"] = say("took {items}")
+    changes = {"pack": replace(TOY.pack, cv=CvTexts(**{**texts, **cv_changes})),
+               "fields": first_field(cv_prompt="- name: the name in the CV")}
+    if recruiter:
+        changes["recruiter"] = {EN: replace(TOY.recruiter[EN], from_cv="from the CV: {fields}")}
+    return changes
+
+
+def test_a_complete_cv_setup_is_accepted():
+    check_spec(replace(TOY, **toy_with_cv()))
+
+
+def test_cv_texts_with_no_field_to_read_from_a_cv_are_refused():
+    changes = toy_with_cv()
+    del changes["fields"]
+    assert "cv_prompt" in problems(**changes)
+
+
+def test_a_field_read_from_a_cv_without_cv_texts_is_refused():
+    assert "pack.cv" in problems(fields=first_field(cv_prompt="- name: the name in the CV"))
+
+
+def test_every_cv_text_is_required():
+    assert "pack.cv.notice" in problems(**toy_with_cv(notice={}))
+
+
+def test_the_read_back_text_must_have_a_place_for_the_items():
+    assert "{items}" in problems(**toy_with_cv(read_back=say("nothing here")))
+
+
+def test_a_client_with_cv_texts_must_give_the_recruiter_its_line_about_the_cv():
+    assert "from_cv" in problems(**toy_with_cv(recruiter=False))

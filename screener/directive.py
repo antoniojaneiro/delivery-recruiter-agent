@@ -21,6 +21,8 @@ class Kind(StrEnum):
     REMINDER = "reminder"
     CLOSE = "close"
     TECHNICAL_ERROR = "technical_error"
+    CV_OFFER = "cv_offer"  # the optional upload, said once after consent
+    CV_READ = "cv_read"  # what was taken from the CV, listed in `options`
 
 
 @dataclass(frozen=True)

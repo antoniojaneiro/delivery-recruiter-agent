@@ -72,6 +72,11 @@ def consent_text_hash(spec: "ScreeningSpec") -> str:
     return hashlib.sha256(consent_message(spec).encode("utf-8")).hexdigest()[:12]
 
 
+def cv_notice_hash(spec: "ScreeningSpec") -> str:
+    """Identifies the exact notice shown beside the uploader: uploading counts as agreeing to it (D71)."""
+    return hashlib.sha256(_both(spec.pack.cv.notice).encode("utf-8")).hexdigest()[:12]
+
+
 def technical_error_message(spec: "ScreeningSpec", language: str) -> str:
     return spec.pack.pick(spec.pack.error, language)
 
@@ -91,6 +96,11 @@ def describe_value(spec: "ScreeningSpec", field: str, value, language: Language)
     if describe is not None:
         return describe(value, language)
     return echo(value.isoformat() if hasattr(value, "isoformat") else value)
+
+
+def fixed(spec: "ScreeningSpec", directive: Directive, language: str) -> str:
+    """The client's own words for a directive, with no model involved."""
+    return _template(spec, directive, language)
 
 
 def _template(spec: "ScreeningSpec", directive: Directive, language: str) -> str:
@@ -121,6 +131,10 @@ def _template(spec: "ScreeningSpec", directive: Directive, language: str) -> str
             return pick(pack.blocked, language).format(what=what)
         case Kind.REMINDER:
             return pick(pack.reminder, language)
+        case Kind.CV_OFFER:
+            return pick(pack.cv.offer, language)
+        case Kind.CV_READ:
+            return pick(pack.cv.read_back, language).format(items=", ".join(directive.options))
         case Kind.TECHNICAL_ERROR:
             return pick(pack.error, language)
     raise ValueError(directive.kind)
@@ -168,7 +182,7 @@ def _usable(text: str, directive: Directive, language: Language) -> bool:
 
 
 # Kinds whose wording is exact and never the model's: promises, offers, reminders sent without a model, errors.
-_FIXED = (Kind.CLOSE, Kind.TECHNICAL_ERROR, Kind.REMINDER, Kind.OFFER_SLOTS, Kind.SLOT_BOOKED, Kind.ALREADY_BOOKED)
+_FIXED = (Kind.CV_OFFER, Kind.CV_READ, Kind.CLOSE, Kind.TECHNICAL_ERROR, Kind.REMINDER, Kind.OFFER_SLOTS, Kind.SLOT_BOOKED, Kind.ALREADY_BOOKED)
 MAX_CONTEXT_MESSAGES = 6
 MAX_CONTEXT_CHARS = 300
 

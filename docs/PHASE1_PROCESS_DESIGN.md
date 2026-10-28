@@ -20,6 +20,7 @@ The persona is written down once, for the model, and every free message follows 
 | Stage | What happens | Exit |
 | --- | --- | --- |
 | **0. Consent** | Fixed bilingual AI disclosure naming the external AI service, and consent to store answers. The reply is read in plain code; nothing reaches the model before a yes (D12, D44). | Clear no or "stop" → close `NO_CONSENT` (a later "sí" restarts). Yes → stage 1. Unclear → ask again. |
+| **0b. Optional CV** | Said once with the first question: "to go faster you can upload your CV as a PDF". An upload fills the clear answers for name, city, license and experience; the agent reads them back to be corrected. A value that would reject, or a near-miss place, is confirmed with the candidate first. Typing an answer instead skips it (D71). | Taken or skipped → stage 1. |
 | **1–5. Name, experience, availability, schedule, start date** | One question at a time. Anything given early is recorded and not asked again (D5). A different value for an accepted answer is confirmed first (D54). | Valid → next. Unclear → follow-up. |
 | **6–7. City, driver's license** | Eligibility, checked as soon as answered (D27). | OK → next. Outside the area or no license → one confirmation question, so a misread never rejects anyone (D40), then a polite close. |
 | **8. Decision** | See section 5. | |
@@ -69,5 +70,5 @@ Candidates can come back while applications are open, except after qualifying, a
 
 ## 8. Compliance and open items
 
-- Hiring is high-risk under the EU AI Act (Annex III) and Mexico has its own data law. Built in: AI disclosure and consent first, with the exact wording recorded; human oversight (review queue, a recruiter can overrule any status); every decision logged with its actor; erasure on request only (D53, D60); a login per recruiter (D57); no emotion or personality inference; untrusted candidate text. Not legal advice.
-- **Open for the client:** the real service areas; legal review of the consent and farewell wording, of sample conversations (the model's wording varies), and of how long data may be kept; approved answers about pay; the 12-week rule; single sign-on; a paid model tier with a data-processing agreement.
+- Hiring is high-risk under the EU AI Act (Annex III) and Mexico has its own data law. Built in: AI disclosure and consent first, with the exact wording recorded; human oversight (review queue, a recruiter can overrule any status); every decision logged with its actor; erasure on request only, which also removes an uploaded CV (D53, D60, D71); a login per recruiter (D57); no emotion or personality inference; untrusted candidate text. Not legal advice.
+- **Open for the client:** the real service areas; legal review of the consent and farewell wording, of sample conversations (the model's wording varies), of the CV notice, and of how long data (including CVs) may be kept; approved answers about pay; the 12-week rule; single sign-on; a paid model tier with a data-processing agreement.

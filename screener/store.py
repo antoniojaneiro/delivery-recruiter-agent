@@ -10,7 +10,7 @@ from screener.model import RecruiterStatus
 from screener.recruiter_rules import AGENT_CLOSED, BLOCKED, NEEDS_REVIEW, STALLED, TO_CONTACT
 from screener.store_schema import prepare
 from screener.store_slots import SlotsMixin
-from screener.store_types import (AGENT, NO_CHECK, AdminEntry, Booking, ConflictError, Event, InputError, Message,  # noqa: F401
+from screener.store_types import (AGENT, NO_CHECK, AdminEntry, Booking, ConflictError, CvFile, Event, InputError, Message,  # noqa: F401
                                Note, OutboxEntry, Record, RecruiterRecord, Slot, parse_stamp, stamp)  # noqa: F401
 
 BUSY_TIMEOUT_SECONDS = 10
@@ -56,11 +56,11 @@ class Store(SlotsMixin):
                     messages: list[tuple[str, str]], reasons: list[str] = (),
                     flags: list[str] = (), summary: str | None = None,
                     expected_version: object = NO_CHECK, outbox: list[str] = (),
-                    decision: str | None = None) -> int:
+                    decision: str | None = None, cv: bytes | None = None) -> int:
         """Saves one turn atomically. With `expected_version` (the version this copy was loaded at, or None for a
         candidate that did not exist) the save is refused with ConflictError if the record changed or vanished.
         With `decision` (the text of the decision event) it is logged when the outcome differs from the saved one,
-        which is read here, under the same write lock."""
+        which is read here, under the same write lock. `cv` is the PDF uploaded in this turn, kept in the same step."""
         with self._connect() as db:
             db.execute("BEGIN IMMEDIATE")  # the version is read while holding the write lock, so nobody slips in
             row = db.execute("SELECT version, outcome FROM candidates WHERE candidate_id = ?", (candidate_id,)).fetchone()
@@ -84,6 +84,10 @@ class Store(SlotsMixin):
                            [(candidate_id, r, x, stamp(now)) for r, x in messages])
             db.executemany("INSERT INTO outbox (candidate_id, text, created_at) VALUES (?, ?, ?)",
                            [(candidate_id, text, stamp(now)) for text in outbox])
+            if cv is not None:
+                db.execute("INSERT OR REPLACE INTO cvs (candidate_id, data, size, sha256, uploaded_at) "
+                           "VALUES (?, ?, ?, ?, ?)",
+                           (candidate_id, cv, len(cv), hashlib.sha256(cv).hexdigest(), stamp(now)))
             return db.execute("SELECT version FROM candidates WHERE candidate_id = ?", (candidate_id,)).fetchone()[0]
 
     def erase_candidate(self, candidate_id: str, actor: str, now: datetime, reason: str) -> bool:
@@ -93,7 +97,7 @@ class Store(SlotsMixin):
         with self._connect() as db:
             db.execute("PRAGMA secure_delete = ON")
             existed = db.execute("SELECT 1 FROM candidates WHERE candidate_id = ?", (candidate_id,)).fetchone()
-            for table in ("candidates", "events", "messages", "notes", "recruiter", "outbox"):
+            for table in ("candidates", "events", "messages", "notes", "recruiter", "outbox", "cvs"):
                 db.execute(f"DELETE FROM {table} WHERE candidate_id = ?", (candidate_id,))
             db.execute("UPDATE slots SET candidate_id = NULL, booked_at = NULL WHERE candidate_id = ?", (candidate_id,))
             if existed:
@@ -206,6 +210,11 @@ class Store(SlotsMixin):
                        "changed_at = excluded.changed_at", ("1" if accepting else "0", recruiter, stamp(now)))
             self._log(db, f"recruiter:{recruiter}", "applications_opened" if accepting else "applications_closed", "", now)
 
+    def log_admin(self, actor: str, action: str, detail: str, now: datetime) -> None:
+        """An action that belongs to no candidate: who did what, kept in the admin log."""
+        with self._connect() as db:
+            self._log(db, actor, action, detail, now)
+
     def admin_log(self) -> list[AdminEntry]:
         with self._connect() as db:
             rows = db.execute("SELECT at, actor, action, detail FROM admin_log ORDER BY id").fetchall()
@@ -292,6 +301,12 @@ class Store(SlotsMixin):
             rows = db.execute("SELECT type, detail, at, actor FROM events WHERE candidate_id = ? ORDER BY id",
                               (candidate_id,)).fetchall()
         return [Event(t, d, parse_stamp(a), actor) for t, d, a, actor in rows]
+
+    def cv(self, candidate_id: str) -> CvFile | None:
+        with self._connect() as db:
+            row = db.execute("SELECT data, size, sha256, uploaded_at FROM cvs WHERE candidate_id = ?",
+                             (candidate_id,)).fetchone()
+        return CvFile(row[0], row[1], row[2], parse_stamp(row[3])) if row else None
 
     def messages(self, candidate_id: str) -> list[Message]:
         with self._connect() as db:

@@ -2,9 +2,9 @@
 
 An AI candidate-screening agent for a fictional client, Grupo Sazón, a restaurant chain hiring delivery drivers in Spain and Mexico. Candidates chat with the agent in Spanish or English; recruiters follow them in a dashboard. **The agent screens and summarises; a recruiter makes every hiring decision.**
 
-- **The agent** asks for consent, collects and validates seven screening fields, disqualifies or qualifies, offers a call time, and stores the conversation, the structured JSON and a recruiter summary card in SQLite. The model words the messages in a written personality; code decides everything that matters and checks every message.
+- **The agent** asks for consent, collects and validates seven screening fields (optionally reading a CV for four of them), disqualifies or qualifies, offers a call time, and stores the conversation, the structured JSON and a recruiter summary card in SQLite. The model words the messages in a written personality; code decides everything that matters and checks every message.
 - **The recruiter dashboard** (Spanish or English): filter and search candidates, read the card, transcript and audit log, set a hiring status, assign, add notes, work through the review queue of agent rejections, erase a candidate's data, manage call times per country, open or close applications, and see the funnel.
-- **A chat in the browser** to try the agent, with a live view of what it has understood.
+- **A chat in the browser** to try the agent, with a live view of what it has understood. A candidate can optionally upload a CV (PDF) to fill in answers faster; a recruiter downloads it from the candidate's page.
 
 Design: [docs/PHASE1_PROCESS_DESIGN.md](docs/PHASE1_PROCESS_DESIGN.md). Decisions and open items: [docs/DECISIONS.md](docs/DECISIONS.md). The assignment: [docs/TASK.md](docs/TASK.md).
 
@@ -16,10 +16,10 @@ Python **3.12 or newer** and a Gemini API key (free tier, from Google AI Studio)
 python -m pip install -e ".[dev]"
 copy .env.example .env                 # Windows (cp on macOS/Linux); add your GEMINI_API_KEY; never commit .env
 
-python -m sazon.chat                   # terminal chat: /new, /resume <id>, /state, /inbox, /wait24h, /help, /quit
-streamlit run apps/chat_app.py         # the chat in the browser (saves to data/demo/chat.db, never the real database)
-python -m sazon.accounts add Ana       # create a recruiter account (asks for the password)
-streamlit run apps/dashboard.py        # recruiter dashboard, local only; sign in with an account
+python -m sazon.chat                   # terminal chat: /new, /resume <id>, /cv <pdf path>, /state, /inbox, /wait24h, /help, /quit
+streamlit run apps/chat_app.py         # the chat in the browser (saves to data/demo/chat.db; the sidebar switch "Save to the recruiters' dashboard" sends new candidates to the real database)
+streamlit run apps/dashboard.py        # recruiter dashboard, local only; the first visit creates the first account, a signed-in recruiter adds more
+python -m sazon.accounts add Ana       # (optional) create a recruiter account from the terminal
 python -m sazon.reminders --every 600  # the 24-hour reminder job (queues messages for a real channel; see /inbox)
 python -m sazon.demo --list            # fictional conversations played on the real agent
 python -m sazon.demo --only happy_es   # transcripts go to data/demo/transcripts.md
@@ -67,4 +67,4 @@ The engine never imports `sazon`; a test fails if it does or if it names a clien
 
 ## Data and compliance notes
 
-Hiring is high-risk under the EU AI Act (Annex III) and Mexico has its own data law. The design tells the candidate it is an AI and asks for consent first, keeps a human decision-maker, logs every decision with its actor, collects only the screening fields, infers nothing about emotions or personality, and treats candidate text as untrusted. A candidate's data can be erased from the dashboard (it is overwritten, not just deleted); nothing is erased automatically. The login is a prototype measure: a real deployment needs the company's single sign-on. The browser chat has no login and is for your own computer only. This is an engineering baseline, not legal advice.
+Hiring is high-risk under the EU AI Act (Annex III) and Mexico has its own data law. The design tells the candidate it is an AI and asks for consent first, keeps a human decision-maker, logs every decision with its actor, collects only the screening fields, infers nothing about emotions or personality, and treats candidate text as untrusted. A candidate's data, including an uploaded CV, can be erased from the dashboard (it is overwritten, not just deleted); nothing is erased automatically. The login is a prototype measure: a real deployment needs the company's single sign-on. The browser chat has no login and is for your own computer only. This is an engineering baseline, not legal advice.
