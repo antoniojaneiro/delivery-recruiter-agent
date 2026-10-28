@@ -52,7 +52,9 @@ def enabled_days(at):
 def test_the_button_appears_when_the_candidate_qualifies_and_opens_a_month_with_only_the_free_days_clickable(chat):
     at = opened()
     assert not [b for b in at.button if b.key == "pick_open"]  # nothing to pick before they qualify
-    qualify_in_the_chat(at, chat)
+    cid = qualify_in_the_chat(at, chat)
+    offer = chat.messages(cid)[-1].text  # the message says to use the button; there is no numbered list beside it
+    assert "Reserva una llamada" in offer and "1)" not in offer
     assert [b.label for b in at.button if b.key == "pick_open"] == ["Elegir día y hora"]
     at.button(key="pick_open").click().run()
     assert not at.exception, at.exception

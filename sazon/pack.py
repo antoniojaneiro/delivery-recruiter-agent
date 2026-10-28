@@ -13,6 +13,16 @@ SLOTS = SlotTexts(
         "reminder": bi("Te recuerdo las horas disponibles para tu llamada:",
                        "A reminder of the times available for your call:"),
     },
+    offer_button={
+        "first": bi("¡Genial, tu perfil encaja! Reserva una llamada para hablar con un reclutador con el botón de abajo.",
+                    "Great, your profile fits! Please book a call to talk with a recruiter with the button below."),
+        "taken": bi("Ese horario ya no está libre. Elige otro con el botón de abajo.",
+                    "That time is no longer free. Please pick another with the button below."),
+        "unclear": bi("No me quedó claro. Usa el botón de abajo para reservar tu llamada.",
+                      "I didn't quite get that. Please use the button below to book your call."),
+        "reminder": bi("Te recuerdo que puedes reservar tu llamada con el botón de abajo. Si prefieres hacerlo más tarde, escribe «ninguna».",
+                       "A reminder: you can book your call with the button below. If you'd rather do it later, write 'none'."),
+    },
     offer_end=bi(
         "Responde con el número. Si ninguna te viene bien, responde 'ninguna' y podrás reservar más adelante escribiéndonos otra vez.",
         "Reply with the number. If none suits you, reply 'none' and you can book later by writing to us again."),

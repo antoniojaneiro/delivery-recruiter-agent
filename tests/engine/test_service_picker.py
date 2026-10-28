@@ -81,3 +81,8 @@ def test_the_picker_calls_need_the_candidates_own_token(store, http):
     assert http.get("/candidates/c1/times", params={"month": "2026-11"}, headers=other).status_code == 404
     assert http.post("/candidates/c1/book", json={"message_id": "b", "slot_id": 1}, headers=other).status_code == 404
     assert http.get("/candidates/c1/times", params={"month": "2026-11"}).status_code == 404
+
+
+def test_a_candidate_made_by_the_service_is_known_to_have_the_button(store, http):
+    made = http.post("/candidates").json()
+    assert store.get(made["candidate_id"]).state["buttons"] is True  # so its offers name the picker, not a numbered list

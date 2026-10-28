@@ -31,7 +31,7 @@ The list below says *what* needs approval. A separate document with each text wo
 2. Every farewell, and the qualified message and the "write to us when you want to book" texts (the 48-hour promise is gone, D81).
 3. The CV upload notice and the read-back of what was taken from a CV.
 4. How long answers, transcripts, error logs and uploaded CVs may be kept. Today nothing is deleted automatically; erasure is on request from the dashboard.
-5. The messages a candidate gets when a recruiter books or moves their call, and when their call is no longer available and they can pick again (`scheduled`, `moved`, `cancelled`, `later` in `sazon/pack.py`).
+5. The messages a candidate gets when a recruiter books or moves their call, and when their call is no longer available and they can pick again (`scheduled`, `moved`, `cancelled`, `later` in `sazon/pack.py`), and the four "use the button" offers for the browser chat (`offer_button`, D90).
 6. Approved answers about pay.
 7. A sample of real conversations. The model's wording varies, so the fixed texts are not the whole picture.
 

@@ -250,7 +250,7 @@ def _offer(store: Store, client: Client, screening: Screening, now: datetime, re
         reason = "taken"  # some of the earlier options went in the meantime
     screening.offer_slots(ids)
     return Directive(Kind.OFFER_SLOTS, options=[slot_label(s.starts_at, screening.language) for s in free],
-                     reason=reason)
+                     reason=reason, buttons=screening.buttons)
 
 
 def _give_up(screening: Screening, later: bool = False) -> Directive:

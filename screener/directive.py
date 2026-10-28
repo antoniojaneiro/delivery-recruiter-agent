@@ -37,6 +37,7 @@ class Directive:
     outcome: Outcome | None = None
     reasons: list[str] = dc_field(default_factory=list)
     options: list[str] = dc_field(default_factory=list)
+    buttons: bool = False  # an offer of times for a channel with a button: no numbered list (D90)
     label: str | None = None
     notices: tuple[str, ...] = ()  # fixed sentences said before the question: a person, pay, a change made...
     repeat: bool = False  # a closing already sent once: say it shortly instead of word for word

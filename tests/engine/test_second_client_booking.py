@@ -129,3 +129,11 @@ def test_an_area_without_a_country_or_a_country_without_a_zone_is_refused():
     with pytest.raises(ClientError) as error:
         replace(TOY_UK, calendar=SlotCalendar(timezones={}, country_of=UK_CALENDAR.country_of))
     assert "GB" in str(error.value)
+
+
+def test_a_client_with_no_button_texts_keeps_the_numbered_list_whatever_the_channel(store):
+    store.add_slot("GB", datetime(2026, 10, 28, 10, 0), None, "Ana", NOW)
+    turn.start(store, TOY_UK, "c1", NOW, buttons=True)
+    llm = ScriptedLLM(extractions=[{"name": "Jo Smith"}, {"town": "Headingley"}, {"can_lift": True}])
+    last = talk(store, llm, "yes", "Jo Smith", "Headingley", "yes")[-1]
+    assert "1) Wed 28 Oct, 10:00" in last

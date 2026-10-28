@@ -58,7 +58,7 @@ llm = st.session_state["llm"]
 
 def new_candidate() -> None:
     """Also runs when the switch changes, so one chat never splits across two databases."""
-    candidate_id, _ = dialog.new_candidate(active_store(), SAZON_CLIENT, datetime.now())  # the disclosure, once per candidate
+    candidate_id, _ = dialog.new_candidate(active_store(), SAZON_CLIENT, datetime.now(), buttons=True)  # the disclosure, once per candidate
     st.session_state["chat_id"] = candidate_id
     st.session_state.pop("flash", None)
 

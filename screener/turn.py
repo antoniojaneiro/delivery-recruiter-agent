@@ -23,13 +23,19 @@ NOT_STORED = "[message not stored: no consent]"
 CV_MARK = "[CV uploaded]"  # what the transcript shows of an upload; the file itself is kept apart
 
 
-def start(store, client: Client, candidate_id: str, now: datetime) -> str:
+def start(store, client: Client, candidate_id: str, now: datetime, buttons: bool = False) -> str:
+    """A new candidate and the disclosure they are shown first. `buttons`: the channel has a button to choose a time, so
+    the offer of times names it instead of numbering them (D90); it is saved with the candidate."""
     if not store.accepting_applications():
         return closed_message(client.spec)
     text = consent_message(client.spec)
+
+    def work(screening: Screening) -> Turn:
+        screening.buttons = buttons
+        return Turn(text, messages=[("agent", text)])
+
     try:
-        return conversation.run(store, client, candidate_id, now,
-                                lambda screening: Turn(text, messages=[("agent", text)]))
+        return conversation.run(store, client, candidate_id, now, work)
     except ConflictError:
         return technical_error_message(client.spec, client.spec.pack.default_language)
 

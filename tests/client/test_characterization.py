@@ -46,6 +46,7 @@ def _fixed_texts() -> dict:
         out[f"confirm_change/{lang}"] = _say(Directive(Kind.CONFIRM_CHANGE, options=["a", "b"]), lang)
         for step in ("first", "taken", "unclear", "reminder"):
             out[f"offer/{step}/{lang}"] = _say(Directive(Kind.OFFER_SLOTS, reason=step, options=["x", "y"]), lang)
+            out[f"offer_button/{step}/{lang}"] = _say(Directive(Kind.OFFER_SLOTS, reason=step, options=["x", "y"], buttons=True), lang)
         out[f"booked/{lang}"] = _say(Directive(Kind.SLOT_BOOKED, label="mar 3 nov, 10:00"), lang)
         out[f"already_booked/{lang}"] = _say(Directive(Kind.ALREADY_BOOKED, label="mar 3 nov, 10:00"), lang)
         out[f"reminder/{lang}"] = _say(Directive(Kind.REMINDER), lang)
@@ -159,8 +160,8 @@ def test_sazon_texts_prompts_cards_and_state_are_unchanged():
 
 
 def test_a_state_saved_by_the_first_release_still_loads():
-    saved = json.loads(GOLDEN.read_text(encoding="utf-8"))["state"]
+    saved = {k: v for k, v in json.loads(GOLDEN.read_text(encoding="utf-8"))["state"].items() if k != "buttons"}  # D90 added it
     loaded = Screening.from_state(AREAS, saved, SAZON)
-    assert _roundtrip(loaded.to_state()) == saved
+    assert _roundtrip(loaded.to_state()) == {**saved, "buttons": False}
     assert loaded.awaiting_change
     assert loaded.values["city"] == "Madrid"
