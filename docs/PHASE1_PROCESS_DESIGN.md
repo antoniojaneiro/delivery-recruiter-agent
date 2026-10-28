@@ -16,7 +16,7 @@ Sofía, an AI assistant for Grupo Sazón recruiting (D72), who says she is an AI
 | --- | --- | --- |
 | **0. Consent** | A fixed bilingual disclosure (an AI, an external AI service, reviewed by a recruiter) asks consent to store answers. Read in plain code; nothing reaches the model before a yes (D44). | No or "stop" → close. Unclear → ask again. Yes → next. |
 | **0b. Optional CV** | Offered once: upload a PDF to go faster, or just type. Clear answers are read back to be corrected (D71). | Taken or skipped → next. |
-| **1–5. Name, experience, availability, schedule, start date** | One question at a time; anything given early is not asked again (D5); a changed answer is confirmed first (D54). | Valid → next. Unclear → follow-up. |
+| **1–5. Name, experience, availability, schedule, start date** | One question at a time; anything given early is not asked again (D5); a changed answer is confirmed first (D54). Full time is the whole day, so the schedule is not asked (D81). | Valid → next. Unclear → follow-up. |
 | **6–7. City, driver's license** | Eligibility, checked as soon as answered. | OK → next. Outside the area or no license → one confirmation question, so a misread never rejects anyone (D40), then a polite close. |
 | **8. Decision** | Section 5. | |
 
@@ -38,7 +38,7 @@ Only validated values are stored (JSON); the conversation is the audit record; c
 
 | Outcome | When | The candidate hears | The recruiter gets |
 | --- | --- | --- | --- |
-| **Qualified** | All fields, license yes, city in area. | The next three free call times of their country; a pick books it. None free: "a recruiter will reply within 48 hours" (D48). | Card and booking. |
+| **Qualified** | All fields, license yes, city in area. | The next three free call times of their country; a pick books it. None free or none chosen: "write to us when you want to book"; nothing is promised (D81). | Card and booking. |
 | **Disqualified** | No license, or outside the area. | "I can't continue with the automated process; a recruiter can review your case" (D52). | Reason and card, in the review queue until a recruiter sets a status. |
 
 ## 6. Edge cases

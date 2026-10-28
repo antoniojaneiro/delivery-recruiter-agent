@@ -86,9 +86,9 @@ def test_a_blocked_candidate_says_what_has_not_been_provided():
 
 
 def test_a_half_finished_chat_lists_what_is_missing_in_order():
-    card = summarise(screening(schedule=None, city=None))
+    card = summarise(screening(start_date=None, city=None))  # (a full-time candidate is never missing the schedule, D81)
     assert card.splitlines()[0].endswith("En curso")
-    assert "Falta: horario preferido, ciudad" in card
+    assert "Falta: fecha de inicio, ciudad" in card
 
 
 def test_a_start_date_beyond_12_weeks_is_flagged():

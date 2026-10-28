@@ -182,7 +182,7 @@ def test_a_complete_valid_candidate_qualifies_and_the_recruiter_data_is_saved(st
     say(store, "ya mismo", {"start_date": {"now": True}})
     say(store, "Madrid", {"city": "Madrid"})
     reply, _ = say(store, "sí tengo", {"has_license": True})
-    assert outcome(store) == "QUALIFIED" and "48 horas" in reply
+    assert outcome(store) == "QUALIFIED" and "horarios libres" in reply and "48" not in reply
     assert store.get("c1").extracted == {
         "name": "Juan Pérez", "experience": {"years": 2, "platforms": ["glovo"]},
         "availability": ["full_time"], "schedule": "morning", "start_date": "2026-10-25",

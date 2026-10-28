@@ -130,13 +130,13 @@ def test_a_qualified_candidate_who_ignores_the_offer_is_reminded_with_the_same_s
     assert "queda reservada" in reply
 
 
-def test_if_they_still_do_not_answer_the_offer_ends_and_the_48_hour_promise_is_sent(store):
+def test_if_they_still_do_not_answer_the_offer_ends_and_they_are_told_to_write_again_to_book(store):
     add_slots(store)
     qualify(store)
     reminders.run_once(store, SAZON_CLIENT, T0 + 24 * HOUR)
     assert kinds(reminders.run_once(store, SAZON_CLIENT, T0 + 48 * HOUR)) == [("c1", "gave_up_offer")]
     last = store.outbox_pending()[-1]
-    assert "48 horas" in last.text and "1)" not in last.text
+    assert "cuando quieras reservar tu llamada" in last.text.lower() and "48" not in last.text and "1)" not in last.text
     assert outcome(store) == "QUALIFIED" and store.booking_of("c1") is None
     assert reminders.run_once(store, SAZON_CLIENT, T0 + 100 * HOUR) == []
 

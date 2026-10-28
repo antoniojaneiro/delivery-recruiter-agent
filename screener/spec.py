@@ -44,6 +44,8 @@ class FieldSpec:
     describe: Callable[[Any, Language], str] | None = None  # a value in the candidate's words, for a change question
     card: Callable[[Any, Language], str] | None = None  # the line for the recruiter's summary card
     not_provided: Text | None = None  # recruiter text for "has not said ..."; the label when None
+    implied: Callable[[dict], Any] | None = None  # (the saved answers) -> the value this field takes without being
+    # asked, or None to ask. Re-read after every accepted answer, so changing the answer it follows asks it again.
 
 
 @dataclass(frozen=True)

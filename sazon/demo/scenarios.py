@@ -17,16 +17,16 @@ def _talk(*lines: str) -> list[str]:
 
 SCENARIOS = [
     Scenario("happy_es", "Camino feliz en español: de principio a fin con llamada reservada", _talk(
-        "sí", "Me llamo Carlos Ruiz Mora", "Tengo 2 años repartiendo con Glovo", "Tiempo completo", "Por las mañanas",
+        "sí", "Me llamo Carlos Ruiz Mora", "Tengo 2 años repartiendo con Glovo", "Tiempo completo",
         "Puedo empezar la semana que viene", "Vivo en Madrid", "Sí, tengo carnet de conducir", "2"),
-        "Cualifica y reserva la segunda opción de la lista."),
+        "Cualifica, no se le pregunta el horario por ser tiempo completo, y reserva la segunda opción de la lista."),
     Scenario("happy_en", "Happy path in English from the first message", _talk(
         "yes", "My name is John Smith", "I have 1 year of experience with Uber Eats", "I can work part time and weekends",
         "afternoons", "I can start tomorrow", "I live in Barcelona", "yes I have a driving license", "the first one"),
         "Todo el chat en inglés; la lista de horarios y la confirmación también."),
     Scenario("language_switch", "Cambio de idioma a mitad de la conversación", _talk(
         "hola, sí", "Soy Ana María López", "I have worked for 3 years with Rappi", "Disponible a tiempo completo",
-        "evenings please", "ya mismo", "Monterrey", "sí tengo licencia", "ninguna"),
+        "I can start right away", "ya mismo", "Monterrey", "sí tengo licencia", "ninguna"),
         "Empieza en español, sigue en inglés y vuelve al español; al final rechaza todos los horarios."),
     Scenario("all_in_one", "Varios datos en un solo mensaje", _talk(
         "vale",
@@ -39,11 +39,11 @@ SCENARIOS = [
         "no tengo licencia", "sí, correcto"),
         "Una respuesta que descarta nunca cierra la conversación sin confirmar (D40)."),
     Scenario("car_not_license", "«No tengo coche» no es «no tengo licencia»", _talk(
-        "sí", "Marta Gil Ruiz", "ninguna experiencia", "tiempo completo", "tarde", "ya mismo", "Valencia",
+        "sí", "Marta Gil Ruiz", "ninguna experiencia", "tiempo completo", "ya mismo", "Valencia",
         "no tengo coche", "sí, el carnet sí lo tengo"),
         "El fallo real que vimos con el modelo: no debe descartar por no tener coche."),
     Scenario("out_of_area", "Ciudad fuera de la zona de servicio", _talk(
-        "sí", "Pablo Navas Gil", "3 años con Uber Eats", "tiempo completo", "mañana", "ya", "Vivo en Sevilla",
+        "sí", "Pablo Navas Gil", "3 años con Uber Eats", "tiempo completo", "ya", "Vivo en Sevilla",
         "sí, vivo en Sevilla"),
         "Confirma la ciudad y cierra con un motivo claro."),
     Scenario("city_typo", "Ciudad con errata y con alias", _talk(
@@ -51,7 +51,7 @@ SCENARIOS = [
         "Guadalajra", "sí", "tengo licencia"),
         "Pregunta «¿Te refieres a Guadalajara?» en lugar de rechazar o aceptar a ciegas."),
     Scenario("correction", "El candidato corrige una respuesta anterior", _talk(
-        "sí", "Carmen Ortiz Vega", "3 años con Glovo", "tiempo completo", "mañana", "ya", "Vivo en Madrid",
+        "sí", "Carmen Ortiz Vega", "3 años con Glovo", "tiempo completo", "ya", "Vivo en Madrid",
         "perdona, en realidad vivo en Barcelona", "sí", "sí tengo licencia", "1"),
         "Pregunta si cambia la ciudad; con el sí queda Barcelona (y los horarios son los de España)."),
     Scenario("far_start_date", "Fecha de inicio muy lejana", _talk(
@@ -80,15 +80,15 @@ SCENARIOS = [
         "sí", "¿puedo hablar con una persona?", "¿cuánto pagan por hora?", "Me llamo Andrés Mora Pérez"),
         "No promete nada; sigue con el cribado y deja constancia de la petición."),
     Scenario("slot_declined", "Cualifica pero ningún horario le va bien", _talk(
-        "sí", "Nuria Campos Gil", "2 años con Glovo", "tiempo completo", "mañana", "ya mismo", "Guadalajara",
+        "sí", "Nuria Campos Gil", "2 años con Glovo", "tiempo completo", "ya mismo", "Guadalajara",
         "sí tengo licencia", "ninguna", "gracias"),
-        "Cae en «un reclutador te escribirá en 48 horas» y queda por contactar en el panel."),
+        "Le dice que escriba cuando quiera reservar y que le mostrará los horarios libres; sigue cualificado en el panel."),
     Scenario("change_answer", "Cambia una respuesta ya dada: el agente lo confirma", _talk(
-        "sí", "Carmen Ortiz Vega", "3 años con Glovo", "tiempo completo", "mañana", "ya", "Vivo en Madrid",
+        "sí", "Carmen Ortiz Vega", "3 años con Glovo", "tiempo completo", "ya", "Vivo en Madrid",
         "perdona, en realidad vivo en Barcelona", "sí", "sí tengo licencia", "1"),
         "«Antes me dijiste Madrid. ¿Lo cambio a Barcelona?» y solo cambia con un sí (se lee con reglas simples)."),
     Scenario("keeps_old_answer", "Menciona otra ciudad sin querer cambiarla", _talk(
-        "sí", "Pilar Gil Sanz", "sin experiencia", "tiempo completo", "tarde", "ya", "Vivo en Valencia",
+        "sí", "Pilar Gil Sanz", "sin experiencia", "tiempo completo", "ya", "Vivo en Valencia",
         "mi hermano vive en Barcelona", "no", "sí tengo licencia"),
         "Si dice que no, se queda con la respuesta anterior."),
     Scenario("come_back_withdrawn", "Se retira y vuelve a continuar", _talk(
@@ -102,7 +102,7 @@ SCENARIOS = [
         "no gracias", "hola", "sí", "Laura Peña Ríos"),
         "Tras rechazar, un «sí» posterior empieza el proceso."),
     Scenario("slot_unclear", "Responde mal a la lista de horarios", _talk(
-        "sí", "Hugo Sanz León", "sin experiencia", "tiempo completo", "tarde", "ya", "Monterrey", "sí tengo licencia",
+        "sí", "Hugo Sanz León", "sin experiencia", "tiempo completo", "ya", "Monterrey", "sí tengo licencia",
         "¿y cuánto dura la llamada?", "el martes", "2"),
         "Repite la lista con las opciones y solo reserva con un número claro."),
 ]

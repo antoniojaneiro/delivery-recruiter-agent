@@ -59,7 +59,7 @@ def test_every_ask_has_a_template_in_both_languages():
 def test_the_qualified_close_is_fixed_and_never_invents_a_call_time():
     llm = FakeLLM("¡Perfecto! Te llamamos mañana a las 10.")
     out = phrase(llm, SAZON, Directive(Kind.CLOSE, outcome=Outcome.QUALIFIED), "es")
-    assert llm.calls == [] and "48" in out
+    assert llm.calls == [] and "horarios libres" in out and "48" not in out
 
 
 def test_a_disqualification_close_is_polite_and_gives_the_reason():

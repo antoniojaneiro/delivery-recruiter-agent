@@ -1,6 +1,6 @@
 """Offering and booking a call slot when a candidate qualifies (D7, D8, D48). The slots table is the
 single source of truth for a booking: the screening only remembers which slots are on offer."""
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime
 
 from screener import conversation
@@ -8,13 +8,13 @@ from screener.conversation import RETRY_ONCE, SKIP, Turn
 from screener.client import Client
 from screener.consent import is_stop_request
 from screener.model import Outcome
-from screener.directive import Directive, Kind
+from screener.directive import LATER, Directive, Kind
 from screener.phrasing import slot_cancelled_message, slot_label, slot_scheduled_message
 from screener.screening import Screening
 from screener.slot_choice import NONE, read_slot_choice
 from screener.store import Booking, ConflictError, InputError, Store
 
-MAX_UNCLEAR_PICKS = 3  # re-offers of the same list before the 48-hour promise applies
+MAX_UNCLEAR_PICKS = 3  # re-offers of the same list before they are told to write again later
 
 
 def after_close(store: Store, client: Client, screening: Screening, candidate_id: str, directive: Directive | None,
@@ -27,8 +27,7 @@ def after_close(store: Store, client: Client, screening: Screening, candidate_id
     booking = store.booking_of(candidate_id)
     if booking:
         return Directive(Kind.ALREADY_BOOKED, label=slot_label(booking.starts_at, screening.language))
-    if screening.slots_resolved:
-        return directive
+    # Someone who left without booking gets the free times again when they write: no time was ever promised
     return _offer(store, client, screening, now, "first") or _give_up(screening)
 
 
@@ -44,10 +43,10 @@ def handle_pick(store: Store, client: Client, screening: Screening, candidate_id
     offered = screening.slot_offer
     choice = read_slot_choice(message, len(offered))
     if choice is NONE:
-        return _give_up(screening)
+        return _give_up(screening, later=True)
     if choice is None:
         if screening.note_unclear_pick() > MAX_UNCLEAR_PICKS:
-            return _give_up(screening)
+            return _give_up(screening, later=True)
         return _offer(store, client, screening, now, "unclear") or _give_up(screening)
     booking = store.book_slot(offered[choice - 1], candidate_id, now, must_exist=True)
     if booking is None:
@@ -109,7 +108,7 @@ def notify_cancelled(store: Store, client: Client, candidate_id: str, now: datet
 def on_idle(store: Store, client: Client, screening: Screening, now: datetime) -> tuple[str, Directive]:
     """24 hours without an answer to the slot list: remind once with the free slots, then give up (D58)."""
     if screening.reminder_sent:
-        return "gave_up_offer", _give_up(screening)
+        return "gave_up_offer", _give_up(screening, later=True)
     screening.send_reminder()
     return "reminder", _offer(store, client, screening, now, "reminder") or _give_up(screening)
 
@@ -129,7 +128,9 @@ def _offer(store: Store, client: Client, screening: Screening, now: datetime, re
                      reason=reason)
 
 
-def _give_up(screening: Screening) -> Directive:
-    """No slot to offer, or none suits: the 48-hour promise, and a recruiter takes over."""
+def _give_up(screening: Screening, later: bool = False) -> Directive:
+    """No slot to offer (`later` False: no time is free), or they took none (`later`): either way they are told to
+    write again to book, and nothing is promised."""
     screening.resolve_slots()
-    return screening.close_directive()
+    directive = screening.close_directive()
+    return replace(directive, reason=LATER) if later else directive

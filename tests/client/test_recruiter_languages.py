@@ -46,13 +46,13 @@ def test_the_default_card_is_still_the_spanish_one():
 
 
 def test_a_rejection_and_a_missing_answer_read_well_in_english():
-    s = screening(license=False, schedule=None, start_date=None)
+    s = screening(license=False, start_date=None)
     s.confirm_rejection(True)
     lines = summarise(s, EN).splitlines()
     assert lines[1] == "Reason: no driver's license"
-    s2 = screening(schedule=None)
-    assert "Missing: preferred schedule, start date" not in summarise(s2, EN)  # start date was given
-    assert "Missing: preferred schedule" in summarise(s2, EN).splitlines()
+    s2 = screening(start_date=None, city=None)
+    assert "Missing: city" not in summarise(s2, EN).splitlines()  # the start date comes first in the list
+    assert "Missing: start date, city" in summarise(s2, EN).splitlines()
 
 
 def test_the_card_rebuilt_from_the_saved_state_equals_the_one_that_was_saved(tmp_path):

@@ -21,7 +21,8 @@ def test_a_qualified_candidate_is_offered_the_next_three_slots_with_the_fallback
     lines = reply.splitlines()
     assert "tu perfil encaja" in lines[0]
     assert [l for l in lines if l[:2] in ("1)", "2)", "3)")] == ["1) mar 3 nov, 10:00", "2) mié 4 nov, 09:30", "3) jue 5 nov, 16:00"]
-    assert "ninguna" in reply and "48 horas" in reply
+    assert "reserva una llamada" in lines[0].lower()
+    assert "ninguna" in reply and "reservar más adelante" in reply and "48" not in reply
     assert store.get("c1").outcome == "QUALIFIED" and booked(store) is None
 
 
@@ -31,9 +32,10 @@ def test_only_three_slots_are_offered_even_when_more_are_free(store):
     assert "4)" not in reply and "3)" in reply
 
 
-def test_with_no_free_slot_the_candidate_gets_the_48_hour_promise(store):
+def test_with_no_free_slot_the_candidate_is_told_to_write_again_and_nothing_is_promised(store):
     reply = qualify(store)
-    assert "48 horas" in reply and "1)" not in reply and booked(store) is None
+    assert "no hay horarios libres" in reply and "escríbenos más tarde" in reply
+    assert "48" not in reply and "1)" not in reply and booked(store) is None
 
 
 def test_picking_a_number_books_that_slot_and_confirms_the_time(store):
@@ -70,13 +72,13 @@ def test_an_unclear_pick_shows_the_same_list_again_and_books_nothing(store):
     assert "ninguna" in reply
 
 
-def test_declining_every_option_falls_back_to_the_48_hour_promise(store):
+def test_declining_every_option_says_to_write_again_and_the_times_come_back_when_they_do(store):
     add_slots(store)
     qualify(store)
     reply, _ = say(store, "ninguna")
-    assert "48 horas" in reply and booked(store) is None
+    assert "cuando quieras reservar tu llamada" in reply.lower() and "48" not in reply and booked(store) is None
     later, _ = say(store, "gracias")
-    assert "48 horas" in later and "1)" not in later
+    assert "1)" in later and booked(store) is None  # writing again shows the free times again
 
 
 def test_a_slot_taken_while_the_candidate_decides_gets_a_fresh_offer_not_an_error(store):
@@ -90,13 +92,13 @@ def test_a_slot_taken_while_the_candidate_decides_gets_a_fresh_offer_not_an_erro
     assert "queda reservada" in done and booked(store).slot_id == ids[1]
 
 
-def test_when_every_offered_slot_is_taken_the_candidate_gets_the_48_hour_promise(store):
+def test_when_every_offered_slot_is_taken_the_candidate_is_told_there_are_no_free_times(store):
     ids = add_slots(store)
     qualify(store)
     for slot_id in ids:
         store.book_slot(slot_id, f"other-{slot_id}", NOW_AWARE)
     reply, _ = say(store, "2")
-    assert "48 horas" in reply and booked(store) is None
+    assert "no hay horarios libres" in reply and "48" not in reply and booked(store) is None
 
 
 def test_after_booking_later_messages_repeat_the_booked_time(store):
@@ -176,20 +178,21 @@ def test_withdrawing_while_slots_are_offered_withdraws_the_candidate_and_does_no
     assert store.get("c1").outcome == "WITHDRAWN"
 
 
-def test_declining_every_slot_without_withdrawing_still_gets_the_48_hour_promise(store):
+def test_declining_every_slot_without_withdrawing_stays_qualified_and_can_book_later(store):
     add_slots(store)
     qualify(store)
     reply, _ = say(store, "ninguna me viene bien")
-    assert "48 horas" in reply and "1)" not in reply and store.get("c1").outcome == "QUALIFIED"
+    assert "cuando quieras reservar tu llamada" in reply.lower() and "1)" not in reply
+    assert store.get("c1").outcome == "QUALIFIED"
 
 
-def test_after_three_unclear_replies_the_offer_stops_and_the_48_hour_promise_applies(store):
+def test_after_three_unclear_replies_the_offer_stops_and_they_are_told_to_write_again(store):
     add_slots(store)
     qualify(store)
     for _ in range(3):
         assert "1)" in say(store, "¿qué tal?")[0]
     reply, _ = say(store, "¿qué tal?")
-    assert "48 horas" in reply and "1)" not in reply and booked(store) is None
+    assert "cuando quieras reservar tu llamada" in reply.lower() and "1)" not in reply and booked(store) is None
 
 
 def test_two_slots_at_the_same_time_are_offered_once(store):

@@ -28,7 +28,7 @@ Keep the dashboard and the chat on your own computer until the login is replaced
 The list below says *what* needs approval. A separate document with each text word for word, and sample conversations, is still to be written (the texts are in `sazon/pack.py`).
 
 1. The AI disclosure and consent question (names Sofía; Spanish and English). The consent record stores a fingerprint of the exact text shown.
-2. Every farewell and the "a recruiter will reply within 48 hours" promise, which nothing enforces yet.
+2. Every farewell, and the qualified message and the "write to us when you want to book" texts (the 48-hour promise is gone, D81).
 3. The CV upload notice and the read-back of what was taken from a CV.
 4. How long answers, transcripts, error logs and uploaded CVs may be kept. Today nothing is deleted automatically; erasure is on request from the dashboard.
 5. The two messages a candidate gets when a recruiter books or moves their call from the calendar (`scheduled`, `moved` in `sazon/pack.py`).

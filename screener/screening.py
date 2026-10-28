@@ -15,6 +15,7 @@ from screener.screening_state import STATE_FIELDS, jsonable_values
 from screener.spec import MISSING as _MISSING, ScreeningSpec
 
 MAX_FOLLOW_UPS = 5
+IMPLIED = "implied"  # in `sources`: this answer followed from another and was not asked
 MAX_OFF_TOPIC = 3  # in total, not in a row (D55)
 MAX_CITY_LENGTH = 80
 
@@ -341,7 +342,7 @@ class Screening:
             note(self.awaiting_rejection, self.confirm_rejection(ex.confirms_rejection))
         for field in self.spec.keys:
             spec = self.spec.field(field)
-            if field in self.values:  # already accepted: a different value is a change to confirm (D54)
+            if field in self.values and self.sources.get(field) != IMPLIED:  # accepted: a different value is a change (D54)
                 candidate = spec.read(ex, today, self.values[field])
                 if candidate is not _MISSING and not (self.awaiting_confirmation or self.awaiting_rejection):
                     answered = True
@@ -491,6 +492,23 @@ class Screening:
     def _validate(self, field: str, value: object, today: date) -> validators.Validation:
         return self.spec.field(field).validate(value, today)
 
+    def _imply(self) -> None:
+        """Answers that follow from others are taken without asking (full time means the whole day, so the preferred
+        schedule is flexible). One the candidate gave themselves is never touched; one taken this way is dropped, and so
+        asked, when the answer it followed changes."""
+        for key in self.spec.keys:
+            rule = self.spec.field(key).implied
+            if rule is None or (key in self.values and self.sources.get(key) != IMPLIED):
+                continue
+            value = rule(self.values)
+            if value is None:
+                if self.values.pop(key, None) is not None:
+                    self.sources.pop(key, None)
+            elif self.values.get(key) != value:
+                self.values[key] = value
+                self.sources[key] = IMPLIED
+                self.events.append((EventType.FIELD_ACCEPTED, str(key)))
+
     def _settle(self, field: str, result: validators.Validation, raw: object) -> SubmitResult:
         self.validation_flags.pop(field, None)
         if result.ok:
@@ -506,6 +524,7 @@ class Screening:
             self._previous.pop(field, None)
             self._partial.pop(field, None)
             self.events.append((EventType.FIELD_ACCEPTED, str(field)))
+            self._imply()
             return SubmitResult(Status.OK)
         asked = self._follow_ups.get(field, 0)
         if self.blocked_on == field:

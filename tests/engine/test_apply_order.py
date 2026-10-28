@@ -72,7 +72,7 @@ ROWS = {
     "several fields in one message": (
         lambda: screening(name="Juan Pérez"),
         dict(experience_years=2.0, platforms=["glovo"], availability=["full_time"]), "2 años con Glovo, tiempo completo",
-        Kind.ASK, "schedule", ()),
+        Kind.ASK, "start_date", ()),  # full time is the whole day, so the schedule is not asked (D81)
     "a person and pay with a valid answer": (
         lambda: screening(), dict(name="Juan Pérez", wants_human=True, asks_pay=True), "soy Juan Pérez, ¿cuánto pagan?",
         Kind.ASK, "experience", ("human", "pay")),

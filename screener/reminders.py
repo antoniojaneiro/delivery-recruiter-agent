@@ -4,8 +4,7 @@
     python -m <client>.reminders --every 600      # keep running, one pass every 10 minutes
 
 After 24 hours of silence a candidate gets one reminder; after 24 more hours without a reply they are marked
-STALLED. A qualified candidate who ignores the slot offer gets one reminder with the free slots, then the 48-hour
-promise. The terminal chat has nowhere to deliver a message by itself, so the texts are queued in an outbox
+STALLED. A qualified candidate who ignores the slot offer gets one reminder with the free slots, then is told to write again to book. The terminal chat has nowhere to deliver a message by itself, so the texts are queued in an outbox
 (`/inbox` in the chat shows them) for the real channel to send.
 
 It only compares the chat's own timestamps (never the dashboard's), takes `now` as a parameter, does nothing while

@@ -4,7 +4,7 @@ import hashlib
 import re
 from typing import TYPE_CHECKING
 
-from screener.directive import Directive, Kind
+from screener.directive import LATER, Directive, Kind
 from screener.extraction import clean_text
 from screener.language import fold, promises_pay_or_time
 from screener.llm import LLM, LLMError
@@ -159,6 +159,8 @@ def _strip_greeting(text: str) -> str:
 
 def _close(spec: "ScreeningSpec", directive: Directive, language: str) -> str:
     pack = spec.pack
+    if directive.outcome == Outcome.QUALIFIED and directive.reason == LATER and pack.slots is not None:
+        return pack.pick(pack.slots.later, language)  # no time was refused for lack of one: they book when they like
     if directive.repeat and NO_CONSENT not in directive.reasons:
         if directive.outcome == Outcome.WITHDRAWN:
             return pack.pick(pack.close_repeat_withdrawn, language)

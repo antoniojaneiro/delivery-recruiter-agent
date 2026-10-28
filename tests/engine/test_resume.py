@@ -206,7 +206,7 @@ def test_a_stop_while_slots_are_offered_withdraws_the_candidate_and_continuar_of
     reply, llm = say(store, "me retiro")
     assert outcome(store) == "WITHDRAWN" and "«continuar»" in reply and llm.calls == []
     back, _ = say(store, "continuar")
-    assert outcome(store) == "QUALIFIED" and "1)" in back and "48 horas" in back
+    assert outcome(store) == "QUALIFIED" and "1)" in back and "más adelante" in back
 
 
 def test_a_pending_change_question_does_not_swallow_the_answer_after_coming_back(store):

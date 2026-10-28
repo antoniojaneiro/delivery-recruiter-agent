@@ -200,7 +200,7 @@ def test_a_qualified_candidate_who_writes_again_is_told_once_more_without_the_ce
     first = talk(store, "sí tengo", {"has_license": True})
     again = talk(store, "gracias")
     assert "tu perfil encaja" in first
-    assert "tu perfil encaja" not in again and "48 horas" in again
+    assert "tu perfil encaja" not in again and "horarios libres" in again and "48" not in again
 
 
 def test_a_third_message_gets_the_same_short_note_again(store):
