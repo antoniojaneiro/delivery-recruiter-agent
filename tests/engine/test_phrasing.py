@@ -1,5 +1,7 @@
 import pytest
 
+from tests.support.tables import table
+
 from sazon.spec import SAZON
 from screener.llm import LLMError
 from screener.model import Outcome
@@ -30,7 +32,7 @@ def test_the_prompt_names_the_directive_and_language_and_holds_no_candidate_text
     assert "tú" in call["system"] and "one question" in call["system"]
 
 
-@pytest.mark.parametrize("bad", [
+@table("bad", [
     "", "   ", "x" * 400, "¿Cuál es tu nombre? ¿Y tu ciudad?", "Mira https://example.com ahora", "Ok\n\n\nlargo\n\n\ntexto",
 ])
 def test_unusable_llm_text_falls_back_to_the_template(bad):
@@ -59,7 +61,7 @@ def test_every_ask_has_a_template_in_both_languages():
 def test_the_qualified_close_is_fixed_and_never_invents_a_call_time():
     llm = FakeLLM("¡Perfecto! Te llamamos mañana a las 10.")
     out = phrase(llm, SAZON, Directive(Kind.CLOSE, outcome=Outcome.QUALIFIED), "es")
-    assert llm.calls == [] and "48" in out
+    assert llm.calls == [] and "horarios libres" in out and "48" not in out
 
 
 def test_a_disqualification_close_is_polite_and_gives_the_reason():
@@ -98,7 +100,7 @@ def test_the_options_the_candidate_can_choose_from_are_never_dropped():
         assert spec.ask["es"] in llm.calls[0]["user"]
 
 
-@pytest.mark.parametrize("wrong", ["¿Cuál es tu disponibilidad?", "¡Hola! What is your availability?"])
+@table("wrong", ["¿Cuál es tu disponibilidad?", "¡Hola! What is your availability?"])
 def test_an_english_chat_never_gets_a_reply_with_spanish_punctuation(wrong):
     out = phrase(FakeLLM(wrong), SAZON, Directive(Kind.ASK, field=Field.AVAILABILITY), "en")
     assert out != wrong and "¿" not in out and "¡" not in out and "availability" in out.lower()
@@ -109,7 +111,7 @@ def test_a_spanish_chat_keeps_its_spanish_punctuation():
     assert out == "¿Cuál es tu disponibilidad?"  # the greeting goes; the Spanish punctuation stays
 
 
-@pytest.mark.parametrize("outcome", list(__import__("screener.model", fromlist=["Outcome"]).Outcome))
+@table("outcome", list(__import__("screener.model", fromlist=["Outcome"]).Outcome))
 def test_every_outcome_has_a_polite_close_so_none_can_crash_the_chat(outcome):
     out = phrase(FakeLLM(), SAZON, Directive(Kind.CLOSE, outcome=outcome, reasons=["NO_CONSENT"]), "es")
     assert out and "\n" not in out

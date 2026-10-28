@@ -60,7 +60,7 @@ All settled design and tech choices are logged in [docs/DECISIONS.md](docs/DECIS
 ## Conventions
 
 - Use the `tdd` skill for building features and fixing bugs: write a failing test first.
-- Use `python-testing-patterns` for pytest structure.
+- Use `python-testing-patterns` for pytest structure. A table of inputs and expected outputs for a pure function is one test written with `tests/support/tables.table` (D85); use plain `parametrize` only when each row needs a fresh fixture.
 - Validation rules and the qualified/disqualified decision are pure functions with unit tests. The LLM only extracts and converses.
 - Keep the conversation state, the extracted JSON and the summary as separate outputs.
 - Messages are chat messages, not emails: short, one question at a time.

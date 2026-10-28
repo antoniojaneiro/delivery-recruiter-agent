@@ -3,6 +3,8 @@ from datetime import date, datetime
 
 import pytest
 
+from tests.support.tables import table
+
 from tests.support.clients import client_for
 from sazon.spec import SAZON
 from screener import session
@@ -86,9 +88,9 @@ def test_a_blocked_candidate_says_what_has_not_been_provided():
 
 
 def test_a_half_finished_chat_lists_what_is_missing_in_order():
-    card = summarise(screening(schedule=None, city=None))
+    card = summarise(screening(start_date=None, city=None))  # (a full-time candidate is never missing the schedule, D81)
     assert card.splitlines()[0].endswith("En curso")
-    assert "Falta: horario preferido, ciudad" in card
+    assert "Falta: fecha de inicio, ciudad" in card
 
 
 def test_a_start_date_beyond_12_weeks_is_flagged():
@@ -111,7 +113,7 @@ def test_clarifications_asked_are_counted():
     assert "2 aclaraciones" in summarise(s)
 
 
-@pytest.mark.parametrize("prepare,label", [
+@table("prepare,label", [
     (lambda s: s.withdraw(), "Se retiró"),
     (lambda s: (s.off_topic(), s.off_topic(), s.off_topic()), "Terminó fuera de tema"),
     (lambda s: (s.send_reminder(), s.mark_stalled()), "Sin respuesta"),

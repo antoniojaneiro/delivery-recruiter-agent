@@ -6,7 +6,8 @@ from sazon import ui
 from sazon.ui import t
 from screener.model import Outcome, RecruiterStatus
 from screener.recruiter_rules import TO_CONTACT
-from screener.recruiter_view import OUTCOME_COLOR, PAGE_SIZE, STATUS_COLOR, escape_markdown, filter_records, page_of
+from screener.recruiter_view import (OUTCOME_COLOR, PAGE_SIZE, STATUS_COLOR, escape_markdown, filter_records, page_of,
+                                     table_height)
 from sazon.client import SAZON_CLIENT
 
 store = ui.store()
@@ -19,6 +20,7 @@ if "erase_message" in st.session_state:
     (st.success if kind == "success" else st.error)(t(key))
 
 records = ui.candidates()
+ui.watch_for_changes()
 if not records:
     st.info(t("cand.empty"))
     st.stop()
@@ -32,9 +34,9 @@ with st.container(horizontal=True):
     st.metric(t("kpi.stalled"), numbers["stalled"], border=True)
 
 with st.container(horizontal=True, vertical_alignment="bottom"):
-    outcomes = st.multiselect(t("filter.outcome"), [o.value for o in Outcome], key="f_outcome",
+    outcomes = st.multiselect(t("filter.outcome"), [o.value for o in Outcome], key="f_outcome", placeholder=t("filter.choose"),
                               format_func=lambda value: view.outcome_label(value))
-    statuses = st.multiselect(t("filter.status"), [s.value for s in RecruiterStatus], key="f_status",
+    statuses = st.multiselect(t("filter.status"), [s.value for s in RecruiterStatus], key="f_status", placeholder=t("filter.choose"),
                               format_func=lambda value: view.status_label(value))
     search = st.text_input(t("filter.search"), key="f_search")
     review_only = st.checkbox(t("filter.review"), key="f_review")
@@ -44,47 +46,53 @@ if not shown:
     st.info(t("cand.none_match"))
     st.stop()
 
-list_side, detail_side = st.columns([5, 4], gap="medium")
 
-with list_side:
-    page = st.number_input(t("cand.page"), min_value=1, step=1, value=1, key="page") if len(shown) > PAGE_SIZE else 1
-    on_page, pages, page = page_of(shown, page)
-    columns = {title: st.column_config.MultiselectColumn(title, options=options, color=colors)
-               for title, (options, colors) in view.badge_columns().items()}
-    picked = st.dataframe(view.badge_rows(view.table_rows(on_page)), hide_index=True, width="stretch",
-                          column_config=columns, on_select="rerun", selection_mode="single-row",
-                          key="candidate_table", alt=t("cand.title"))
-    if pages > 1:
-        first = (page - 1) * PAGE_SIZE + 1
-        st.caption(t("cand.showing", first=first, last=first + len(on_page) - 1, total=len(shown), page=page,
-                     pages=pages))
+page = st.number_input(t("cand.page"), min_value=1, step=1, value=1, key="page",
+                       width=160) if len(shown) > PAGE_SIZE else 1
+on_page, pages, page = page_of(shown, page)
+columns = {title: st.column_config.MultiselectColumn(title, options=options, color=colors)
+           for title, (options, colors) in view.badge_columns().items()}
+picked = st.dataframe(view.badge_rows(view.table_rows(on_page)), hide_index=True, width="stretch",
+                      height=table_height(len(on_page)),  # as tall as its rows up to a limit, then it scrolls inside
+                      column_config=columns, on_select="rerun", selection_mode="single-row",
+                      key="candidate_table", alt=t("cand.title"))
+if pages > 1:
+    first = (page - 1) * PAGE_SIZE + 1
+    st.caption(t("cand.showing", first=first, last=first + len(on_page) - 1, total=len(shown), page=page,
+                 pages=pages))
 
-    by_id = {r.candidate_id: r for r in shown}
-    clicked_rows = tuple(picked.selection.rows)
-    if clicked_rows != st.session_state.get("_table_rows", ()):  # only a new click on the table chooses a candidate
-        st.session_state["_table_rows"] = clicked_rows
-        if clicked_rows and clicked_rows[0] < len(on_page):
-            st.session_state["candidate"] = on_page[clicked_rows[0]].candidate_id
-    if st.session_state.get("candidate") not in by_id:
-        if st.session_state.get("candidate"):
-            st.warning(t("cand.gone"))
-        st.session_state["candidate"] = None
-    selected_id = st.selectbox(
-        t("cand.view"), list(by_id), index=None, placeholder=t("cand.pick"), key="candidate",
-        bind="query-params",
-        format_func=lambda cid: f"{view.name_of(by_id[cid])} · {by_id[cid].extracted.get(SAZON_CLIENT.spec.area_field, '')} ({cid})")
+by_id = {r.candidate_id: r for r in shown}
+clicked_rows = tuple(picked.selection.rows)
+if clicked_rows != st.session_state.get("_table_rows", ()):  # only a new click on the table chooses a candidate
+    st.session_state["_table_rows"] = clicked_rows
+    if clicked_rows and clicked_rows[0] < len(on_page):
+        st.session_state["candidate"] = on_page[clicked_rows[0]].candidate_id
+if st.session_state.get("candidate") not in by_id:
+    if st.session_state.get("candidate"):
+        st.warning(t("cand.gone"))
+    st.session_state["candidate"] = None
+pickable = [r.candidate_id for r in on_page]  # this page only: the browser is not sent every candidate each time
+for named in (st.session_state.get("candidate"), st.query_params.get("candidate")):
+    if named in by_id and named not in pickable:
+        pickable.append(named)  # one named by a link or chosen on an earlier page stays selected
+selected_id = st.selectbox(
+    t("cand.view"), pickable, index=None, placeholder=t("cand.pick"), key="candidate",
+    bind="query-params",
+    format_func=lambda cid: f"{view.name_of(by_id[cid])} · {by_id[cid].extracted.get(SAZON_CLIENT.spec.area_field, '')} ({cid})")
 
-with detail_side:
-    if selected_id is None:
-        st.info(t("detail.pick_hint"))
-        st.stop()
-    record = by_id[selected_id]
+if selected_id is None:
+    st.caption(t("detail.pick_hint"))
+    st.stop()
+record = by_id[selected_id]
+st.subheader(escape_markdown(view.name_of(record)))
+with st.container(horizontal=True):
+    if record.outcome:
+        st.badge(view.outcome_label(record.outcome), color=OUTCOME_COLOR[record.outcome])
+    st.badge(view.status_label(record.status), color=STATUS_COLOR[record.status])
+info_side, manage_side = st.columns(2, gap="medium")
+
+with info_side:
     with st.container(border=True):
-        st.subheader(escape_markdown(view.name_of(record)))
-        with st.container(horizontal=True):
-            if record.outcome:
-                st.badge(view.outcome_label(record.outcome), color=OUTCOME_COLOR[record.outcome])
-            st.badge(view.status_label(record.status), color=STATUS_COLOR[record.status])
         st.markdown(f"**{t('detail.summary')}**")
         st.text(view.card(record) or t("detail.no_summary"))
         with st.expander(t("detail.json")):
@@ -103,6 +111,7 @@ with detail_side:
             hint = t("detail.qualified_hint") if TO_CONTACT.matches(record) else ""
             st.caption(t("detail.no_call") + hint)
 
+with manage_side:
     with st.container(border=True):
         st.markdown(f"**{t('detail.manage')}**")
         if not recruiter:
@@ -158,16 +167,16 @@ with detail_side:
         st.checkbox(t("erase.confirm"), key="confirm_erase")
         st.button(t("erase.button"), key="erase_candidate", on_click=erase_selected)
 
-    conversation, audit = st.tabs([t("tab.conversation"), t("tab.audit")])
-    with conversation:
-        messages = store.messages(selected_id)
-        if not messages:
-            st.caption(t("detail.no_messages"))
-        for message in messages:
-            with st.chat_message("assistant" if message.role == "agent" else "user"):
-                st.text(message.text)  # candidate-written text is never rendered as Markdown or HTML
-    with audit:
-        st.dataframe(
-            [{t("audit.when"): e.at.strftime("%Y-%m-%d %H:%M"), t("audit.type"): e.type, t("audit.detail"): e.detail,
-              t("audit.actor"): e.actor} for e in store.events(selected_id)],
-            hide_index=True, width="stretch", alt=t("tab.audit"))
+conversation, audit = st.tabs([t("tab.conversation"), t("tab.audit")])
+with conversation:
+    messages = store.messages(selected_id)
+    if not messages:
+        st.caption(t("detail.no_messages"))
+    for message in messages:
+        with st.chat_message("assistant" if message.role == "agent" else "user"):
+            st.text(message.text)  # candidate-written text is never rendered as Markdown or HTML
+with audit:
+    st.dataframe(
+        [{t("audit.when"): e.at.strftime("%Y-%m-%d %H:%M"), t("audit.type"): e.type, t("audit.detail"): e.detail,
+          t("audit.actor"): e.actor} for e in store.events(selected_id)],
+        hide_index=True, width="stretch", alt=t("tab.audit"))

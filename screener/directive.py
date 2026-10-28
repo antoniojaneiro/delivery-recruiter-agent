@@ -25,6 +25,9 @@ class Kind(StrEnum):
     CV_READ = "cv_read"  # what was taken from the CV, listed in `options`
 
 
+LATER = "later"  # a close for a qualified candidate who has free times to choose from but did not book
+
+
 @dataclass(frozen=True)
 class Directive:
     kind: Kind

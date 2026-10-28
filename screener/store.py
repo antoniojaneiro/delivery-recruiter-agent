@@ -9,11 +9,17 @@ from pathlib import Path
 from screener.model import RecruiterStatus
 from screener.recruiter_rules import AGENT_CLOSED, BLOCKED, NEEDS_REVIEW, STALLED, TO_CONTACT
 from screener.store_schema import prepare
+from screener.store_availability import AvailabilityMixin
+from screener.store_recruiters import RecruitersMixin
+from screener.store_service import ServiceMixin
 from screener.store_slots import SlotsMixin
 from screener.store_types import (AGENT, NO_CHECK, AdminEntry, Booking, ConflictError, CvFile, Event, InputError, Message,  # noqa: F401
                                Note, OutboxEntry, Record, RecruiterRecord, Slot, parse_stamp, stamp)  # noqa: F401
 
 BUSY_TIMEOUT_SECONDS = 10
+# A candidate has reached a recruiter step if they ever had that status or a later one (history, not today's status).
+_REACHED_BY = {"contacted": ("contacted", "interview_scheduled", "hired"),
+               "interview_scheduled": ("interview_scheduled", "hired"), "hired": ("hired",)}
 
 _CANDIDATE_COLUMNS = ("c.candidate_id, c.state, c.extracted, c.summary, c.outcome, c.reasons, c.flags, "
                       "c.updated_at, COALESCE(r.status, 'new'), r.assignee, "
@@ -22,7 +28,7 @@ _CANDIDATE_JOINS = ("FROM candidates c LEFT JOIN recruiter r ON r.candidate_id =
                     "LEFT JOIN slots s ON s.candidate_id = c.candidate_id AND s.cancelled_at IS NULL")
 
 
-class Store(SlotsMixin):
+class Store(SlotsMixin, ServiceMixin, RecruitersMixin, AvailabilityMixin):
     def __init__(self, path: Path | str, calendar=None):
         self._path = str(path)
         self.calendar = calendar
@@ -97,7 +103,7 @@ class Store(SlotsMixin):
         with self._connect() as db:
             db.execute("PRAGMA secure_delete = ON")
             existed = db.execute("SELECT 1 FROM candidates WHERE candidate_id = ?", (candidate_id,)).fetchone()
-            for table in ("candidates", "events", "messages", "notes", "recruiter", "outbox", "cvs"):
+            for table in ("candidates", "events", "messages", "notes", "recruiter", "outbox", "cvs", "tokens", "replies"):
                 db.execute(f"DELETE FROM {table} WHERE candidate_id = ?", (candidate_id,))
             db.execute("UPDATE slots SET candidate_id = NULL, booked_at = NULL WHERE candidate_id = ?", (candidate_id,))
             if existed:
@@ -277,8 +283,12 @@ class Store(SlotsMixin):
             stopped = {k: n for k, n in db.execute(
                 f"SELECT {stop}, COUNT(*) FROM candidates c "
                 "WHERE c.outcome IN ('IN_PROGRESS', 'STALLED', 'BLOCKED') GROUP BY 1", args) if k is not None}
+            ever = {step: db.execute(
+                "SELECT COUNT(DISTINCT candidate_id) FROM events WHERE type = 'recruiter_status' AND detail IN ("
+                + ", ".join("?" for _ in later) + ")", later).fetchone()[0]
+                for step, later in _REACHED_BY.items()}
         total, consented, qualified, booked, closed_by_agent, *answered = head
-        return {"total": total, "consented": consented, "qualified": qualified, "booked": booked,
+        return {"recruiter_reached": ever, "total": total, "consented": consented, "qualified": qualified, "booked": booked,
                 "closed_by_agent": closed_by_agent, "outcomes": outcomes, "reasons": reasons,
                 "answered": dict(zip(keys, answered)), "stopped": stopped}
 

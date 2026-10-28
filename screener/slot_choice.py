@@ -1,6 +1,6 @@
 """Reads the candidate's pick from the numbered slot list in plain code (D48). Picking books a real
 call, so a pick must be unambiguous: one valid option number and nothing else we do not recognise.
-Declining is safe (it falls back to the 48-hour promise), so it is read more generously."""
+Declining is safe (they can write again to book later), so it is read more generously."""
 from screener.language import plain
 
 

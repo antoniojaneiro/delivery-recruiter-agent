@@ -119,6 +119,8 @@ SLOTS = SlotTexts(
     offer_end=say("Reply with the number, or 'none'."),
     booked=say("Booked: {label}."), already_booked=say("Already booked: {label}."),
     cancelled=say("Your call was cancelled."),
+    scheduled=say("A recruiter booked your call: {label}."), moved=say("Your call moved to {label}."),
+    later=say("Write to us when you want to book."),
 )
 _TOWN = FieldSpec("town", ask=say("Which town do you live in?"), what=say("your town"), label=say("town"),
                   read=read_attribute("town"), schema={"town": (str | None, None)},

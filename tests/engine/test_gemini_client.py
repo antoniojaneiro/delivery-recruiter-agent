@@ -4,6 +4,8 @@ import httpx
 import openai
 import pytest
 
+from tests.support.tables import table
+
 from screener.llm import LLMError
 from screener.gemini import GeminiClient, from_env
 
@@ -41,7 +43,7 @@ def test_json_mode_requests_a_json_object():
     assert sdk.calls[0]["response_format"] == {"type": "json_object"}
 
 
-@pytest.mark.parametrize("error", [
+@table("error", [
     openai.APIConnectionError(request=httpx.Request("POST", "http://x")),
     openai.APITimeoutError(request=httpx.Request("POST", "http://x")),
     openai.RateLimitError("429", response=httpx.Response(429, request=httpx.Request("POST", "http://x")), body=None),
@@ -52,7 +54,7 @@ def test_sdk_failures_become_llm_errors(error):
         client(FakeSDK(error=error)).complete("s", "u")
 
 
-@pytest.mark.parametrize("content", [None, ""])
+@table("content", [None, ""])
 def test_an_empty_answer_is_an_llm_error(content):
     with pytest.raises(LLMError):
         client(FakeSDK(content=content)).complete("s", "u")

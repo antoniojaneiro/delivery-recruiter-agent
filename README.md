@@ -13,14 +13,14 @@ Design: [docs/PHASE1_PROCESS_DESIGN.md](docs/PHASE1_PROCESS_DESIGN.md). Decision
 Python **3.12 or newer** and a Gemini API key (free tier, from Google AI Studio).
 
 ```
-python -m pip install -e ".[dev]"
+python -m pip install -e ".[dev]"          # ".[service]" is enough to run only the HTTP service
 copy .env.example .env                 # Windows (cp on macOS/Linux); add your GEMINI_API_KEY; never commit .env
 
 python -m sazon.chat                   # terminal chat: /new, /resume <id>, /cv <pdf path>, /state, /inbox, /wait24h, /help, /quit
 streamlit run apps/chat_app.py         # the chat in the browser (saves to data/demo/chat.db; the sidebar switch "Save to the recruiters' dashboard" sends new candidates to the real database)
-streamlit run apps/dashboard.py        # recruiter dashboard, local only; the login page has a tab to create an account (anyone who can open it can: keep it local)
-python -m sazon.accounts add Ana       # (optional) create a recruiter account from the terminal
-python demo_launch.py                  # the chat (port 8501) and the dashboard (port 8502) together; Ctrl+C stops both
+streamlit run apps/dashboard.py        # recruiter dashboard, local only; sign in with email and password; the hiring manager (HIRING_MANAGER_EMAIL and HIRING_MANAGER_PASSWORD in .env) creates the recruiters on the Recruiters page
+python demo_launch.py                  # the chat (port 8501) and the dashboard (port 8502) together, each with a button to the other; Ctrl+C stops both
+python -m sazon.server                 # the HTTP service for a real channel (needs SAZON_API_KEY in .env; port 8000); see docs for the calls
 python -m sazon.reminders --every 600  # the 24-hour reminder job (queues messages for a real channel; see /inbox)
 python -m sazon.demo --list            # fictional conversations played on the real agent
 python -m sazon.demo --only happy_es   # transcripts go to data/demo/transcripts.md
@@ -29,7 +29,8 @@ python -m sazon.demo --only happy_es   # transcripts go to data/demo/transcripts
 Tests:
 
 ```
-python -m pytest -q -n 4               # about 1100 offline tests, no network
+python -m pytest -q -n 4               # about 1000 offline tests (tables of cases run as one test), no network
+python -m pytest -m load -q -s         # a busy day against a real server: 200 candidates, a slow fake model, about 11 minutes
 python -m pytest -m live -q            # real-model checks; needs the key; fictional data; mind the free tier's limits
 python -m sazon.chat --list-models     # if the default model name returns 404 (override with LLM_MODEL in .env)
 ```
@@ -40,19 +41,20 @@ The recruiters' database is `data/sazon.db` and the error log `data/sazon.log` (
 
 ```
 screener/        the engine: screening rules (screening.py, directive.py), the save cycle (conversation.py), wording
-                 (phrasing.py, language.py), storage (store*.py), recruiter rules and view, reminders, summary, funnel.
+                 (phrasing.py, language.py), storage (store*.py), the HTTP service (service.py), recruiter rules and view, reminders,
+                 summary, funnel.
                  Knows no company.
 sazon/           Grupo Sazón as a client of the engine
   spec.py          its fields, validators, rules, persona and recruiter texts
   pack.py          its fixed texts, Spanish and English
   ui_pack.py       every word of the dashboard and chat app, Spanish and English
   client.py        service areas, call calendar, reminder clock
-  chat.py, reminders.py, accounts.py     the commands above
+  chat.py, server.py, reminders.py, accounts.py     the commands above
   demo/            scenarios.py (the fictional conversations) and runner.py
 demo_launch.py   starts the chat and the dashboard together
 apps/            the Streamlit apps: dashboard.py, chat_app.py and views/ (the dashboard's pages)
-docs/            the Phase 1 design, the decision log, the assignment
-tests/           engine/ (rules, store, jobs), client/ (Sazón texts, checks and golden snapshot),
+docs/            the Phase 1 design, the decision log, the assignment, the task checklist, the hand-over list
+tests/           engine/ (rules, store, jobs, service), load/ (a busy day on a real server), client/ (Sazón texts, checks and golden snapshot),
                  apps/ (dashboard and chat app), live/ (real model), support/ (fakes, a second client, helpers)
 data/            runtime files, git-ignored: sazon.db, sazon.log, demo/ (chat.db, transcripts.md, old_runs/)
 .claude/         the skills this repo's workflow uses; see CLAUDE.md

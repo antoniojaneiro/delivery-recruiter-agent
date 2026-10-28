@@ -88,14 +88,14 @@ def run():
     return at
 
 
-def test_the_table_shows_one_page_and_says_how_many_there_are(db):
+def test_the_table_and_the_pick_list_hold_one_page_and_say_how_many_there_are(db):
     for n in range(120):
         add(db, f"c{n:03d}", n)
     at = run()
-    assert len(at.dataframe[0].value) == recruiter_view.PAGE_SIZE
+    assert len(at.dataframe[0].value) == recruiter_view.PAGE_SIZE and len(at.selectbox(key="candidate").options) == recruiter_view.PAGE_SIZE
     assert any("1–50 de 120" in str(c.value) for c in at.caption)
     at.number_input(key="page").set_value(3).run()
-    assert len(at.dataframe[0].value) == 20
+    assert len(at.dataframe[0].value) == 20 and len(at.selectbox(key="candidate").options) == 20
     assert any("101–120 de 120" in str(c.value) for c in at.caption)
 
 
@@ -116,3 +116,15 @@ def test_the_candidate_list_is_not_read_again_when_nothing_changed_but_is_when_i
     add(db, "c2", 5)
     at.run()
     assert len(calls) > first and len(at.dataframe[0].value) == 2   # a change shows up
+
+
+def test_a_candidate_from_another_page_stays_pickable_when_a_link_names_it(db):
+    for n in range(120):
+        add(db, f"c{n:03d}", n)
+    at = AppTest.from_file(APP, default_timeout=20)
+    at.query_params["candidate"] = "c010"  # the newest first, so c010 is on the third page
+    at.run()
+    login(at)
+    assert not at.exception, at.exception
+    options = at.selectbox(key="candidate").options  # (AppTest does not pre-select from the URL, so only the list)
+    assert len(options) == recruiter_view.PAGE_SIZE + 1 and "(c010)" in options[-1]

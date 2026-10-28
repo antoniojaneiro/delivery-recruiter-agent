@@ -207,6 +207,7 @@ SAZON = ScreeningSpec(
                   label=bi("horario preferido", "preferred schedule"), not_provided=bi("su horario preferido", "their preferred schedule"),
                   validate=lambda value, today: checks.validate_schedule(value),
                   read=read_attribute("schedule"), describe=_describe_schedule,
+                  implied=lambda values: "flexible" if "full_time" in (values.get("availability") or []) else None,  # the whole day
                   card=lambda value, language: _CARD_LABEL["schedule"][language] + _CARD_SCHEDULE[language][value],
                   schema={"schedule": (Literal["morning", "afternoon", "evening", "flexible"] | None, None)},
                   prompt='- schedule: one of "morning", "afternoon", "evening", "flexible"'),

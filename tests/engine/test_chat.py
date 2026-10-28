@@ -3,6 +3,8 @@ from datetime import datetime
 
 import pytest
 
+from tests.support.tables import table
+
 from tests.support.clients import client_for
 from sazon.spec import SAZON
 from screener import chat
@@ -200,7 +202,7 @@ def test_the_cv_command_uploads_a_pdf_for_the_active_candidate(store, tmp_path):
     assert any("He leído tu CV" in line for line in out)
 
 
-@pytest.mark.parametrize("argument", ["", "   ", "no-such-file.pdf"])
+@table("argument", ["", "   ", "no-such-file.pdf"])
 def test_the_cv_command_with_nothing_to_read_says_so_and_changes_nothing(store, argument):
     out = run(store, ["sí", f"/cv {argument}".rstrip()], ScriptedLLM([{"consent": True}]))
     assert any("[cv]" in line for line in out) and store.cv(store.list_candidates()[0].candidate_id) is None

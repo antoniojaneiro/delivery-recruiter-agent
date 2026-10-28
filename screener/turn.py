@@ -11,6 +11,7 @@ from screener.consent import ConsentReading, is_stop_request, read_consent
 from screener.cv import CvProblem, extract_cv, read_pdf
 from screener.extraction import ControlFlags, extract
 from screener.llm import LLM, LLMError
+from screener.model import Outcome
 from screener.directive import Directive, Kind
 from screener.phrasing import closed_message, consent_message, fixed, phrase, technical_error_message
 from screener.screening import ExtractionContext, Screening
@@ -57,6 +58,25 @@ def handle_message(llm: LLM, store, client: Client, candidate_id: str, message: 
         return conversation.run(store, client, candidate_id, now,
                                 lambda screening: _handle(llm, store, client, candidate_id, message, now, screening),
                                 on_conflict=RETRY_ONCE)
+    except ConflictError:
+        return technical_error_message(client.spec, session.load(store, candidate_id, client).language)
+
+
+def handle_slot(store, client: Client, candidate_id: str, slot_id: int, now: datetime) -> str:
+    """A time chosen in the picker. Only a candidate the agent qualified can choose; for anyone else nothing happens
+    and nothing is said. The answer is the one typing a number would have given."""
+    if not store.accepting_applications() or store.get(candidate_id) is None:
+        return ""
+
+    def work(screening: Screening) -> Turn:
+        if screening.decide().outcome != Outcome.QUALIFIED or screening.spec.pack.slots is None:
+            return Turn("", save=False)
+        chosen, directive = slot_flow.pick_slot(store, client, screening, candidate_id, slot_id, now)
+        reply = fixed(client.spec, directive, screening.language)
+        return Turn(reply, messages=[("candidate", chosen), ("agent", reply)])
+
+    try:
+        return conversation.run(store, client, candidate_id, now, work, on_conflict=RETRY_ONCE)
     except ConflictError:
         return technical_error_message(client.spec, session.load(store, candidate_id, client).language)
 

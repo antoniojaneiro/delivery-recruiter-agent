@@ -12,6 +12,11 @@ class SlotCalendar:
     country_of: dict[str, str]  # service area -> country code
     min_notice: timedelta = timedelta(hours=2)
     offer_size: int = 3  # how many free times a qualified candidate is offered
+    call_minutes: int = 15  # one call; a recruiter takes one at a time
+    horizon_days: int = 28  # how far ahead candidates can book
+    default_days: tuple[int, ...] = (0, 1, 2, 3, 4)  # a recruiter who never changed their week works these weekdays...
+    default_start: int = 9 * 60  # ...from this minute of the day...
+    default_end: int = 17 * 60  # ...to this one, in their country's clock
 
     def zone(self, country: str) -> ZoneInfo:
         return ZoneInfo(self.timezones[country])

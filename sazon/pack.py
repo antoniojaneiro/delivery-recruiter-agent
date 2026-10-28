@@ -9,8 +9,8 @@ def bi(es: str, en: str) -> Text:
 
 SLOTS = SlotTexts(
     offer={
-        "first": bi("¡Genial, tu perfil encaja! Elige una hora para una llamada corta con el equipo:",
-                    "Great, your profile fits! Pick a time for a short call with the team:"),
+        "first": bi("¡Genial, tu perfil encaja! Reserva una llamada para hablar con un reclutador:",
+                    "Great, your profile fits! Book a call to talk with a recruiter:"),
         "taken": bi("Ese horario ya no está libre. Estas son las opciones disponibles:",
                     "That time is no longer free. These are the options available:"),
         "unclear": bi("No me quedó claro. Elige una opción:", "I didn't quite get that. Pick an option:"),
@@ -18,14 +18,20 @@ SLOTS = SlotTexts(
                        "A reminder of the times available for your call:"),
     },
     offer_end=bi(
-        "Responde con el número. Si ninguna te viene bien, responde 'ninguna' y un reclutador te escribirá en un máximo de 48 horas.",
-        "Reply with the number. If none suits you, reply 'none' and a recruiter will message you within 48 hours."),
+        "Responde con el número. Si ninguna te viene bien, responde 'ninguna' y podrás reservar más adelante escribiéndonos otra vez.",
+        "Reply with the number. If none suits you, reply 'none' and you can book later by writing to us again."),
     booked=bi("Listo, queda reservada tu llamada: {label}. Un reclutador te llamará a esa hora.",
               "Done, your call is booked: {label}. A recruiter will call you then."),
     already_booked=bi("Tu llamada ya está reservada: {label}. Si hay algún cambio, un reclutador te escribirá.",
                       "Your call is already booked: {label}. If anything changes, a recruiter will message you."),
-    cancelled=bi("La llamada que tenías reservada ya no está disponible. Un reclutador te escribirá para darte otra hora.",
-                 "The call you had booked is no longer available. A recruiter will write to you with another time."),
+    cancelled=bi("La llamada que tenías reservada ya no está disponible.",
+                 "The call you had booked is no longer available."),
+    scheduled=bi("Un reclutador ha reservado tu llamada: {label}. Te llamará a esa hora.",
+                 "A recruiter has booked your call: {label}. They will call you then."),
+    moved=bi("Un reclutador ha cambiado tu llamada: ahora es {label}. Te llamará a esa hora.",
+             "A recruiter has changed your call: it is now {label}. They will call you then."),
+    later=bi("Tu perfil encaja. Cuando quieras reservar tu llamada, escríbenos y te muestro los horarios libres.",
+             "Your profile fits. Whenever you want to book your call, write to us and I'll show you the free times."),
 )
 
 CV = CvTexts(
@@ -70,8 +76,8 @@ PACK = Pack(
                "I can't continue with your application until you tell me {what}."),
     close={
         Outcome.QUALIFIED: bi(
-            "¡Genial, tu perfil encaja! Un reclutador te escribirá en un máximo de 48 horas para el siguiente paso.",
-            "Great, your profile fits! A recruiter will message you within 48 hours with the next step."),
+            "¡Genial, tu perfil encaja! Ahora mismo no hay horarios libres para tu llamada: escríbenos más tarde y podrás reservarla.",
+            "Great, your profile fits! There are no free times for your call right now: write to us later and you can book it."),
         Outcome.ENDED_OFF_TOPIC: bi(
             "Has enviado varios mensajes ajenos a la solicitud y en Grupo Sazón pedimos un trato profesional, "
             "así que termino la conversación. Un reclutador puede revisarlo.",
@@ -89,8 +95,8 @@ PACK = Pack(
         "Without your permission to save your answers I can't continue. If you change your mind, write «yes» and we'll start."),
     close_repeat={
         Outcome.QUALIFIED: bi(
-            "Ya tenemos todo lo que necesitamos: un reclutador te escribirá en un máximo de 48 horas.",
-            "We already have everything we need: a recruiter will message you within 48 hours."),
+            "Tu perfil ya encaja. Ahora mismo no hay horarios libres: escríbenos más tarde para reservar tu llamada.",
+            "Your profile already fits. There are no free times right now: write to us later to book your call."),
     },
     close_repeat_withdrawn=bi("Has dejado la solicitud. Si quieres retomarla, escribe «continuar».",
                               "You have left the application. If you want to pick it up, write «continue»."),

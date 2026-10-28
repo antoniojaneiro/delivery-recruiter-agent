@@ -4,6 +4,8 @@ from datetime import date, datetime
 
 import pytest
 
+from tests.support.tables import table
+
 from sazon.client import SAZON_CLIENT
 from screener import turn
 from sazon import config
@@ -49,7 +51,7 @@ def test_a_different_valid_value_for_an_accepted_field_is_asked_about_not_applie
     assert text_of(directive) == "Antes me dijiste Juan Pérez. ¿Lo cambio a Carlos López?"
 
 
-@pytest.mark.parametrize("field,payload", [
+@table("field,payload", [
     ("name", {"name": "juan  pérez"}), ("name", {"name": "JUAN PEREZ"}),
     ("availability", {"availability": ["full_time"]}), ("schedule", {"schedule": "morning"}),
     ("experience", {"experience_years": 2}), ("experience", {"experience_years": 2.0, "platforms": ["glovo"]}),

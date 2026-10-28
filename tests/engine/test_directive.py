@@ -21,7 +21,8 @@ def test_deciding_does_not_depend_on_the_wording_module():
     from pathlib import Path
     root = Path(__file__).resolve().parents[2] / "screener"
     for name in ("screening.py", "screening_precedence.py", "slot_flow.py", "directive.py"):
-        wording_helpers = {"consent_text_hash", "cv_notice_hash", "describe_value", "slot_label", "slot_cancelled_message"}  # texts, not decisions
+        wording_helpers = {"consent_text_hash", "cv_notice_hash", "describe_value", "slot_label", "slot_cancelled_message",
+                           "slot_scheduled_message", "fixed"}  # texts, not decisions
         for node in ast.walk(ast.parse((root / name).read_text(encoding="utf-8"))):
             if isinstance(node, ast.ImportFrom) and node.module == "screener.phrasing":
                 assert {a.name for a in node.names} <= wording_helpers, (name, [a.name for a in node.names])

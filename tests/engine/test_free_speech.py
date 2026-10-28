@@ -3,6 +3,8 @@ Only what must be exact stays fixed: the disclosure, the closing messages, the c
 about a person and about pay. Every model message is checked before it is sent, and a fixed text is the fallback."""
 import pytest
 
+from tests.support.tables import table
+
 from sazon.fields import Field
 from sazon.spec import SAZON
 from screener.llm import NO_MODEL
@@ -67,7 +69,7 @@ def test_a_model_message_that_promises_pay_or_a_time_is_never_sent():
 
 # --- what stays fixed ------------------------------------------------------------------------------------------
 
-@pytest.mark.parametrize("directive", [
+@table("directive", [
     Directive(Kind.CLOSE, outcome=Outcome.QUALIFIED), Directive(Kind.REMINDER), Directive(Kind.TECHNICAL_ERROR),
     Directive(Kind.OFFER_SLOTS, reason="first", options=["a"]), Directive(Kind.SLOT_BOOKED, label="x"),
     Directive(Kind.ALREADY_BOOKED, label="x")])

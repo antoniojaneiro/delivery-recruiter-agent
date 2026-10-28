@@ -4,7 +4,7 @@ import hashlib
 import re
 from typing import TYPE_CHECKING
 
-from screener.directive import Directive, Kind
+from screener.directive import LATER, Directive, Kind
 from screener.extraction import clean_text
 from screener.language import fold, promises_pay_or_time
 from screener.llm import LLM, LLMError
@@ -85,6 +85,12 @@ def slot_cancelled_message(spec: "ScreeningSpec", language: str) -> str:
     return spec.pack.pick(spec.pack.slots.cancelled, language)
 
 
+def slot_scheduled_message(spec: "ScreeningSpec", language: str, label: str, moved: bool) -> str:
+    """Said when a recruiter books (or moves) the candidate's call from the calendar: a fixed text, in the chat's language."""
+    texts = spec.pack.slots.moved if moved else spec.pack.slots.scheduled
+    return spec.pack.pick(texts, language).format(label=label)
+
+
 def echo(text) -> str:
     """A saved or proposed answer repeated back to the candidate: one line, short."""
     return " ".join(str(text).split())[:MAX_ECHO_CHARS]
@@ -153,6 +159,8 @@ def _strip_greeting(text: str) -> str:
 
 def _close(spec: "ScreeningSpec", directive: Directive, language: str) -> str:
     pack = spec.pack
+    if directive.outcome == Outcome.QUALIFIED and directive.reason == LATER and pack.slots is not None:
+        return pack.pick(pack.slots.later, language)  # no time was refused for lack of one: they book when they like
     if directive.repeat and NO_CONSENT not in directive.reasons:
         if directive.outcome == Outcome.WITHDRAWN:
             return pack.pick(pack.close_repeat_withdrawn, language)

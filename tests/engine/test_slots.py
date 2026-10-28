@@ -3,6 +3,8 @@ from datetime import datetime, timezone
 
 import pytest
 
+from tests.support.tables import table
+
 from sazon.client import SAZON_CALENDAR
 from sazon import config
 from screener.store import Store
@@ -54,7 +56,7 @@ def test_the_number_offered_is_limited(store):
     assert len(store.free_slots("ES", NOW, limit=3)) == 3
 
 
-@pytest.mark.parametrize("country,when", [
+@table("country,when", [
     ("ES", datetime(2026, 10, 1, 10, 0)),            # in the past
     ("ES", datetime(2026, 10, 26, 9, 0)),            # 09:00 Madrid is 08:00 UTC, less than the notice
     ("XX", datetime(2026, 11, 3, 10, 0)),            # unknown country

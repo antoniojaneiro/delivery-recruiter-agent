@@ -214,7 +214,7 @@ def test_a_cancelled_booking_queues_a_message_for_the_candidate_in_their_languag
     candidate = store.cancel_slot(slot, "Ana", NOW.astimezone())
     assert slot_flow.notify_cancelled(store, SAZON_CLIENT, candidate, NOW) is True
     [entry] = store.outbox_pending("c1")
-    assert "ya no está disponible" in entry.text and "reclutador" in entry.text
+    assert "ya no está disponible" in entry.text and "1)" in entry.text and "48" not in entry.text  # and the times to pick again
     assert store.messages("c1")[-1].text == entry.text
 
 

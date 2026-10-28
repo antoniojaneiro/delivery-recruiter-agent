@@ -3,6 +3,8 @@ from datetime import date, datetime
 from pathlib import Path
 
 import pytest
+
+from tests.support.tables import table
 from streamlit.testing.v1 import AppTest
 
 from tests.support.paths import DASHBOARD
@@ -63,7 +65,7 @@ def assert_english(at):
 def test_the_login_screen_is_in_english_and_the_switch_is_there(db):
     at = on_english()
     assert at.title[0].value == "Grupo Sazón · Recruiting"
-    assert at.text_input(key="login_name").label == "Name" and at.text_input(key="login_password").label == "Password"
+    assert at.text_input(key="login_email").label == "Email" and at.text_input(key="login_password").label == "Password"
     assert at.segmented_control(key="ui_language").value == "en"
     assert_english(at)
 
@@ -100,7 +102,7 @@ def test_the_call_times_and_the_funnel_pages_are_in_english(db):
     login(at)
     at.switch_page("views/slots.py").run()
     assert_english(at)
-    assert at.title[0].value == "Call times"
+    assert at.title[0].value == "Call calendar"
     at.switch_page("views/funnel.py").run()
     assert_english(at)
     assert at.title[0].value == "Candidate funnel"
@@ -118,3 +120,14 @@ def test_spanish_is_still_the_default(db):
     at = AppTest.from_file(APP, default_timeout=10).run()
     login(at)
     assert at.title[0].value == "Candidatos"
+
+
+@table("language,expected", [("es", "Elegir opciones"), ("en", "Choose options")])
+def test_the_filter_dropdowns_say_their_placeholder_in_the_page_language(db, language, expected):
+    """Streamlit's own default placeholder is English whatever the app's language switch says."""
+    at = AppTest.from_file(APP, default_timeout=20)
+    at.session_state["ui_language"] = language
+    at.run()
+    login(at)
+    assert not at.exception, at.exception
+    assert {at.multiselect(key="f_outcome").proto.placeholder, at.multiselect(key="f_status").proto.placeholder} == {expected}

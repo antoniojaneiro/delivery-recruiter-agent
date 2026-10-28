@@ -3,12 +3,15 @@ from datetime import date, datetime, time, timedelta
 from pathlib import Path
 
 import pytest
+
+from tests.support.tables import table
 from streamlit.testing.v1 import AppTest
 
 from tests.support.paths import DASHBOARD
 from sazon.client import SAZON_CALENDAR
+from screener.calendar_view import week_start
 from screener.store import Store
-from tests.support.dash import login, logout, seed_accounts
+from tests.support.dash import login, logout, email_of, seed_accounts
 
 APP = str(DASHBOARD)
 SLOTS_PAGE = "views/slots.py"
@@ -22,6 +25,7 @@ def db(tmp_path, monkeypatch):
     monkeypatch.setenv("SAZON_DB", str(path))
     monkeypatch.setenv("SAZON_ACCOUNTS", str(tmp_path / "recruiters.json"))
     seed_accounts(tmp_path / "recruiters.json")
+    seed_accounts(None, "Marta", country="MX")
     return Store(path, calendar=SAZON_CALENDAR)
 
 
@@ -31,7 +35,9 @@ def candidate(store, cid, name, city="Madrid", outcome="QUALIFIED"):
 
 
 def run(as_user="Ana"):
-    at = AppTest.from_file(APP, default_timeout=10).run()
+    at = AppTest.from_file(APP, default_timeout=10)
+    at.session_state["cal_week"] = week_start(FUTURE)  # the list under the grid shows the week the grid shows
+    at.run()
     login(at, as_user)
     assert not at.exception, at.exception
     return at
@@ -45,18 +51,18 @@ def slots_page(at):
 
 def name_as(at, name="Ana"):
     """Signed in as `name` (the tests start as Ana)."""
-    if at.session_state["recruiter"] != name:
+    if at.session_state["recruiter"] != email_of(name):
         logout(at)
         login(at, name)
     return at
 
 
-def add_slot(at, when=None, country="ES", recruiter=""):
+def add_slot(at, when=None, recruiter="ana@sazon.test"):
+    """The form: whose time it is (a recruiter sees only themselves) and when; its country is the recruiter's."""
     when = when or datetime.combine(FUTURE, time(10, 0))
-    at.selectbox(key="slot_country").select(country)
+    at.selectbox(key="slot_recruiter").select(recruiter)
     at.date_input(key="slot_date").set_value(when.date())
     at.time_input(key="slot_time").set_value(when.time())
-    at.text_input(key="slot_recruiter").set_value(recruiter)
     at.form_submit_button(key="save_slot").click().run()
     assert not at.exception, at.exception
 
@@ -67,22 +73,23 @@ def test_the_slots_page_starts_empty_with_a_hint(db):
 
 
 def test_a_recruiter_can_add_a_slot_in_a_countrys_own_time(db):
-    at = name_as(slots_page(run()))
-    add_slot(at, datetime.combine(FUTURE, time(9, 30)), "MX", "Luis")
+    at = name_as(slots_page(run("Marta")), "Marta")
+    add_slot(at, datetime.combine(FUTURE, time(9, 30)), "marta@sazon.test")
+    at.segmented_control(key="cal_country").set_value("MX").run()  # the list shows the country the grid shows
     [slot] = db.slots(NOW)
-    assert (slot.country, slot.starts_at, slot.recruiter) == ("MX", datetime.combine(FUTURE, time(9, 30)), "Luis")
+    assert (slot.country, slot.starts_at, slot.recruiter) == ("MX", datetime.combine(FUTURE, time(9, 30)), "marta@sazon.test")
     table = at.dataframe[0].value
     assert list(table["País"]) == ["México"] and list(table["Estado"]) == ["Libre"]
 
 
 
-@pytest.mark.parametrize("when", [
+@table("when", [
     datetime.combine(date.today() - timedelta(days=3), time(10, 0)),
     datetime(2027, 3, 28, 2, 30),   # does not exist in Spain: the clocks jump from 02:00 to 03:00
 ])
 def test_a_past_or_impossible_time_is_refused_with_a_clear_message(db, when):
     at = name_as(slots_page(run()))
-    add_slot(at, when, "ES")
+    add_slot(at, when)
     assert at.error and db.slots(NOW, include_past=True) == []
 
 
@@ -115,7 +122,7 @@ def test_cancelling_a_booked_slot_tells_the_recruiter_to_warn_the_candidate(db):
     assert any("Juan Pérez" in str(w.value) and "aviso" in str(w.value).lower() for w in at.warning)
     assert db.booking_of("c1") is None
     assert "ya no está disponible" in db.outbox_pending("c1")[0].text
-    assert [e.actor for e in db.events("c1") if e.type == "slot_cancelled"] == ["recruiter:Ana"]
+    assert [e.actor for e in db.events("c1") if e.type == "slot_cancelled"] == ["recruiter:ana@sazon.test"]
 
 
 

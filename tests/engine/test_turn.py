@@ -2,6 +2,8 @@ from datetime import datetime
 
 import pytest
 
+from tests.support.tables import table
+
 from tests.support.clients import client_for
 from sazon.spec import SAZON
 from screener import turn
@@ -182,7 +184,7 @@ def test_a_complete_valid_candidate_qualifies_and_the_recruiter_data_is_saved(st
     say(store, "ya mismo", {"start_date": {"now": True}})
     say(store, "Madrid", {"city": "Madrid"})
     reply, _ = say(store, "sí tengo", {"has_license": True})
-    assert outcome(store) == "QUALIFIED" and "48 horas" in reply
+    assert outcome(store) == "QUALIFIED" and "horarios libres" in reply and "48" not in reply
     assert store.get("c1").extracted == {
         "name": "Juan Pérez", "experience": {"years": 2, "platforms": ["glovo"]},
         "availability": ["full_time"], "schedule": "morning", "start_date": "2026-10-25",
@@ -354,7 +356,7 @@ def test_agreeing_with_a_phrase_that_contains_no_is_not_a_refusal(store):
     assert store.get("c1").outcome == "IN_PROGRESS" and "llamas" in reply
 
 
-@pytest.mark.parametrize("reply", ["stop", "para", "no quiero continuar", "no thanks"])
+@table("reply", ["stop", "para", "no quiero continuar", "no thanks"])
 def test_refusing_or_stopping_before_consent_counts_as_no_consent(store, reply):
     turn.start(store, client_for(AREAS), "c1", NOW)
     say(store, reply)
@@ -385,7 +387,7 @@ def test_an_unsupported_language_keeps_the_last_supported_one(store):
     assert store.get("c1").state["language"] == "en"
 
 
-@pytest.mark.parametrize("message", ["para", "stop", "me retiro", "no quiero continuar", "ya no quiero seguir", "please stop"])
+@table("message", ["para", "stop", "me retiro", "no quiero continuar", "ya no quiero seguir", "please stop"])
 def test_a_stop_request_after_consent_withdraws_without_asking_the_model(store, message):
     consented(store)
     reply, llm = say(store, message)

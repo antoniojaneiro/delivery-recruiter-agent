@@ -5,6 +5,8 @@ from datetime import date, datetime
 
 import pytest
 
+from tests.support.tables import table
+
 from sazon.client import SAZON_CALENDAR, SAZON_CLIENT
 from screener import turn
 from sazon import config
@@ -26,7 +28,7 @@ NOW = datetime(2026, 10, 25, 10, 0)
 
 # --- start dates ------------------------------------------------------------------------------
 
-@pytest.mark.parametrize("spec,expected", [
+@table("spec,expected", [
     ({"in_months": 3}, date(2027, 1, 25)),
     ({"in_months": 1}, date(2026, 11, 25)),
     ({"in_months": 4}, date(2027, 2, 25)),
@@ -54,7 +56,7 @@ def test_the_prompt_tells_the_model_not_to_compute_these_dates_either():
 
 # --- experience years and names -------------------------------------------------------------
 
-@pytest.mark.parametrize("years", [math.nan, math.inf, -math.inf, 61, 1000])
+@table("years", [math.nan, math.inf, -math.inf, 61, 1000])
 def test_impossible_years_are_refused(years):
     assert not validate_experience(years, ["glovo"]).ok
 
@@ -63,19 +65,19 @@ def test_a_long_career_is_accepted():
     assert validate_experience(30, ["glovo"]).ok
 
 
-@pytest.mark.parametrize("name", ["Dr. Juan Pérez", "J. Pérez", "Juan P. Gil", "Dra. Ana Ruiz", "Mª Carmen Gil"])
+@table("name", ["Dr. Juan Pérez", "J. Pérez", "Juan P. Gil", "Dra. Ana Ruiz", "Mª Carmen Gil"])
 def test_titles_and_initials_with_a_dot_are_valid_names(name):
     assert validate_name(name).ok
 
 
-@pytest.mark.parametrize("name", ["Juan.", "J.", "Ju.an Pérez", "Juan Pérez 3", "..", "Juan  ."])
+@table("name", ["Juan.", "J.", "Ju.an Pérez", "Juan Pérez 3", "..", "Juan  ."])
 def test_stray_dots_are_still_refused(name):
     assert not validate_name(name).ok
 
 
 # --- cities written the way people write them ----------------------------------------------------
 
-@pytest.mark.parametrize("text,city", [
+@table("text,city", [
     ("Madrid, España", "Madrid"), ("madrid españa", "Madrid"), ("Guadalajara, Jalisco", "Guadalajara"),
     ("Barcelona (España)", "Barcelona"), ("Ciudad de México, México", "Ciudad de México"),
     ("Zapopan", "Guadalajara"), ("Zapopan, Jalisco", "Guadalajara"), ("Chamberí", "Madrid"),
@@ -87,14 +89,14 @@ def test_places_with_a_country_or_state_and_nearby_towns_map_to_the_service_area
     assert result.status == "match" and result.city == city
 
 
-@pytest.mark.parametrize("text", ["Sevilla, España", "Bilbao", "Cancún, Quintana Roo", "Madrid, Texas"])
+@table("text", ["Sevilla, España", "Bilbao", "Cancún, Quintana Roo", "Madrid, Texas"])
 def test_places_that_really_are_outside_are_still_outside(text):
     assert match_area(text, config.AREAS, SAZON.place_qualifiers).status == "out_of_area"
 
 
 # --- model-phrased text must not promise anything -------------------------------------------------
 
-@pytest.mark.parametrize("promise", [
+@table("promise", [
     "¡Genial! El sueldo es de 1200 € al mes. ¿Cuál es tu ciudad?", "Te pagamos 15$ la hora, ¿dónde vives?",
     "You will earn a good salary. Where do you live?", "¡Estás contratado! ¿Cuál es tu nombre?",
     "Te llamamos mañana a las 10:30. ¿Tienes licencia?", "We start Monday at 9h30, do you have a license?",

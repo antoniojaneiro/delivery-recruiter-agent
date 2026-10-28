@@ -3,6 +3,8 @@ from datetime import datetime, timedelta
 
 import pytest
 
+from tests.support.tables import table
+
 from sazon.spec import SAZON
 from sazon.client import SAZON_CALENDAR, SAZON_CLIENT
 from screener import reminders, session, turn
@@ -94,7 +96,7 @@ def test_a_blocked_candidate_is_reminded_too(store):
     assert kinds(reminders.run_once(store, SAZON_CLIENT, T0 + 24 * HOUR)) == [("c1", "reminder")]
 
 
-@pytest.mark.parametrize("prepare", [
+@table("prepare", [
     lambda s: (in_progress(s), turn.handle_message(ScriptedLLM(), s, SAZON_CLIENT, "c1", "me retiro", T0)),
     lambda s: (turn.start(s, SAZON_CLIENT, "c1", T0), turn.handle_message(ScriptedLLM(), s, SAZON_CLIENT, "c1", "no gracias", T0)),
 ])
@@ -130,13 +132,13 @@ def test_a_qualified_candidate_who_ignores_the_offer_is_reminded_with_the_same_s
     assert "queda reservada" in reply
 
 
-def test_if_they_still_do_not_answer_the_offer_ends_and_the_48_hour_promise_is_sent(store):
+def test_if_they_still_do_not_answer_the_offer_ends_and_they_are_told_to_write_again_to_book(store):
     add_slots(store)
     qualify(store)
     reminders.run_once(store, SAZON_CLIENT, T0 + 24 * HOUR)
     assert kinds(reminders.run_once(store, SAZON_CLIENT, T0 + 48 * HOUR)) == [("c1", "gave_up_offer")]
     last = store.outbox_pending()[-1]
-    assert "48 horas" in last.text and "1)" not in last.text
+    assert "cuando quieras reservar tu llamada" in last.text.lower() and "48" not in last.text and "1)" not in last.text
     assert outcome(store) == "QUALIFIED" and store.booking_of("c1") is None
     assert reminders.run_once(store, SAZON_CLIENT, T0 + 100 * HOUR) == []
 

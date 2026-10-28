@@ -16,6 +16,9 @@ class SlotTexts:
     booked: Text  # {label}
     already_booked: Text  # {label}
     cancelled: Text
+    scheduled: Text  # {label}: a recruiter booked the call for the candidate
+    moved: Text  # {label}: a recruiter moved the booked call
+    later: Text  # they chose none of the times, or went quiet: write again whenever they want to book
 
 
 @dataclass(frozen=True)
