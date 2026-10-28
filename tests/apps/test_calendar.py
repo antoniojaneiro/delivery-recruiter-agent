@@ -258,5 +258,5 @@ def test_nobody_can_make_a_time_for_someone_who_takes_no_calls_or_in_another_cou
     boss.switch_page("views/slots.py").run()
     pick(boss, "c2")
     assert boss.selectbox(key="sched_new_owner").options == ["marta@sazon.test"]
-    pick(boss, "c1")  # the manager picks one of that country's recruiters, never themselves
-    assert boss.selectbox(key="sched_new_owner").options == ["ana@sazon.test", "luis@sazon.test"]
+    pick(boss, "c1")  # the manager picks one of that country's recruiters, themselves included (they take calls, D89)
+    assert boss.selectbox(key="sched_new_owner").options == ["ana@sazon.test", "jefa@sazon.test", "luis@sazon.test"]
