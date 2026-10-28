@@ -20,7 +20,7 @@ python -m sazon.chat                   # terminal chat: /new, /resume <id>, /cv 
 streamlit run apps/chat_app.py         # the chat in the browser (saves to data/demo/chat.db; the sidebar switch "Save to the recruiters' dashboard" sends new candidates to the real database)
 streamlit run apps/dashboard.py        # recruiter dashboard, local only; the login page has a tab to create an account (anyone who can open it can: keep it local)
 python -m sazon.accounts add Ana       # (optional) create a recruiter account from the terminal
-python demo_launch.py                  # the chat (port 8501) and the dashboard (port 8502) together; Ctrl+C stops both
+python demo_launch.py                  # the chat (port 8501) and the dashboard (port 8502) together, each with a button to the other; Ctrl+C stops both
 python -m sazon.server                 # the HTTP service for a real channel (needs SAZON_API_KEY in .env; port 8000); see docs for the calls
 python -m sazon.reminders --every 600  # the 24-hour reminder job (queues messages for a real channel; see /inbox)
 python -m sazon.demo --list            # fictional conversations played on the real agent
@@ -54,7 +54,7 @@ sazon/           Grupo Sazón as a client of the engine
   demo/            scenarios.py (the fictional conversations) and runner.py
 demo_launch.py   starts the chat and the dashboard together
 apps/            the Streamlit apps: dashboard.py, chat_app.py and views/ (the dashboard's pages)
-docs/            the Phase 1 design, the decision log, the assignment
+docs/            the Phase 1 design, the decision log, the assignment, the task checklist, the hand-over list
 tests/           engine/ (rules, store, jobs, service), load/ (a busy day on a real server), client/ (Sazón texts, checks and golden snapshot),
                  apps/ (dashboard and chat app), live/ (real model), support/ (fakes, a second client, helpers)
 data/            runtime files, git-ignored: sazon.db, sazon.log, demo/ (chat.db, transcripts.md, old_runs/)

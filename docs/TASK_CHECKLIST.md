@@ -52,7 +52,7 @@ Everything [TASK.md](TASK.md) asks for, whether we do it, and how, in plain word
 | Post-conversation summary with key data | Yes | The recruiter card is built by code from the checked data. |
 | Graceful failures, no crashes | Yes | A model failure sends a fixed apology and is logged. An error never ends the chat. Prompt-injection attempts are treated as data. |
 | Tool for recruiters to track candidates | Yes | A Streamlit dashboard shows the candidate table, status, assignee, notes, a funnel chart, call times and a review queue. |
-| A product recruiters can start using | Partially | It runs locally with a prototype login. Still missing: single sign-on, a real channel, a paid model tier, and the client's real service areas. |
+| A product recruiters can start using | Partially | Both apps are joined, share one look, refresh themselves and were measured at 5,000 candidates. It runs locally with a prototype login. Still missing, and needs the client: single sign-on, a real channel, a paid model tier, and the real service areas ([HANDOVER.md](HANDOVER.md)). |
 
 ## Bonus
 
@@ -67,7 +67,7 @@ Everything [TASK.md](TASK.md) asks for, whether we do it, and how, in plain word
 | Deliverable | Done? | How |
 | --- | --- | --- |
 | Phase 1 process design document | Yes | Written, 2 pages, and kept in line with the code. |
-| Phase 2 code: agent and recruiter tool | Yes | `screener/` is the engine, `sazon/` is Grupo Sazón, and `apps/` holds the dashboard and the browser chat. About 1300 tests. |
+| Phase 2 code: agent and recruiter tool | Yes | `screener/` is the engine, `sazon/` is Grupo Sazón, and `apps/` holds the dashboard and the browser chat. About 1350 tests. |
 | Presentation of the work | No | The format has not been chosen yet. |
 
 ## Required by law (not in the task, but a hiring tool needs it)
