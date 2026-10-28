@@ -1,7 +1,7 @@
 {
  "cards": {
-  "blocked": "Candidato sin nombre · Bloqueado\nMotivo: no ha indicado su nombre\nFalta: nombre, experiencia, disponibilidad, horario preferido, fecha de inicio, ciudad, licencia\nChat: idioma español · 5 aclaraciones\nResumen automático: la decisión final es del reclutador.",
-  "declined": "Candidato sin nombre · Descartado por el agente\nMotivo: no dio su consentimiento\nChat: idioma español\nResumen automático: la decisión final es del reclutador.",
+  "blocked": "Candidato sin nombre · Bloqueado\nMotivo: no ha indicado su nombre\nFalta: nombre, experiencia, disponibilidad, horario preferido, fecha de inicio, ciudad, licencia\nChat: idioma español · 5 aclaraciones",
+  "declined": "Candidato sin nombre · Descartado por el agente\nMotivo: no dio su consentimiento\nChat: idioma español",
   "field_labels": {
    "availability": "disponibilidad",
    "city": "ciudad",
@@ -11,7 +11,7 @@
    "schedule": "horario preferido",
    "start_date": "fecha de inicio"
   },
-  "full": "Juan Pérez · Madrid · Cualificado\nLicencia: sí\nExperiencia: 2 años (glovo, uber eats)\nDisponibilidad: tiempo completo\nHorario preferido: mañana\nInicio: 2027-03-01\nAviso: la fecha de inicio está a más de 12 semanas\nChat: idioma español\nResumen automático: la decisión final es del reclutador.",
+  "full": "Juan Pérez · Madrid · Cualificado\nLicencia: sí\nExperiencia: 2 años (glovo, uber eats)\nDisponibilidad: tiempo completo\nHorario preferido: mañana\nInicio: 2027-03-01\nAviso: la fecha de inicio está a más de 12 semanas\nChat: idioma español",
   "outcome_labels": {
    "BLOCKED": "Bloqueado",
    "DISQUALIFIED": "Descartado por el agente",
@@ -21,7 +21,7 @@
    "STALLED": "Sin respuesta",
    "WITHDRAWN": "Se retiró"
   },
-  "partial": "Ana Ruiz · Descartado por el agente\nMotivo: no tiene licencia de conducir\nLicencia: no\nChat: idioma español\nResumen automático: la decisión final es del reclutador."
+  "partial": "Ana Ruiz · Descartado por el agente\nMotivo: no tiene licencia de conducir\nLicencia: no\nChat: idioma español"
  },
  "funnel_stages": [
   "Empezaron",

@@ -67,7 +67,6 @@ RECRUITER = RecruiterTexts(
     },
     no_name="Unnamed candidate", reason_prefix="Reason: ", missing_prefix="Missing: ",
     no_consent="did not consent", blocked_on="has not said ", flags={},
-    footer="Automatic summary: the recruiter decides.",
     chat_prefix="Chat: ", language_word="language", language_names={EN: "English"},
     clarification=("clarification", "clarifications"), asked_for_person="asked for a person",
     reminder_sent="reminder sent",
