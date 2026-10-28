@@ -537,6 +537,10 @@
   "slot_cancelled/es": "La llamada que tenías reservada ya no está disponible. Un reclutador te escribirá para darte otra hora.",
   "slot_label/en": "Tue 3 Nov, 10:00",
   "slot_label/es": "mar 3 nov, 10:00",
+  "slot_moved/en": "A recruiter has changed your call: it is now mar 3 nov, 10:00. They will call you then.",
+  "slot_moved/es": "Un reclutador ha cambiado tu llamada: ahora es mar 3 nov, 10:00. Te llamará a esa hora.",
+  "slot_scheduled/en": "A recruiter has booked your call: mar 3 nov, 10:00. They will call you then.",
+  "slot_scheduled/es": "Un reclutador ha reservado tu llamada: mar 3 nov, 10:00. Te llamará a esa hora.",
   "tech/en": "I had a technical problem. Could you repeat your last message?",
   "tech/es": "Tuve un problema técnico. ¿Puedes repetir tu último mensaje?"
  }

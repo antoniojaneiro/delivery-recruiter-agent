@@ -108,6 +108,44 @@ class SlotsMixin:
                         AGENT, _stamp(now)))
             return booking
 
+    def move_booking(self, candidate_id: str, slot_id: int, recruiter: str, now: datetime,
+                     country: str | None = None) -> tuple[Booking, Booking | None]:
+        """A recruiter books a time for a candidate, or moves the one they hold, in one step: the old time is freed (not
+        cancelled), the new one booked and one audit line written by the recruiter. Returns the new booking and the
+        one it replaced. Refused (InputError): no name, a time that is not free, in the wrong country, or too soon."""
+        calendar = self._calendar()
+        recruiter = (recruiter or "").strip()
+        if not recruiter:
+            raise InputError("name_required", "the recruiter's name is required")
+        with self._connect() as db:
+            db.execute("BEGIN IMMEDIATE")
+            if db.execute("SELECT 1 FROM candidates WHERE candidate_id = ?", (candidate_id,)).fetchone() is None:
+                raise LookupError(f"no candidate {candidate_id}")
+            held_row = self._held_booking(db, candidate_id)
+            held = _booking(held_row) if held_row else None
+            row = db.execute(f"{_BOOKING_SELECT} WHERE id = ? AND (candidate_id IS NULL OR candidate_id = ?) "
+                             "AND cancelled_at IS NULL", (slot_id, candidate_id)).fetchone()
+            if row is None:
+                raise InputError("slot_unavailable", "that time is taken, cancelled or does not exist")
+            booking = _booking(row)
+            if held and held.slot_id == booking.slot_id:
+                return booking, held  # already theirs: nothing changes
+            if country is not None and booking.country != country:
+                raise InputError("wrong_country", "that time is in another country than the candidate's")
+            if not calendar.has_enough_notice(booking.country, booking.starts_at, now):
+                raise InputError("too_soon", "the time is in the past or too soon")
+            if held:
+                db.execute("UPDATE slots SET candidate_id = NULL, booked_at = NULL WHERE id = ?", (held.slot_id,))
+            db.execute("UPDATE slots SET candidate_id = ?, booked_at = ? WHERE id = ? AND candidate_id IS NULL",
+                       (candidate_id, _stamp(now), slot_id))
+            detail = f"{booking.country} {booking.starts_at.isoformat()}"
+            if held:
+                detail += f" (was {held.country} {held.starts_at.isoformat()})"
+            db.execute("INSERT INTO events (candidate_id, type, detail, actor, at) VALUES (?, ?, ?, ?, ?)",
+                       (candidate_id, "slot_moved" if held else "slot_booked", detail, f"recruiter:{recruiter}",
+                        _stamp(now)))
+            return booking, held
+
     def booking_of(self, candidate_id: str) -> Booking | None:
         with self._connect() as db:
             row = db.execute(f"{_BOOKING_SELECT} WHERE candidate_id = ? AND cancelled_at IS NULL",

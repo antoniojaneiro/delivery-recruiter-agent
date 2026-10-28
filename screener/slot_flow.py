@@ -1,17 +1,18 @@
 """Offering and booking a call slot when a candidate qualifies (D7, D8, D48). The slots table is the
 single source of truth for a booking: the screening only remembers which slots are on offer."""
+from dataclasses import dataclass
 from datetime import datetime
 
 from screener import conversation
-from screener.conversation import SKIP, Turn
+from screener.conversation import RETRY_ONCE, SKIP, Turn
 from screener.client import Client
 from screener.consent import is_stop_request
 from screener.model import Outcome
 from screener.directive import Directive, Kind
-from screener.phrasing import slot_cancelled_message, slot_label
+from screener.phrasing import slot_cancelled_message, slot_label, slot_scheduled_message
 from screener.screening import Screening
 from screener.slot_choice import NONE, read_slot_choice
-from screener.store import Store
+from screener.store import Booking, ConflictError, InputError, Store
 
 MAX_UNCLEAR_PICKS = 3  # re-offers of the same list before the 48-hour promise applies
 
@@ -53,6 +54,43 @@ def handle_pick(store: Store, client: Client, screening: Screening, candidate_id
         return _offer(store, client, screening, now, "taken") or _give_up(screening)
     screening.resolve_slots()
     return Directive(Kind.SLOT_BOOKED, label=slot_label(booking.starts_at, screening.language))
+
+
+@dataclass(frozen=True)
+class Scheduled:
+    booking: Booking
+    before: Booking | None  # the call they had, when this moved it
+    told: bool  # the candidate's chat got the fixed notice (False: it could not be saved, so tell them yourself)
+
+
+def schedule_by_recruiter(store: Store, client: Client, candidate_id: str, slot_id: int, recruiter: str,
+                          now: datetime) -> Scheduled:
+    """A recruiter books or moves a candidate's call (the calendar). The booking is one atomic step in the store, and
+    only a time in the candidate's own country is accepted (D8). Then the chat is told in a fixed text, in the language
+    of the chat, and any open offer of times is closed, so a late "2" gets the booked time and the reminder job does
+    not ask them to pick one. Raises InputError when the booking is refused; then nothing is sent."""
+    if client.spec.pack.slots is None or client.calendar is None:
+        raise InputError("no_calendar", "this client does not book calls")
+    record = store.get(candidate_id)
+    if record is None:
+        raise LookupError(f"no candidate {candidate_id}")
+    area = client.spec.area_field
+    country = client.calendar.country_of.get(record.extracted.get(area)) if client.calendar and area else None
+    booking, before = store.move_booking(candidate_id, slot_id, recruiter, now.astimezone(), country=country)
+    if before is not None and before.slot_id == booking.slot_id:
+        return Scheduled(booking, before, True)  # nothing changed, so there is nothing to tell
+
+    def work(screening: Screening) -> Turn:
+        screening.resolve_slots()
+        text = slot_scheduled_message(client.spec, screening.language, slot_label(booking.starts_at, screening.language),
+                                      moved=before is not None)
+        return Turn(True, messages=[("agent", text)], outbox=[text])
+
+    try:
+        told = conversation.run(store, client, candidate_id, now, work, on_conflict=RETRY_ONCE, default=False)
+    except ConflictError:  # the booking stands; only the notice could not be saved (the candidate wrote, or was erased)
+        told = False
+    return Scheduled(booking, before, bool(told))
 
 
 def notify_cancelled(store: Store, client: Client, candidate_id: str, now: datetime) -> bool:

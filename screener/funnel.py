@@ -1,6 +1,6 @@
 """Funnel analytics (D58): how far applicants get, where they stop, and how many reach a recruiter.
 It only counts what the chat already stores, so it needs no extra tracking."""
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from screener.model import Language
 from screener.spec import ScreeningSpec
@@ -18,13 +18,17 @@ class Funnel:
     reasons: dict[str, int]
     stopped_at: dict[str, int]
     rates: dict[str, float]
+    recruiter_stages: list[tuple[str, int]] = field(default_factory=list)  # the recruiter's steps, if labelled
 
 
 def _share(part: int, whole: int) -> float:
     return part / whole if whole else 0.0
 
 
-def build_funnel(store: Store, spec: ScreeningSpec, language: Language | None = None) -> Funnel:
+def build_funnel(store: Store, spec: ScreeningSpec, language: Language | None = None,
+                 recruiter_labels: dict[str, str] | None = None) -> Funnel:
+    """`recruiter_labels` names the recruiter's steps (contacted, interview_scheduled, hired); without it only the agent's
+    stages are built."""
     texts = spec.recruiter_texts(language)
 
     def label(key: str) -> str:
@@ -42,4 +46,7 @@ def build_funnel(store: Store, spec: ScreeningSpec, language: Language | None = 
         "booked_of_qualified": _share(booked, qualified),
         "closed_by_agent": _share(counts["closed_by_agent"], total),
     }
-    return Funnel(total, consented, qualified, booked, stages, counts["outcomes"], counts["reasons"], stopped, rates)
+    reached = counts["recruiter_reached"]
+    recruiter_stages = [(name, reached[step]) for step, name in (recruiter_labels or {}).items()]
+    return Funnel(total, consented, qualified, booked, stages, counts["outcomes"], counts["reasons"], stopped, rates,
+                  recruiter_stages)

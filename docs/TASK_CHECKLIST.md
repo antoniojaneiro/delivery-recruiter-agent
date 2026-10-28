@@ -60,7 +60,7 @@ Everything [TASK.md](TASK.md) asks for, whether we do it, and how, in plain word
 | --- | --- | --- |
 | Browser voice agent (e.g. ElevenLabs) | No | Not built yet. It comes after the service, and it would reuse the same flow. |
 | Same flow by voice | No | Same as above. |
-| Other bonus features | Yes | Optional CV upload (PDF), funnel analytics, a 24-hour reminder job, a browser chat to try the agent, and an HTTP service with a load test. |
+| Other bonus features | Yes | Optional CV upload (PDF), funnel analytics, a 24-hour reminder job, a funnel from application to hire with each candidate's path, a call calendar where recruiters book calls for candidates, a browser chat to try the agent, and an HTTP service with a load test. |
 
 ## Deliverables
 

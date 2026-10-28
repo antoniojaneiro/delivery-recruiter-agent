@@ -30,7 +30,7 @@ python -m sazon.demo --only happy_es   # transcripts go to data/demo/transcripts
 Tests:
 
 ```
-python -m pytest -q -n 4               # about 1350 offline tests, no network
+python -m pytest -q -n 4               # about 1450 offline tests, no network
 python -m pytest -m load -q -s         # a busy day against a real server: 200 candidates, a slow fake model, about 11 minutes
 python -m pytest -m live -q            # real-model checks; needs the key; fictional data; mind the free tier's limits
 python -m sazon.chat --list-models     # if the default model name returns 404 (override with LLM_MODEL in .env)

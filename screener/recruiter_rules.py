@@ -39,3 +39,12 @@ NEEDS_REVIEW = replace(AGENT_CLOSED, status=RecruiterStatus.NEW)
 TO_CONTACT = Rule((Outcome.QUALIFIED,), status=RecruiterStatus.NEW, unbooked=True)
 BLOCKED = Rule((Outcome.BLOCKED,))
 STALLED = Rule((Outcome.STALLED,))
+
+_CLOSED_BY_RECRUITER = (RecruiterStatus.HIRED, RecruiterStatus.REJECTED, RecruiterStatus.UNREACHABLE)
+
+
+def can_schedule(record) -> bool:
+    """A recruiter may book or move a call for a candidate the agent qualified, unless a recruiter has already closed
+    their case (hired, rejected, unreachable). A candidate who ignored the offer is still qualified (D58), so this is
+    the one who most needs it. Only qualified candidates are scheduled: a closed case stays with the agent's decision."""
+    return record.outcome == Outcome.QUALIFIED and record.status not in _CLOSED_BY_RECRUITER

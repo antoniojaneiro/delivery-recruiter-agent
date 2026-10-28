@@ -100,7 +100,7 @@ def test_the_call_times_and_the_funnel_pages_are_in_english(db):
     login(at)
     at.switch_page("views/slots.py").run()
     assert_english(at)
-    assert at.title[0].value == "Call times"
+    assert at.title[0].value == "Call calendar"
     at.switch_page("views/funnel.py").run()
     assert_english(at)
     assert at.title[0].value == "Candidate funnel"

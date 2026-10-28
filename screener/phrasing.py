@@ -85,6 +85,12 @@ def slot_cancelled_message(spec: "ScreeningSpec", language: str) -> str:
     return spec.pack.pick(spec.pack.slots.cancelled, language)
 
 
+def slot_scheduled_message(spec: "ScreeningSpec", language: str, label: str, moved: bool) -> str:
+    """Said when a recruiter books (or moves) the candidate's call from the calendar: a fixed text, in the chat's language."""
+    texts = spec.pack.slots.moved if moved else spec.pack.slots.scheduled
+    return spec.pack.pick(texts, language).format(label=label)
+
+
 def echo(text) -> str:
     """A saved or proposed answer repeated back to the candidate: one line, short."""
     return " ".join(str(text).split())[:MAX_ECHO_CHARS]

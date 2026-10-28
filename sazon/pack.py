@@ -26,6 +26,10 @@ SLOTS = SlotTexts(
                       "Your call is already booked: {label}. If anything changes, a recruiter will message you."),
     cancelled=bi("La llamada que tenías reservada ya no está disponible. Un reclutador te escribirá para darte otra hora.",
                  "The call you had booked is no longer available. A recruiter will write to you with another time."),
+    scheduled=bi("Un reclutador ha reservado tu llamada: {label}. Te llamará a esa hora.",
+                 "A recruiter has booked your call: {label}. They will call you then."),
+    moved=bi("Un reclutador ha cambiado tu llamada: ahora es {label}. Te llamará a esa hora.",
+             "A recruiter has changed your call: it is now {label}. They will call you then."),
 )
 
 CV = CvTexts(

@@ -15,6 +15,9 @@ from screener.store_types import (AGENT, NO_CHECK, AdminEntry, Booking, Conflict
                                Note, OutboxEntry, Record, RecruiterRecord, Slot, parse_stamp, stamp)  # noqa: F401
 
 BUSY_TIMEOUT_SECONDS = 10
+# A candidate has reached a recruiter step if they ever had that status or a later one (history, not today's status).
+_REACHED_BY = {"contacted": ("contacted", "interview_scheduled", "hired"),
+               "interview_scheduled": ("interview_scheduled", "hired"), "hired": ("hired",)}
 
 _CANDIDATE_COLUMNS = ("c.candidate_id, c.state, c.extracted, c.summary, c.outcome, c.reasons, c.flags, "
                       "c.updated_at, COALESCE(r.status, 'new'), r.assignee, "
@@ -278,8 +281,12 @@ class Store(SlotsMixin, ServiceMixin):
             stopped = {k: n for k, n in db.execute(
                 f"SELECT {stop}, COUNT(*) FROM candidates c "
                 "WHERE c.outcome IN ('IN_PROGRESS', 'STALLED', 'BLOCKED') GROUP BY 1", args) if k is not None}
+            ever = {step: db.execute(
+                "SELECT COUNT(DISTINCT candidate_id) FROM events WHERE type = 'recruiter_status' AND detail IN ("
+                + ", ".join("?" for _ in later) + ")", later).fetchone()[0]
+                for step, later in _REACHED_BY.items()}
         total, consented, qualified, booked, closed_by_agent, *answered = head
-        return {"total": total, "consented": consented, "qualified": qualified, "booked": booked,
+        return {"recruiter_reached": ever, "total": total, "consented": consented, "qualified": qualified, "booked": booked,
                 "closed_by_agent": closed_by_agent, "outcomes": outcomes, "reasons": reasons,
                 "answered": dict(zip(keys, answered)), "stopped": stopped}
 

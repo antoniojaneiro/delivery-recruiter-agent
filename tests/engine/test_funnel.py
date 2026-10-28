@@ -124,3 +124,34 @@ def test_the_key_numbers_are_counted_by_the_database_too(store, monkeypatch):
     populate(store)
     monkeypatch.setattr(Store, "list_candidates", lambda *a, **k: (_ for _ in ()).throw(AssertionError("loaded")))
     assert store.kpi_counts() == {"total": 12, "to_review": 3, "to_contact": 1, "blocked": 1, "stalled": 1}
+
+
+# --- the recruiter's steps (D78): counted from the audit history, cumulative --------------------------------
+
+RECRUITER_LABELS = {"contacted": "Contactados", "interview_scheduled": "Entrevista", "hired": "Contratados"}
+
+
+def test_the_recruiters_steps_count_everyone_who_ever_got_that_far_even_if_they_were_rejected_later(store):
+    from screener.model import RecruiterStatus as S
+    populate(store)
+    store.set_status("j", S.CONTACTED, "Ana", NOW)
+    store.set_status("j", S.INTERVIEW_SCHEDULED, "Ana", NOW)
+    store.set_status("j", S.REJECTED, "Ana", NOW)  # rejected after the interview: still reached it
+    store.set_status("i", S.HIRED, "Ana", NOW)     # straight to hired: it passed the steps before
+    store.set_status("k", S.UNREACHABLE, "Ana", NOW)
+    f = build_funnel(store, SAZON, recruiter_labels=RECRUITER_LABELS)
+    assert f.recruiter_stages == [("Contactados", 2), ("Entrevista", 2), ("Contratados", 1)]
+
+
+def test_an_erased_candidate_is_not_counted_in_the_recruiters_steps(store):
+    from screener.model import RecruiterStatus as S
+    populate(store)
+    store.set_status("i", S.HIRED, "Ana", NOW)
+    store.erase_candidate("i", "recruiter:Ana", NOW, "request")
+    f = build_funnel(store, SAZON, recruiter_labels=RECRUITER_LABELS)
+    assert f.recruiter_stages == [("Contactados", 0), ("Entrevista", 0), ("Contratados", 0)]
+
+
+def test_without_labels_the_funnel_has_only_the_agents_stages(store):
+    populate(store)
+    assert build_funnel(store, SAZON).recruiter_stages == []

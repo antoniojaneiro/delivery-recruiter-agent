@@ -18,7 +18,7 @@ Keep the dashboard and the chat on your own computer until the login is replaced
 | Item | Why it matters | Where it goes |
 | --- | --- | --- |
 | The real service areas (cities and nearby towns, per country) | The list in the code is a sample; candidates are accepted or rejected by it. | `sazon/config.py` |
-| Call times and who answers calls | The agent offers real times only if recruiters add them. | Dashboard, Horarios |
+| Call times and who answers calls | The agent offers real times only if recruiters add them. | Dashboard, Calendario |
 | A paid model plan with a data-processing agreement | The free tier allows 15 requests a minute, may train on prompts, and cannot serve about 1000 applications a week. | `.env` (`GEMINI_API_KEY`, `LLM_MODEL`) |
 | Single sign-on for recruiters | The built-in login is a prototype and anyone who can reach the page can create an account. | Dashboard login (D57, D74) |
 | A messaging channel (WhatsApp or similar) | Today candidates use the terminal or the test chat. The service is ready for an adapter. | `screener/service.py` (D75) |
@@ -31,8 +31,9 @@ The list below says *what* needs approval. A separate document with each text wo
 2. Every farewell and the "a recruiter will reply within 48 hours" promise, which nothing enforces yet.
 3. The CV upload notice and the read-back of what was taken from a CV.
 4. How long answers, transcripts, error logs and uploaded CVs may be kept. Today nothing is deleted automatically; erasure is on request from the dashboard.
-5. Approved answers about pay.
-6. A sample of real conversations. The model's wording varies, so the fixed texts are not the whole picture.
+5. The two messages a candidate gets when a recruiter books or moves their call from the calendar (`scheduled`, `moved` in `sazon/pack.py`).
+6. Approved answers about pay.
+7. A sample of real conversations. The model's wording varies, so the fixed texts are not the whole picture.
 
 `python -m sazon.demo --list` shows the fictional conversations; `python -m sazon.demo` (or `--only NAME`) plays them on the real model.
 

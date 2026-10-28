@@ -52,6 +52,8 @@ def _fixed_texts() -> dict:
         out[f"error/{lang}"] = _say(Directive(Kind.TECHNICAL_ERROR), lang)
         out[f"follow_up/{lang}"] = _say(Directive(Kind.FOLLOW_UP, field=Field.NAME, reason="need last name"), lang)
         out[f"slot_cancelled/{lang}"] = phrasing.slot_cancelled_message(SAZON, lang)
+        out[f"slot_scheduled/{lang}"] = phrasing.slot_scheduled_message(SAZON, lang, "mar 3 nov, 10:00", moved=False)
+        out[f"slot_moved/{lang}"] = phrasing.slot_scheduled_message(SAZON, lang, "mar 3 nov, 10:00", moved=True)
         out[f"tech/{lang}"] = phrasing.technical_error_message(SAZON, lang)
         for notice in ("human", "pay", "human+pay", "changed", "kept", "offtopic"):
             out[f"notice/{notice}/{lang}"] = _say(Directive(Kind.ASK, field=Field.NAME, notices=tuple(notice.split("+"))), lang)
