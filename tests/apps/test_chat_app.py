@@ -14,7 +14,6 @@ APP = str(CHAT_APP)
 
 @pytest.fixture
 def demo(tmp_path, monkeypatch):
-    monkeypatch.setenv("SAZON_DEMO_DB", str(tmp_path / "demo.db"))
     monkeypatch.setenv("SAZON_DB", str(tmp_path / "real.db"))
     llm = ScriptedLLM(extractions=[{"name": "Juan Pérez"}, {"name": "Pedro Gil"}])
     monkeypatch.setattr("screener.gemini.from_env", lambda: llm)
@@ -28,9 +27,9 @@ def start(language=None):
     return at.run()
 
 
-def demo_store(tmp_path):
+def saved_store(tmp_path):
     from sazon.client import SAZON_CLIENT
-    return Store(tmp_path / "demo.db", calendar=SAZON_CLIENT.calendar)
+    return Store(tmp_path / "real.db", calendar=SAZON_CLIENT.calendar)
 
 
 def candidate_id(at):
@@ -51,17 +50,17 @@ def test_it_opens_with_the_disclosure_and_a_rerun_does_not_say_it_again(demo, tm
     at = start()
     assert not at.exception, at.exception
     at.run()
-    store = demo_store(tmp_path)
+    store = saved_store(tmp_path)
     assert [(m.role, "una IA" in m.text) for m in store.messages(candidate_id(at))] == [("agent", True)]
     assert len(at.chat_message) == 1
 
 
-def test_a_message_is_answered_by_the_real_turn_code_and_saved_in_the_demo_database(demo, tmp_path):
+def test_a_message_is_answered_by_the_real_turn_code_and_saved_in_the_recruiters_database(demo, tmp_path):
     at = say(start(), "sí")
-    texts = [m.text for m in demo_store(tmp_path).messages(candidate_id(at))]
+    texts = [m.text for m in saved_store(tmp_path).messages(candidate_id(at))]
     assert texts[1] == "sí" and "nombre" in texts[2].lower()
     assert len(at.chat_message) == 3
-    assert not (tmp_path / "real.db").exists()  # the recruiters' database is never opened
+    assert not at.sidebar.toggle  # there is no switch: the chat always saves where the dashboard reads
 
 
 def test_the_inspector_shows_what_the_agent_understood(demo):
@@ -82,7 +81,7 @@ def test_simulating_24_hours_of_silence_sends_the_reminder(demo, tmp_path):
     at = say(start(), "sí")
     at.button(key="wait_24h").click().run()
     assert not at.exception, at.exception
-    assert "sigues interesado" in demo_store(tmp_path).messages(candidate_id(at))[-1].text
+    assert "sigues interesado" in saved_store(tmp_path).messages(candidate_id(at))[-1].text
 
 
 def test_the_screen_can_be_in_english_and_the_agent_still_speaks_the_candidates_language(demo):
@@ -92,7 +91,6 @@ def test_the_screen_can_be_in_english_and_the_agent_still_speaks_the_candidates_
 
 
 def test_a_missing_model_key_is_explained_not_a_crash(tmp_path, monkeypatch):
-    monkeypatch.setenv("SAZON_DEMO_DB", str(tmp_path / "demo.db"))
 
     def no_key():
         raise LLMError("GEMINI_API_KEY is not set")
@@ -153,14 +151,14 @@ def test_uploading_a_cv_in_the_browser_fills_answers_reads_them_back_and_removes
     at = upload(say(start(), "sí"), pdf_with_text("Juan Perez", "Madrid"))
     assert any("He leído tu CV" in text for text in bubbles(at))
     assert at.get("file_uploader") == []  # the offer is over: a second file cannot be sent
-    store = demo_store(tmp_path)
+    store = saved_store(tmp_path)
     assert store.cv(candidate_id(at)) is not None and store.get(candidate_id(at)).extracted["name"] == "Juan Pérez"
 
 
 def test_a_text_file_renamed_to_pdf_is_refused_once_with_a_warning_and_the_offer_stays(demo, tmp_path):
     at = upload(say(start(), "sí"), b"just some words, not a pdf", name="cv.pdf")
     assert any("PDF de hasta 2 MB" in str(w.value) for w in at.warning)
-    assert len(at.get("file_uploader")) == 1 and demo_store(tmp_path).cv(candidate_id(at)) is None
+    assert len(at.get("file_uploader")) == 1 and saved_store(tmp_path).cv(candidate_id(at)) is None
     at.run()  # nothing is said again on the next rerun
     assert not any("PDF de hasta 2 MB" in str(w.value) for w in at.warning)
 
@@ -169,59 +167,24 @@ def test_a_scanned_pdf_is_kept_and_the_questions_go_on(demo, tmp_path):
     from tests.support.pdfs import pdf_without_text
     at = upload(say(start(), "sí"), pdf_without_text())
     assert any("No he podido sacar datos" in text for text in bubbles(at))
-    assert demo_store(tmp_path).cv(candidate_id(at)) is not None
+    assert saved_store(tmp_path).cv(candidate_id(at)) is not None
 
 
 # --- sharing candidates with the dashboard (D73) ---------------------------------------------------------------
-
-def real_store(tmp_path):
-    from sazon.client import SAZON_CLIENT
-    return Store(tmp_path / "real.db", calendar=SAZON_CLIENT.calendar)
-
-
-def test_the_share_switch_is_off_by_default_and_nothing_reaches_the_recruiters_database(demo, tmp_path):
-    at = say(start(), "sí")
-    assert at.sidebar.toggle(key="share_with_dashboard").value is False
-    assert not (tmp_path / "real.db").exists()
-
-
-def test_with_the_switch_on_a_new_candidate_is_saved_where_the_dashboard_reads_and_a_warning_says_so(demo, tmp_path):
-    at = start()
-    first = candidate_id(at)
-    at.sidebar.toggle(key="share_with_dashboard").set_value(True).run()
-    assert not at.exception, at.exception
-    shared = candidate_id(at)
-    assert shared != first and any("panel de reclutadores" in str(w.value) for w in at.warning)
-    at = say(at, "sí")
-    assert [m.text for m in real_store(tmp_path).messages(shared)][1] == "sí"
-    assert real_store(tmp_path).get(shared) is not None
-    assert demo_store(tmp_path).get(shared) is None  # not in the test database
-
-
-def test_switching_it_off_again_starts_another_candidate_in_the_test_database(demo, tmp_path):
-    at = start()
-    at.sidebar.toggle(key="share_with_dashboard").set_value(True).run()
-    shared = candidate_id(at)
-    at.sidebar.toggle(key="share_with_dashboard").set_value(False).run()
-    assert candidate_id(at) != shared and demo_store(tmp_path).get(candidate_id(at)) is not None
-    assert real_store(tmp_path).get(candidate_id(at)) is None and not any("panel de reclutadores" in str(w.value) for w in at.warning)
-
 
 def test_a_candidate_who_finishes_in_the_shared_chat_shows_up_in_the_dashboard(tmp_path, monkeypatch):
     """Both apps, one database file: the whole conversation in the chat, then the recruiter's table."""
     from tests.support.dash import login, seed_accounts
     from tests.support.paths import DASHBOARD
-    monkeypatch.setenv("SAZON_DEMO_DB", str(tmp_path / "demo.db"))
     monkeypatch.setenv("SAZON_DB", str(tmp_path / "real.db"))
     monkeypatch.setenv("SAZON_ACCOUNTS", str(tmp_path / "recruiters.json"))
     everything = {"name": "Juan Pérez", "experience_years": 2, "platforms": ["glovo"], "availability": ["full_time"],
                   "schedule": "morning", "start_date": {"in_weeks": 1}, "city": "Madrid", "has_license": True}
     monkeypatch.setattr("screener.gemini.from_env", lambda: ScriptedLLM(extractions=[everything]))
     at = start()
-    at.sidebar.toggle(key="share_with_dashboard").set_value(True).run()
     shared = candidate_id(at)
     say(say(at, "sí"), "Me llamo Juan Pérez, 2 años en Glovo, tiempo completo, mañanas, en una semana, vivo en Madrid y tengo licencia")
-    assert real_store(tmp_path).get(shared).outcome == "QUALIFIED"
+    assert saved_store(tmp_path).get(shared).outcome == "QUALIFIED"
 
     seed_accounts(tmp_path / "recruiters.json")
     dashboard = AppTest.from_file(str(DASHBOARD), default_timeout=10).run()

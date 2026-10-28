@@ -303,20 +303,10 @@ PACK = UiPack((ES, EN), {
     "chat.page_title": bi("Prueba el asistente · Grupo Sazón", "Try the assistant · Grupo Sazón"),
     "chat.title": bi("Prueba el asistente", "Try the assistant"),
     "chat.notice": bi(
-        "Demostración: las conversaciones se guardan en una base de datos de pruebas, no en la que ven los "
-        "reclutadores. Escribe como lo haría un candidato, en español o en inglés.",
-        "Demo: conversations are saved in a test database, not the one recruiters see. Write as a candidate would, "
-        "in Spanish or English."),
-    "chat.share": bi("Guardar en el panel de reclutadores", "Save to the recruiters' dashboard"),
-    "chat.share_help": bi("Activado, los candidatos nuevos se guardan en la base de datos del panel y aparecen allí. "
-                          "Al cambiarlo empieza un candidato nuevo.",
-                          "When on, new candidates are saved in the dashboard's database and appear there. "
-                          "Changing it starts a new candidate."),
-    "chat.shared_warning": bi(
-        "Estás guardando en el panel de reclutadores: este candidato aparecerá allí y los reclutadores lo verán. "
-        "Bórralo desde el panel cuando termines.",
-        "You are saving to the recruiters' dashboard: this candidate will appear there and recruiters will see it. "
-        "Erase it from the dashboard when you are done."),
+        "Demostración: las conversaciones se guardan en el panel de reclutadores y los reclutadores las ven. "
+        "Escribe como lo haría un candidato, en español o en inglés, y bórralas desde el panel cuando termines.",
+        "Demo: conversations are saved in the recruiters' dashboard and recruiters can see them. Write as a "
+        "candidate would, in Spanish or English, and erase them from the dashboard when you are done."),
     "filter.choose": bi("Elegir opciones", "Choose options"),
     "cand.updates": bi("Hay cambios nuevos: actualizar la lista", "There are new changes: refresh the list"),
     "link.dashboard": bi("Abrir el panel de reclutadores", "Open the recruiters' dashboard"),

@@ -1,6 +1,6 @@
 """Starts the browser chat and the recruiter dashboard together. Run with: python demo_launch.py
 
-Chat:       http://localhost:8501  (turn on "Save to the recruiters' dashboard" in its sidebar)
+Chat:       http://localhost:8501  (its candidates are saved in the dashboard)
 Dashboard:  http://localhost:8502  (sign in with the email and password of a recruiter; see .env.example for the hiring manager)
 Press Ctrl+C to stop both."""
 import socket

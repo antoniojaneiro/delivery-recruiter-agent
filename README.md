@@ -17,7 +17,7 @@ python -m pip install -e ".[dev]"          # ".[service]" is enough to run only 
 copy .env.example .env                 # Windows (cp on macOS/Linux); add your GEMINI_API_KEY; never commit .env
 
 python -m sazon.chat                   # terminal chat: /new, /resume <id>, /cv <pdf path>, /state, /inbox, /wait24h, /help, /quit
-streamlit run apps/chat_app.py         # the chat in the browser (saves to data/demo/chat.db; the sidebar switch "Save to the recruiters' dashboard" sends new candidates to the real database)
+streamlit run apps/chat_app.py         # the chat in the browser (always saves to the recruiters' database, so its candidates appear in the dashboard; erase test candidates there)
 streamlit run apps/dashboard.py        # recruiter dashboard, local only; sign in with email and password; the hiring manager (HIRING_MANAGER_EMAIL and HIRING_MANAGER_PASSWORD in .env) creates the recruiters on the Recruiters page
 python demo_launch.py                  # the chat (port 8501) and the dashboard (port 8502) together, each with a button to the other; Ctrl+C stops both
 python -m sazon.server                 # the HTTP service for a real channel (needs SAZON_API_KEY in .env; port 8000); see docs for the calls
@@ -56,7 +56,7 @@ apps/            the Streamlit apps: dashboard.py, chat_app.py and views/ (the d
 docs/            the Phase 1 design, the decision log, the assignment, the task checklist, the hand-over list
 tests/           engine/ (rules, store, jobs, service), load/ (a busy day on a real server), client/ (Sazón texts, checks and golden snapshot),
                  apps/ (dashboard and chat app), live/ (real model), support/ (fakes, a second client, helpers)
-data/            runtime files, git-ignored: sazon.db, sazon.log, demo/ (chat.db, transcripts.md, old_runs/)
+data/            runtime files, git-ignored: sazon.db, sazon.log, demo/ (transcripts.md, cvs/)
 .claude/         the skills this repo's workflow uses; see CLAUDE.md
 ```
 
