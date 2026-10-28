@@ -43,7 +43,7 @@ The list below says *what* needs approval. A separate document with each text wo
 - A rejected candidate cannot reopen the chat; a recruiter can set a status.
 - One database file on one machine: no backup or failover.
 - A third language needs engine edits (word lists, day names, the extraction prompt).
-- Call times are 15 minutes, up to four weeks ahead, from each recruiter's weekly hours; a recruiter's country is fixed when the manager creates them.
+- Call times are 15 minutes, from each recruiter's weekly hours. A candidate books from tomorrow up to four weeks ahead (never the same day); a recruiter may book any time that has not started. A recruiter's country is fixed when the manager creates them (D87).
 - Erasing a candidate from the dashboard deletes and overwrites their rows, but readable copies of earlier row versions can stay in the database file until it is rewritten (`VACUUM`); see DECISIONS, section 7.
 - Streamlit's own text in the CV uploader ("Upload", "2MB per file") follows the candidate's browser language, not the page's switch.
 - A link to a candidate (`?candidate=ID`) does not survive the dashboard's login page.

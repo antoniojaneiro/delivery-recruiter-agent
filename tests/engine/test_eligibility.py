@@ -63,11 +63,13 @@ def test_a_recruiter_cannot_book_a_call_for_a_candidate_who_is_not_qualified_or_
         store.erase_candidate("c1", "Ana", NOW, "test")
 
 
-def test_a_closed_candidate_cannot_book_by_typing_a_number_or_by_the_picker(store, slots):
+def test_a_closed_candidate_cannot_book_by_typing_a_number_or_by_the_picker_and_is_not_shown_times_again(store, slots):
     qualify(store)
     close(store, S.REJECTED)
-    say(store, "1")
-    assert store.booking_of("c1") is None
+    for message in ("1", "hola", "1"):
+        reply, _ = say(store, message)
+        assert "1)" not in reply and "encaja" not in reply, message  # no new offer, no "your profile fits"
+    assert store.booking_of("c1") is None and not store.get("c1").state.get("slot_offer")
     assert turn.handle_slot(store, CLIENT, "c1", slots[0], NOW) == "" and store.booking_of("c1") is None
 
 

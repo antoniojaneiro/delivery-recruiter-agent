@@ -104,7 +104,7 @@ def _command(command, arg, candidate_id, llm, store, client, clock, write) -> st
         if candidate_id is None:
             write("[no active candidate] Type /new to start one.")
             return candidate_id
-        reply = reminders.wait_a_day(store, client, candidate_id)
+        reply = reminders.wait_a_day(store, client, candidate_id, clock())
         write(f"bot> {reply}" if reply else "[no reply: stalled or already finished]")
         return candidate_id
     write(f"[unknown command {command}] {HELP}")

@@ -73,6 +73,8 @@ def test_leaving_can_be_run_again_after_a_failure_part_way_and_finishes_the_rest
     slot_flow.remove_recruiter(store, CLIENT, ANA, BOSS, NOW)  # the same call again finishes what is left
     assert store.booking_of("c1") is None and store.booking_of("c2") is None
     assert store.future_calls(ANA, NOW_AWARE) == []
+    for cid in ("c1", "c2"):  # nobody is left without being told, even the one whose first try failed
+        assert any("ya no está disponible" in m.text for m in store.messages(cid)), cid
 
 
 def test_an_unknown_recruiter_with_no_calls_is_not_found(store):

@@ -380,7 +380,7 @@ class CallTimes(Part):
         off = {r[0] for r in db.execute("SELECT day FROM days_off WHERE email = ?", (email,))}
         windows = self._windows(db, email)
         wanted = set()
-        for ahead in range(cal.horizon_days):
+        for ahead in range(cal.horizon_days + 1):  # up to the last day a candidate may book
             day = local.date() + timedelta(days=ahead)
             if day.isoformat() in off:
                 continue

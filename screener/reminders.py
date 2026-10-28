@@ -60,9 +60,9 @@ def run_once(store: Store, client: Client, now: datetime) -> list[Action]:
     return actions
 
 
-def _remind(store: Store, client: Client, candidate_id: str, now: datetime) -> Sent | None:
+def _remind(store: Store, client: Client, candidate_id: str, now: datetime, skip_wait: bool = False) -> Sent | None:
     last = store.last_activity_of(candidate_id)  # fresh: they may have written since the pass started
-    if last is None or now - local_naive(last) < client.remind_after:
+    if last is None or (not skip_wait and now - local_naive(last) < client.remind_after):
         return None
 
     def work(screening: Screening) -> Turn:
@@ -86,15 +86,15 @@ def _remind(store: Store, client: Client, candidate_id: str, now: datetime) -> S
     return conversation.run(store, client, candidate_id, now, work, on_conflict=SKIP)
 
 
-def wait_a_day(store: Store, client: Client, candidate_id: str) -> str | None:
-    """The demo's "wait a day": the job's own step for one candidate, run a day after their last message, as the job
-    would then. Returns what they were sent (None: nothing, or they are marked stalled). The demo shows the text itself,
-    so it is not left in the outbox for a channel to send again. The messages are stamped a day ahead of the clock."""
-    last = store.last_activity_of(candidate_id)
-    if last is None or not store.accepting_applications():
+def wait_a_day(store: Store, client: Client, candidate_id: str, now: datetime) -> str | None:
+    """The demo's "wait a day": the job's own step for one candidate, as the job would run it after a day of silence (the
+    wait is skipped, everything else is the job's). Returns what they were sent (None: nothing, or they are marked
+    stalled). The demo shows the text itself, so it is not left in the outbox for a channel to send again. What is saved
+    is stamped with the real time."""
+    if store.last_activity_of(candidate_id) is None or not store.accepting_applications():
         return None
-    at = local_naive(last) + client.remind_after
-    sent = _remind(store, client, candidate_id, at)
+    at = local_naive(now)
+    sent = _remind(store, client, candidate_id, at, skip_wait=True)
     if sent is None:
         return None
     if sent.text:

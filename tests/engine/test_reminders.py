@@ -12,6 +12,7 @@ from sazon import reminders as sazon_reminders
 from screener.directive import Directive, Kind
 from screener.phrasing import phrase
 from screener.store import ConflictError, Store
+from screener.store_types import local_naive
 from tests.support.fakes import ScriptedLLM
 from tests.support.booking import add_slots, qualify
 
@@ -212,17 +213,18 @@ def test_the_command_runs_once_and_says_what_it_did(store, tmp_path, monkeypatch
 
 def test_waiting_a_day_is_the_jobs_step_a_day_after_the_last_message_then_stalled(store):
     in_progress(store)
-    assert reminders.wait_a_day(store, SAZON_CLIENT, "c1") == REMINDER_TEXT and outcome(store) == "IN_PROGRESS"
-    assert reminders.wait_a_day(store, SAZON_CLIENT, "c1") is None and outcome(store) == "STALLED"
+    assert reminders.wait_a_day(store, SAZON_CLIENT, "c1", T0 + HOUR) == REMINDER_TEXT and outcome(store) == "IN_PROGRESS"
+    assert local_naive(store.messages("c1")[-1].at) == T0 + HOUR  # stamped with the real time, not a day ahead of it
+    assert reminders.wait_a_day(store, SAZON_CLIENT, "c1", T0 + 2 * HOUR) is None and outcome(store) == "STALLED"
     assert store.outbox_pending("c1") == []  # the button is the delivery, so nothing is left to be sent twice
 
 
 def test_waiting_a_day_after_the_offer_of_times_reminds_with_the_times_and_then_ends_the_offer(store):
     add_slots(store)
     qualify(store)
-    reminder = reminders.wait_a_day(store, SAZON_CLIENT, "c1")
+    reminder = reminders.wait_a_day(store, SAZON_CLIENT, "c1", T0)
     assert "Te recuerdo las horas disponibles" in reminder and "1)" in reminder
-    assert "cuando quieras reservar tu llamada" in reminders.wait_a_day(store, SAZON_CLIENT, "c1").lower()
+    assert "cuando quieras reservar tu llamada" in reminders.wait_a_day(store, SAZON_CLIENT, "c1", T0).lower()
     assert outcome(store) == "QUALIFIED"
 
 
@@ -230,7 +232,7 @@ def test_waiting_a_day_does_nothing_for_a_booked_candidate_or_while_applications
     add_slots(store)
     qualify(store)
     turn.handle_message(ScriptedLLM(), store, SAZON_CLIENT, "c1", "1", T0)
-    assert reminders.wait_a_day(store, SAZON_CLIENT, "c1") is None
+    assert reminders.wait_a_day(store, SAZON_CLIENT, "c1", T0) is None
     in_progress(store, "c2")
     store.set_accepting(False, "Ana", T0)
-    assert reminders.wait_a_day(store, SAZON_CLIENT, "c2") is None and outcome(store, "c2") == "IN_PROGRESS"
+    assert reminders.wait_a_day(store, SAZON_CLIENT, "c2", T0) is None and outcome(store, "c2") == "IN_PROGRESS"

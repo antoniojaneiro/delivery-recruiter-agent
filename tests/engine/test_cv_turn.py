@@ -187,8 +187,8 @@ def test_a_candidate_who_withdrew_at_the_offer_cannot_upload_and_nothing_is_read
 
 def test_an_upload_from_a_stalled_candidate_brings_them_back(offered):
     store, _ = offered
-    reminders.wait_a_day(store, CLIENT, "c1")
-    reminders.wait_a_day(store, CLIENT, "c1")
+    reminders.wait_a_day(store, CLIENT, "c1", NOW)
+    reminders.wait_a_day(store, CLIENT, "c1", NOW)
     assert store.get("c1").outcome == "STALLED"
     upload(store, pdf_with_text("Juan Perez"))
     assert store.get("c1").outcome == "IN_PROGRESS" and store.cv("c1") is not None

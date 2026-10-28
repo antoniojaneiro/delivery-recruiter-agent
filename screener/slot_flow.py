@@ -8,7 +8,7 @@ from screener.conversation import RETRY_ONCE, SKIP, Turn
 from screener.client import Client
 from screener.consent import is_stop_request
 from screener.model import Outcome
-from screener.recruiter_rules import can_schedule
+from screener.recruiter_rules import can_schedule, closed_by_recruiter
 from screener.directive import LATER, Directive, Kind
 from screener.phrasing import fixed, slot_cancelled_message, slot_label, slot_scheduled_message
 from screener.screening import Screening
@@ -28,6 +28,9 @@ def after_close(store: Store, client: Client, screening: Screening, candidate_id
     booking = store.booking_of(candidate_id)
     if booking:
         return Directive(Kind.ALREADY_BOOKED, label=slot_label(booking.starts_at, screening.language))
+    record = store.get(candidate_id)
+    if record is not None and closed_by_recruiter(record):
+        return _closed_by_recruiter(screening)  # no offer: a recruiter has the case
     # Someone who left without booking gets the free times again when they write: no time was ever promised
     return _offer(store, client, screening, now, "first") or _give_up(screening)
 
@@ -39,8 +42,7 @@ def handle_pick(store: Store, client: Client, screening: Screening, candidate_id
         return screening.apply_stop_request()
     record = store.get(candidate_id)
     if record is None or not can_schedule(record):  # a recruiter closed their case since the times were offered
-        screening.resolve_slots()
-        return replace(screening.close_directive(), repeat=True)
+        return _closed_by_recruiter(screening)
     if held := _already_booked(store, screening, candidate_id):  # a retry after a turn that booked but was never saved
         return held
     offered = screening.slot_offer
@@ -107,8 +109,8 @@ def resolve_calls(store: Store, client: Client, calls, by: str, now: datetime) -
         if store.reassign_call(call.slot_id, now.astimezone()) is not None:
             moved += 1
             continue
+        notify_cancelled(store, client, call.candidate_id, now)  # told first: a failure leaves the call booked, so a repeat finds it
         store.cancel_slot(call.slot_id, by, now.astimezone())
-        notify_cancelled(store, client, call.candidate_id, now)
         released += 1
     return Resolved(moved, released)
 
@@ -180,6 +182,13 @@ def pick_slot(store: Store, client: Client, screening: Screening, candidate_id: 
     return chosen, _already_booked(store, screening, candidate_id) or _take(store, client, screening, candidate_id, slot_id, now)
 
 
+def _closed_by_recruiter(screening: Screening) -> Directive:
+    """A recruiter closed this case (hired, rejected, unreachable): the offer of times ends, nothing new is offered, and
+    the candidate is told, shortly, that the chat is closed and a recruiter has their case."""
+    screening.resolve_slots()
+    return Directive(Kind.CLOSE, repeat=True)
+
+
 def _already_booked(store: Store, screening: Screening, candidate_id: str) -> Directive | None:
     held = store.booking_of(candidate_id)
     if held:
@@ -204,7 +213,8 @@ def notify_cancelled(store: Store, client: Client, candidate_id: str, now: datet
     """Queues the fixed 'your call is no longer available' message for a candidate whose booked time was taken away,
     followed by the free times so they can pick again (or, with none free, that they can write to book later).
     False when there is nobody to tell (erased) or the record changed meanwhile."""
-    if store.get(candidate_id) is None:
+    record = store.get(candidate_id)
+    if record is None or not can_schedule(record):  # erased, or a recruiter has closed their case: nothing to offer
         return False
 
     def work(screening: Screening) -> Turn:

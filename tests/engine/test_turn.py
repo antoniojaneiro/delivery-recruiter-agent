@@ -196,9 +196,9 @@ def test_a_complete_valid_candidate_qualifies_and_the_recruiter_data_is_saved(st
 
 def test_the_reminder_then_stall_then_resume_flow(store):
     consented(store)
-    reminder = reminders.wait_a_day(store, client_for(AREAS), "c1")
+    reminder = reminders.wait_a_day(store, client_for(AREAS), "c1", NOW)
     assert reminder and "sigues interesado" in reminder and outcome(store) == "IN_PROGRESS"
-    assert reminders.wait_a_day(store, client_for(AREAS), "c1") is None
+    assert reminders.wait_a_day(store, client_for(AREAS), "c1", NOW) is None
     assert outcome(store) == "STALLED"
     reply, _ = say(store, "hola, perdona", {"name": "Juan Pérez"})
     assert outcome(store) == "IN_PROGRESS" and "años" in reply
@@ -209,7 +209,7 @@ def test_waiting_does_nothing_once_the_chat_has_ended(store):
     consented(store)
     say(store, "no tengo licencia", {"has_license": False})
     say(store, "correcto", {"confirms_rejection": True})
-    assert reminders.wait_a_day(store, client_for(AREAS), "c1") is None
+    assert reminders.wait_a_day(store, client_for(AREAS), "c1", NOW) is None
     assert outcome(store) == "DISQUALIFIED"
 
 
@@ -255,11 +255,11 @@ def test_text_sent_before_consent_is_not_stored(store):
 
 def test_every_new_period_of_silence_gets_its_own_single_reminder(store):
     consented(store)
-    assert reminders.wait_a_day(store, client_for(AREAS), "c1")
+    assert reminders.wait_a_day(store, client_for(AREAS), "c1", NOW)
     say(store, "perdona, estaba ocupado", {"name": "Juan Pérez"})
-    assert reminders.wait_a_day(store, client_for(AREAS), "c1")
+    assert reminders.wait_a_day(store, client_for(AREAS), "c1", NOW)
     assert outcome(store) == "IN_PROGRESS"
-    assert reminders.wait_a_day(store, client_for(AREAS), "c1") is None
+    assert reminders.wait_a_day(store, client_for(AREAS), "c1", NOW) is None
     assert outcome(store) == "STALLED"
 
 

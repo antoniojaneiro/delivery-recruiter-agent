@@ -161,8 +161,8 @@ def test_a_blocked_candidate_is_reminded_and_can_stall(store):
     consented_chat(store)
     for _ in range(6):
         say(store, "Juan", {"name": "Juan"})
-    assert reminders.wait_a_day(store, client_for(AREAS), "c1")
-    assert reminders.wait_a_day(store, client_for(AREAS), "c1") is None
+    assert reminders.wait_a_day(store, client_for(AREAS), "c1", NOW)
+    assert reminders.wait_a_day(store, client_for(AREAS), "c1", NOW) is None
     assert store.get("c1").outcome == "STALLED"
 
 

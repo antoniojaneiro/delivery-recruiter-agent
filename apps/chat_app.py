@@ -59,7 +59,7 @@ def new_candidate() -> None:
 
 
 def wait_a_day() -> None:
-    reply = reminders.wait_a_day(active_store(), SAZON_CLIENT, st.session_state["chat_id"])
+    reply = reminders.wait_a_day(active_store(), SAZON_CLIENT, st.session_state["chat_id"], datetime.now())
     st.session_state["flash"] = None if reply else "chat.wait_nothing"
 
 
@@ -130,7 +130,7 @@ with chat_side:
         country = slot_flow.country_of(store, SAZON_CLIENT, candidate_id)
 
         def open_picker() -> None:
-            st.session_state.update(picker_open=True, picker_month=date.today().replace(day=1), picker_day=None)
+            st.session_state.update(picker_open=True, picker_month=(date.today() + timedelta(days=1)).replace(day=1), picker_day=None)
 
         def move_month(step: int) -> None:
             month = st.session_state["picker_month"]
