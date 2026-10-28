@@ -6,13 +6,11 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from enum import StrEnum
 
-from screener.model import Language, Outcome, RecruiterStatus
+from screener.model import CLOSED_BY_RECRUITER, RECRUITER_STEPS, Language, Outcome, RecruiterStatus
 from screener.screening import Screening
 from screener.spec import ScreeningSpec
 
 CONSENT, QUALIFIED_STEP, BOOKED_STEP = "consent", "qualified", "booked"
-# The recruiter's steps in order, each with the status that means it was reached (a later status means it too).
-RECRUITER_STEPS = (RecruiterStatus.CONTACTED, RecruiterStatus.INTERVIEW_SCHEDULED, RecruiterStatus.HIRED)
 _RANK = {status: number for number, status in enumerate(RECRUITER_STEPS, start=1)}
 
 
@@ -58,9 +56,9 @@ def mark_of(outcome: str | None, status: RecruiterStatus) -> Mark:
     status = RecruiterStatus(status)
     if status == RecruiterStatus.HIRED:
         return Mark.HIRED
-    if status in (RecruiterStatus.REJECTED, RecruiterStatus.UNREACHABLE):
+    if status in CLOSED_BY_RECRUITER:
         return Mark.OUT
-    if status in (RecruiterStatus.CONTACTED, RecruiterStatus.INTERVIEW_SCHEDULED):
+    if status in RECRUITER_STEPS:
         return Mark.IN_PROCESS
     return _BY_OUTCOME.get(Outcome(outcome), Mark.IN_PROCESS) if outcome else Mark.IN_PROCESS
 
@@ -76,6 +74,13 @@ def reached_rank(status: RecruiterStatus, history: Iterable[RecruiterStatus]) ->
     """How far into the recruiter's steps the candidate ever got: 0 none, 1 contacted, 2 interview, 3 hired. A later
     rejection does not undo it, and a candidate set straight to hired has passed the steps before it."""
     return max((_RANK.get(RecruiterStatus(s), 0) for s in (*history, status)), default=0)
+
+
+def path_for(record, history: Iterable[RecruiterStatus], *, client, language: Language | None, labels: dict[str, str]) -> Path:
+    """The path of a saved candidate: the page hands over the record and what it has of their history."""
+    return path_of(Screening.from_state(client.areas, record.state, client.spec), outcome=record.outcome, status=record.status,
+                   reasons=record.reasons, booked=record.booking is not None, history=history,
+                   with_calls=client.calendar is not None, spec=client.spec, language=language, labels=labels)
 
 
 def path_of(screening: Screening, *, outcome: str | None, status: RecruiterStatus, reasons: list[str], booked: bool,

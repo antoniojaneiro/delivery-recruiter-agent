@@ -163,3 +163,35 @@ def test_the_second_client_runs_through_the_same_pipeline_with_its_own_questions
     assert [step.key for step in p.steps] == ["started", "consent", "name", "shift", "can_lift", "qualified", "contacted",
                                              "interview_scheduled", "hired"]
     assert {s.key: s.state for s in p.steps}["shift"] == StepState.CURRENT
+
+
+# --- one definition of the steps and of "closed" (D88) --------------------------------------------------------------
+
+def test_the_order_of_the_steps_and_the_closed_set_are_defined_once_and_every_reader_agrees():
+    from screener.model import CLOSED_BY_RECRUITER, RECRUITER_STEPS, reached_by
+    from screener.recruiter_rules import closed_by_recruiter
+    from screener.store import _REACHED_BY
+
+    class Rec:
+        def __init__(self, status):
+            self.status = status
+    assert [s.value for s in RECRUITER_STEPS] == list(_REACHED_BY)  # the funnel's SQL counts the same steps, in order
+    assert all(_REACHED_BY[s.value] == tuple(x.value for x in reached_by(s)) for s in RECRUITER_STEPS)
+    for status in RecruiterStatus:
+        in_closed = status in CLOSED_BY_RECRUITER
+        assert closed_by_recruiter(Rec(status)) is in_closed
+        assert (mark_of(None, status) in (Mark.OUT, Mark.HIRED)) is in_closed, status  # the pipeline reads the same set
+
+
+def test_a_path_can_be_made_from_a_saved_record_without_the_page_building_a_screening():
+    from datetime import datetime
+    from screener.pipeline import path_for
+    from screener.store import Store
+    import tempfile, pathlib
+    with tempfile.TemporaryDirectory() as tmp:
+        store = Store(pathlib.Path(tmp) / "s.db", calendar=SAZON_CLIENT.calendar)
+        s = screening("name", "experience")
+        store.commit_turn("c1", datetime(2026, 10, 25, 10, 0), s.to_state(), s.extracted(), "IN_PROGRESS", [], [])
+        record = store.get("c1")
+        made = path_for(record, [], client=SAZON_CLIENT, language=ES, labels=LABELS)
+        assert made == path(s) and states(made)["name"] == StepState.DONE

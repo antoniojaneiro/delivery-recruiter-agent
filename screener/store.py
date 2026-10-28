@@ -6,7 +6,7 @@ from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
 
-from screener.model import RecruiterStatus
+from screener.model import RECRUITER_STEPS, RecruiterStatus, reached_by
 from screener.recruiter_rules import AGENT_CLOSED, BLOCKED, NEEDS_REVIEW, STALLED, TO_CONTACT
 from screener.store_schema import prepare
 from screener.store_availability import AvailabilityMixin
@@ -18,8 +18,7 @@ from screener.store_types import (AGENT, NO_CHECK, AdminEntry, Booking, Conflict
 
 BUSY_TIMEOUT_SECONDS = 10
 # A candidate has reached a recruiter step if they ever had that status or a later one (history, not today's status).
-_REACHED_BY = {"contacted": ("contacted", "interview_scheduled", "hired"),
-               "interview_scheduled": ("interview_scheduled", "hired"), "hired": ("hired",)}
+_REACHED_BY = {step.value: tuple(s.value for s in reached_by(step)) for step in RECRUITER_STEPS}
 
 _CANDIDATE_COLUMNS = ("c.candidate_id, c.state, c.extracted, c.summary, c.outcome, c.reasons, c.flags, "
                       "c.updated_at, COALESCE(r.status, 'new'), r.assignee, "

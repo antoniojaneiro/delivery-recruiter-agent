@@ -59,6 +59,17 @@ class RecruiterStatus(StrEnum):
     UNREACHABLE = "unreachable"
 
 
+# The recruiter's steps in order; a later status means the earlier steps were reached too (D88).
+RECRUITER_STEPS = (RecruiterStatus.CONTACTED, RecruiterStatus.INTERVIEW_SCHEDULED, RecruiterStatus.HIRED)
+# The statuses with which a recruiter has closed a case: hired, or out of the process.
+CLOSED_BY_RECRUITER = (RecruiterStatus.HIRED, RecruiterStatus.REJECTED, RecruiterStatus.UNREACHABLE)
+
+
+def reached_by(step: RecruiterStatus) -> tuple[RecruiterStatus, ...]:
+    """The statuses that mean this step was reached: itself and every later step."""
+    return RECRUITER_STEPS[RECRUITER_STEPS.index(step):]
+
+
 class Language(StrEnum):
     ES = "es"
     EN = "en"

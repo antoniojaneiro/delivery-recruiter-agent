@@ -3,7 +3,7 @@ whole table in SQL (`sql`, used by the counters), so the table filter, the numbe
 Only outcomes, a recruiter status and a reason that are named here ever reach the SQL text."""
 from dataclasses import dataclass, replace
 
-from screener.model import NO_CONSENT, Outcome, RecruiterStatus
+from screener.model import CLOSED_BY_RECRUITER, NO_CONSENT, Outcome, RecruiterStatus
 
 
 @dataclass(frozen=True)
@@ -40,11 +40,8 @@ TO_CONTACT = Rule((Outcome.QUALIFIED,), status=RecruiterStatus.NEW, unbooked=Tru
 BLOCKED = Rule((Outcome.BLOCKED,))
 STALLED = Rule((Outcome.STALLED,))
 
-_CLOSED_BY_RECRUITER = (RecruiterStatus.HIRED, RecruiterStatus.REJECTED, RecruiterStatus.UNREACHABLE)
-
-
 def closed_by_recruiter(record) -> bool:
-    return record.status in _CLOSED_BY_RECRUITER
+    return record.status in CLOSED_BY_RECRUITER
 
 
 def can_schedule(record) -> bool:

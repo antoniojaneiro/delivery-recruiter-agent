@@ -5,9 +5,9 @@ from sazon import ui
 from sazon.ui import t
 from screener.funnel import build_funnel
 from screener.model import RecruiterStatus
-from screener.pipeline import RECRUITER_STEPS, Mark, StepState, count_marks, path_of
+from screener.model import RECRUITER_STEPS
+from screener.pipeline import Mark, StepState, count_marks, path_for
 from screener.recruiter_view import escape_markdown, filter_records
-from screener.screening import Screening
 from sazon.client import SAZON_CLIENT
 
 PATH_CHOICES = 20  # candidates offered to pick from; a search narrows them (the full list would be thousands)
@@ -104,9 +104,7 @@ if chosen is None:
 record = by_id[chosen]
 history = [RecruiterStatus(e.detail) for e in store.events(chosen) if e.type == "recruiter_status"]
 labels = {key: t(f"funnel.step.{key}") for key in ("started", "consent", "qualified", "booked")} | recruiter_labels
-path = path_of(Screening.from_state(SAZON_CLIENT.areas, record.state, spec), outcome=record.outcome,
-               status=record.status, reasons=record.reasons, booked=record.booking is not None, history=history,
-               with_calls=store.calendar is not None, spec=spec, language=language, labels=labels)
+path = path_for(record, history, client=SAZON_CLIENT, language=language, labels=labels)
 with st.container(border=True):
     with st.container(horizontal=True, vertical_alignment="center"):
         st.subheader(escape_markdown(view.name_of(record)))
