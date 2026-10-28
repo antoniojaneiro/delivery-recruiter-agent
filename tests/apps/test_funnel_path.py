@@ -65,19 +65,18 @@ def metric(at, label):
     return next(m.value for m in at.metric if m.label == label)
 
 
-def test_the_funnel_says_how_many_are_in_the_process_paused_out_and_how_many_went_through_all_of_it(db):
+def test_the_funnel_counts_where_everyone_is_and_the_chart_ends_with_the_recruiters_steps(db):
     populate(db)
     at = opened()
-    assert [metric(at, label) for label in ("En proceso", "En pausa", "Fuera del proceso", "Recorrieron todo el proceso")] ==         ["2", "1", "2", "1"]
-
-
-def test_the_chart_table_has_the_recruiters_steps_after_the_agents(db):
-    populate(db)
-    at = opened()
+    assert [metric(at, label) for label in ("En proceso", "En pausa", "Fuera del proceso", "Recorrieron todo el proceso")] == \
+        ["2", "1", "2", "1"]
     rows = [list(row) for frame in at.dataframe for row in frame.value.values.tolist()]
     names = [row[0] for row in rows]
     assert names.index("Cualificaron") < names.index("Contactado") < names.index("Entrevista programada") < names.index("Contratado")
     assert dict(rows)["Contactado"] == 3 and dict(rows)["Contratado"] == 1
+    db.set_status("done", S.REJECTED, "Ana", NOW)  # hired, then the recruiter changed their mind: they did go through all of it
+    at = opened()
+    assert metric(at, "Recorrieron todo el proceso") == "1" and dict(row for frame in at.dataframe for row in frame.value.values.tolist())["Contratado"] == 1
 
 
 def test_a_chosen_candidate_shows_the_steps_done_and_the_ones_left(db):
@@ -123,10 +122,3 @@ def test_the_page_is_in_english_when_the_recruiter_picks_english(db):
     assert "Interview scheduled" in text and "En proceso" not in text
 
 
-def test_the_whole_process_number_and_the_charts_last_bar_are_the_same_even_after_a_later_change(db):
-    populate(db)
-    db.set_status("done", S.REJECTED, "Ana", NOW)  # hired, then the recruiter changed their mind
-    at = opened()
-    assert metric(at, "Recorrieron todo el proceso") == "1"  # they did go through all of it
-    rows = dict(row for frame in at.dataframe for row in frame.value.values.tolist())
-    assert rows["Contratado"] == 1

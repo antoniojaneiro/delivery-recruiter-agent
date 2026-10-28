@@ -49,13 +49,9 @@ def enabled_days(at):
     return [b for b in at.button if b.key.startswith("pick_day_") and not b.disabled]
 
 
-def test_there_is_no_button_until_the_candidate_has_qualified(chat):
+def test_the_button_appears_when_the_candidate_qualifies_and_opens_a_month_with_only_the_free_days_clickable(chat):
     at = opened()
-    assert not [b for b in at.button if b.key == "pick_open"]
-
-
-def test_a_qualified_candidate_sees_the_button_and_it_opens_a_month_with_only_the_free_days_clickable(chat):
-    at = opened()
+    assert not [b for b in at.button if b.key == "pick_open"]  # nothing to pick before they qualify
     qualify_in_the_chat(at, chat)
     assert [b.label for b in at.button if b.key == "pick_open"] == ["Elegir día y hora"]
     at.button(key="pick_open").click().run()

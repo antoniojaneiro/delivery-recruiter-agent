@@ -41,31 +41,18 @@ def save_week(at, **changes):
     return at
 
 
-def test_a_recruiter_sees_their_default_week_monday_to_friday_nine_to_five(db):
+def test_a_recruiter_edits_their_week_from_the_default_and_can_go_back_to_it(db):
     at = opened()
-    assert [at.checkbox(key=f"avail_on_{d}").value for d in range(7)] == [True] * 5 + [False] * 2
+    assert [at.checkbox(key=f"avail_on_{d}").value for d in range(7)] == [True] * 5 + [False] * 2  # Monday to Friday...
     assert at.time_input(key="avail_start_0").value == time(9, 0) and at.time_input(key="avail_end_0").value == time(17, 0)
-
-
-def test_changing_the_week_saves_exactly_those_hours_and_they_are_marked_as_their_own(db):
-    at = opened()
-    save_week(at, avail_on_4=False, avail_start_1=time(10, 0), avail_end_1=time(12, 0))
-    assert db.is_custom(email_of("Ana"))
-    assert sorted(db.weekly(email_of("Ana"))) == [(0, 540, 1020), (1, 600, 720), (2, 540, 1020), (3, 540, 1020)]
-    assert at.success
-
-
-def test_a_window_that_ends_before_it_starts_is_refused_and_nothing_changes(db):
-    at = opened()
-    save_week(at, avail_start_0=time(17, 0), avail_end_0=time(9, 0))
+    save_week(at, avail_start_0=time(17, 0), avail_end_0=time(9, 0))  # an end before the start is refused
     assert at.error and not db.is_custom(email_of("Ana"))
-
-
-def test_going_back_to_the_default_week(db):
-    at = opened()
-    save_week(at, avail_on_0=False)
-    at.button(key="avail_reset").click().run()
-    assert not db.is_custom(email_of("Ana")) and at.checkbox(key="avail_on_0").value is True
+    save_week(at, avail_start_0=time(9, 0), avail_end_0=time(17, 0), avail_on_4=False, avail_start_1=time(10, 0),
+              avail_end_1=time(12, 0))  # corrected, and their own hours are saved exactly
+    assert db.is_custom(email_of("Ana")) and at.success
+    assert sorted(db.weekly(email_of("Ana"))) == [(0, 540, 1020), (1, 600, 720), (2, 540, 1020), (3, 540, 1020)]
+    at.button(key="avail_reset").click().run()  # and going back to the default
+    assert not db.is_custom(email_of("Ana")) and at.checkbox(key="avail_on_4").value is True
 
 
 def test_a_day_off_is_added_and_taken_back(db):

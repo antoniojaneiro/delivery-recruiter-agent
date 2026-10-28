@@ -3,6 +3,8 @@ from datetime import date, datetime
 from pathlib import Path
 
 import pytest
+
+from tests.support.tables import table
 from streamlit.testing.v1 import AppTest
 
 from tests.support.paths import DASHBOARD
@@ -120,7 +122,7 @@ def test_spanish_is_still_the_default(db):
     assert at.title[0].value == "Candidatos"
 
 
-@pytest.mark.parametrize("language,expected", [("es", "Elegir opciones"), ("en", "Choose options")])
+@table("language,expected", [("es", "Elegir opciones"), ("en", "Choose options")])
 def test_the_filter_dropdowns_say_their_placeholder_in_the_page_language(db, language, expected):
     """Streamlit's own default placeholder is English whatever the app's language switch says."""
     at = AppTest.from_file(APP, default_timeout=20)

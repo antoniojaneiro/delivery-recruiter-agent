@@ -3,6 +3,8 @@ from datetime import datetime, timedelta
 
 import pytest
 
+from tests.support.tables import table
+
 from sazon.spec import SAZON
 from sazon.client import SAZON_CALENDAR, SAZON_CLIENT
 from screener import reminders, session, turn
@@ -94,7 +96,7 @@ def test_a_blocked_candidate_is_reminded_too(store):
     assert kinds(reminders.run_once(store, SAZON_CLIENT, T0 + 24 * HOUR)) == [("c1", "reminder")]
 
 
-@pytest.mark.parametrize("prepare", [
+@table("prepare", [
     lambda s: (in_progress(s), turn.handle_message(ScriptedLLM(), s, SAZON_CLIENT, "c1", "me retiro", T0)),
     lambda s: (turn.start(s, SAZON_CLIENT, "c1", T0), turn.handle_message(ScriptedLLM(), s, SAZON_CLIENT, "c1", "no gracias", T0)),
 ])

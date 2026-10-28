@@ -4,6 +4,8 @@ from datetime import date, datetime
 
 import pytest
 
+from tests.support.tables import table
+
 from sazon.client import SAZON_CLIENT
 from screener import conversation, session
 from screener.conversation import RAISE, RETRY_ONCE, SKIP, Turn
@@ -109,7 +111,7 @@ def test_raise_lets_the_conflict_through_at_once(store):
     assert calls == [1]
 
 
-@pytest.mark.parametrize("policy", [RAISE, RETRY_ONCE, SKIP])
+@table("policy", [RAISE, RETRY_ONCE, SKIP])
 def test_a_candidate_erased_meanwhile_is_never_recreated(store, policy):
     run(store, say_name("Juan Pérez"))
 

@@ -3,6 +3,8 @@ from datetime import date, datetime, time, timedelta
 from pathlib import Path
 
 import pytest
+
+from tests.support.tables import table
 from streamlit.testing.v1 import AppTest
 
 from tests.support.paths import DASHBOARD
@@ -76,7 +78,7 @@ def test_a_recruiter_can_add_a_slot_in_a_countrys_own_time(db):
 
 
 
-@pytest.mark.parametrize("when", [
+@table("when", [
     datetime.combine(date.today() - timedelta(days=3), time(10, 0)),
     datetime(2027, 3, 28, 2, 30),   # does not exist in Spain: the clocks jump from 02:00 to 03:00
 ])

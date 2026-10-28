@@ -3,6 +3,8 @@ from datetime import datetime, timezone
 
 import pytest
 
+from tests.support.tables import table
+
 from sazon.client import SAZON_CALENDAR
 from sazon.spec import SAZON
 from screener.model import RecruiterStatus
@@ -56,7 +58,7 @@ def test_a_candidate_without_a_name_is_still_listed(store):
     assert row["Nombre"] == "(sin nombre)" and row["Agente"] == "Bloqueado"
 
 
-@pytest.mark.parametrize("text,expected", [
+@table("text,expected", [
     ("garcia", ["c2"]), ("GARCÍA LOPEZ", ["c2"]), ("juan", ["c1"]), ("madrid", ["c1", "c5"]),
     ("sevilla", ["c3"]), ("c4", ["c4"]), ("   ", ["c1", "c2", "c3", "c4", "c5"]), ("zzz", []),
 ])
@@ -153,7 +155,7 @@ def test_every_outcome_and_status_has_a_badge_color_and_the_colors_tell_good_fro
     assert STATUS_COLOR[RecruiterStatus.HIRED] == "green" and STATUS_COLOR[RecruiterStatus.REJECTED] == "red"
 
 
-@pytest.mark.parametrize("language,qualified", [("es", "Cualificado"), ("en", "Qualified")])
+@table("language,qualified", [("es", "Cualificado"), ("en", "Qualified")])
 def test_the_badge_columns_list_every_label_with_its_color_in_the_same_order(store, language, qualified):
     view = view_for(language)
     columns = view.badge_columns()

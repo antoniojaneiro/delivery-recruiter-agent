@@ -6,6 +6,8 @@ import time
 from datetime import datetime, timedelta
 
 import pytest
+
+from tests.support.tables import table
 from fastapi.testclient import TestClient
 
 from screener.llm import LLMError
@@ -248,7 +250,7 @@ def test_health_needs_no_token_and_shows_no_data(store, clock):
     assert response.status_code == 200 and response.json() == {"status": "ok"}
 
 
-@pytest.mark.parametrize("where", ["claim_message", "commit_turn", "set_token"])
+@table("where", ["claim_message", "commit_turn", "set_token"])
 def test_a_database_too_busy_to_write_is_answered_with_a_retry_later_not_a_server_error(store, clock, where):
     import sqlite3
     http, _ = build(store, clock)

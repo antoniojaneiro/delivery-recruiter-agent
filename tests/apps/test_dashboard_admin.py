@@ -3,6 +3,8 @@ from datetime import datetime
 from pathlib import Path
 
 import pytest
+
+from tests.support.tables import table
 from streamlit.testing.v1 import AppTest
 
 from tests.support.paths import DASHBOARD
@@ -61,7 +63,7 @@ def test_the_right_email_and_password_open_the_dashboard_whatever_the_case_of_th
     assert at.dataframe and at.metric
 
 
-@pytest.mark.parametrize("name,password", [("Ana", "mala-contraseña-1"), ("Nadie", PASSWORD), ("", ""), ("Ana", "")])
+@table("name,password", [("Ana", "mala-contraseña-1"), ("Nadie", PASSWORD), ("", ""), ("Ana", "")])
 def test_a_wrong_login_is_refused_with_one_generic_message(db, name, password):
     at = login(fresh(), name, password)
     assert at.error and "incorrectos" in at.error[0].value
@@ -122,7 +124,7 @@ def test_a_recruiter_changes_their_password_and_signs_in_with_the_new_one(db):
     assert at.session_state["recruiter"] == "ana@sazon.test"
 
 
-@pytest.mark.parametrize("old,new,again,message", [
+@table("old,new,again,message", [
     ("mala-contraseña-1", "otra-contraseña-9", None, "actual no es correcta"),
     (PASSWORD, "otra-contraseña-9", "distinta-contraseña-9", "no coinciden"), (PASSWORD, "corta", None, "al menos 8")])
 def test_a_password_change_that_is_wrong_is_refused_and_nothing_changes(db, old, new, again, message):
@@ -182,7 +184,7 @@ def test_the_manager_creates_a_recruiter_who_can_then_sign_in_and_it_is_logged(d
     assert signed_in("Marta").session_state["recruiter"] == "marta@sazon.test"
 
 
-@pytest.mark.parametrize("fields,message", [
+@table("fields,message", [
     (dict(email="ana@sazon.test"), "Ya hay un reclutador"), (dict(email="no-es-un-correo"), "correo válido"),
     (dict(name=" "), "nombre del reclutador"), (dict(password="corta"), "al menos 8"),
     (dict(again="otra-distinta-123"), "no coinciden")])

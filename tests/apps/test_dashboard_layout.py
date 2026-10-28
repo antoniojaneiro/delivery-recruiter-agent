@@ -76,18 +76,14 @@ def test_a_long_list_gets_the_capped_height_so_the_table_scrolls(make, tables):
     assert tables[0] == table_height(TABLE_MAX_ROWS) and table_height(TABLE_MAX_ROWS) < table_height(PAGE_SIZE) + 1
 
 
-def test_the_table_does_not_share_the_row_with_the_details(make):
-    store = make(3)
+def test_the_filters_then_the_table_then_the_details_each_on_their_own_row(make):
+    make(3)
     at = opened()
     at.selectbox(key="candidate").select("c001").run()
     assert not at.exception, at.exception
     assert all(not column.dataframe for column in at.columns)  # no table sits in a column beside the details
-    assert at.subheader and at.text_area(key="note")           # the details are on the page, below
-
-
-def test_the_filters_and_the_table_come_before_the_details(make):
-    make(3)
-    at = opened()
-    at.selectbox(key="candidate").select("c001").run()
+    assert at.subheader and at.text_area(key="note")  # the details are on the page, below
     order = [type(e).__name__ for e in at.main]
     assert order.index("Multiselect") < order.index("Dataframe") < order.index("Subheader")
+
+

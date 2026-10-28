@@ -4,6 +4,8 @@ from datetime import datetime
 
 import pytest
 
+from tests.support.tables import table
+
 from screener.login import Identity, sign_in
 from screener.recruiters import TooManyAttempts
 from screener.store import Store
@@ -32,7 +34,7 @@ def test_a_recruiter_signs_in_as_a_recruiter_with_their_country(store):
     assert (who.email, who.name, who.role, who.country) == ("ana@sazon.test", "Ana Ruiz", "recruiter", "ES")
 
 
-@pytest.mark.parametrize("email,password", [
+@table("email,password", [
     ("boss@sazon.test", "wrong"), ("boss@sazon.test", ""), ("ana@sazon.test", "wrong"), ("nobody@sazon.test", PASSWORD),
     ("", ""), ("ana@sazon.test", "manager-password-1")])
 def test_a_wrong_email_or_password_is_not_signed_in(store, email, password):

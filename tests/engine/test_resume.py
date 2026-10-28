@@ -186,7 +186,7 @@ def test_the_closed_notice_is_bilingual_because_the_language_is_not_known_yet():
 
 # --- found by the architecture review ---------------------------------------------------------------------
 
-@pytest.mark.parametrize("message", ["me retiro", "cancelar", "basta", "stop"])
+@table("message", ["me retiro", "cancelar", "basta", "stop"])
 def test_asking_to_stop_at_the_consent_question_closes_it_instead_of_asking_again(store, message):
     turn.start(store, SAZON_CLIENT, "c1", NOW)
     say(store, message)

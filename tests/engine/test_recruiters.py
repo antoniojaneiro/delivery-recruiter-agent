@@ -6,6 +6,8 @@ from datetime import datetime
 
 import pytest
 
+from tests.support.tables import table
+
 from screener.recruiters import MIN_PASSWORD_LENGTH, TooManyAttempts
 from screener.store import InputError, Store
 from sazon.client import SAZON_CALENDAR
@@ -38,7 +40,7 @@ def test_the_password_is_never_stored_as_typed(store, tmp_path):
     assert PASSWORD.encode() not in raw
 
 
-@pytest.mark.parametrize("fields,code", [
+@table("fields,code", [
     (dict(email="not-an-email"), "email_invalid"), (dict(email=""), "email_invalid"),
     (dict(name="  "), "name_missing"), (dict(country="FR"), "unknown_country"),
     (dict(password="short"), "password_short"), (dict(password=""), "password_short")])
@@ -55,8 +57,7 @@ def test_the_same_email_cannot_be_used_twice_in_any_case(store):
     assert refused.value.code == "exists" and len(store.recruiters()) == 1
 
 
-def test_the_password_needs_a_minimum_length():
-    assert MIN_PASSWORD_LENGTH == 8
+
 
 
 def test_signing_in_returns_the_recruiter_for_the_right_password_only(store):

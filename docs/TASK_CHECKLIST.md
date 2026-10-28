@@ -67,7 +67,7 @@ Everything [TASK.md](TASK.md) asks for, whether we do it, and how, in plain word
 | Deliverable | Done? | How |
 | --- | --- | --- |
 | Phase 1 process design document | Yes | Written, 2 pages, and kept in line with the code. |
-| Phase 2 code: agent and recruiter tool | Yes | `screener/` is the engine, `sazon/` is Grupo Sazón, and `apps/` holds the dashboard and the browser chat. About 1350 tests. |
+| Phase 2 code: agent and recruiter tool | Yes | `screener/` is the engine, `sazon/` is Grupo Sazón, and `apps/` holds the dashboard and the browser chat. About 1000 tests (D85). |
 | Presentation of the work | No | The format has not been chosen yet. |
 
 ## Required by law (not in the task, but a hiring tool needs it)

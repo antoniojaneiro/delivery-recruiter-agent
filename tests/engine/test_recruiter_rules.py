@@ -7,6 +7,8 @@ from itertools import product
 
 import pytest
 
+from tests.support.tables import table
+
 from sazon.client import SAZON_CALENDAR
 from screener.model import Outcome, RecruiterStatus
 from screener.recruiter_rules import AGENT_CLOSED, BLOCKED, NEEDS_REVIEW, STALLED, TO_CONTACT
@@ -35,7 +37,7 @@ def store(tmp_path):
     return store
 
 
-@pytest.mark.parametrize("rule", [NEEDS_REVIEW, TO_CONTACT, BLOCKED, STALLED, AGENT_CLOSED])
+@table("rule", [NEEDS_REVIEW, TO_CONTACT, BLOCKED, STALLED, AGENT_CLOSED])
 def test_the_sql_and_the_python_version_of_a_rule_agree_on_every_combination(store, rule):
     records = store.list_candidates()
     assert len(records) > 200
