@@ -9,8 +9,9 @@ from streamlit.testing.v1 import AppTest
 
 from tests.support.paths import DASHBOARD
 from sazon.client import SAZON_CALENDAR
+from screener.calendar_view import week_start
 from screener.store import Store
-from tests.support.dash import login, logout, seed_accounts
+from tests.support.dash import login, logout, email_of, seed_accounts
 
 APP = str(DASHBOARD)
 SLOTS_PAGE = "views/slots.py"
@@ -34,7 +35,9 @@ def candidate(store, cid, name, city="Madrid", outcome="QUALIFIED"):
 
 
 def run(as_user="Ana"):
-    at = AppTest.from_file(APP, default_timeout=10).run()
+    at = AppTest.from_file(APP, default_timeout=10)
+    at.session_state["cal_week"] = week_start(FUTURE)  # the list under the grid shows the week the grid shows
+    at.run()
     login(at, as_user)
     assert not at.exception, at.exception
     return at
@@ -48,7 +51,7 @@ def slots_page(at):
 
 def name_as(at, name="Ana"):
     """Signed in as `name` (the tests start as Ana)."""
-    if at.session_state["recruiter"] != name:
+    if at.session_state["recruiter"] != email_of(name):
         logout(at)
         login(at, name)
     return at
@@ -72,6 +75,7 @@ def test_the_slots_page_starts_empty_with_a_hint(db):
 def test_a_recruiter_can_add_a_slot_in_a_countrys_own_time(db):
     at = name_as(slots_page(run("Marta")), "Marta")
     add_slot(at, datetime.combine(FUTURE, time(9, 30)), "marta@sazon.test")
+    at.segmented_control(key="cal_country").set_value("MX").run()  # the list shows the country the grid shows
     [slot] = db.slots(NOW)
     assert (slot.country, slot.starts_at, slot.recruiter) == ("MX", datetime.combine(FUTURE, time(9, 30)), "marta@sazon.test")
     table = at.dataframe[0].value

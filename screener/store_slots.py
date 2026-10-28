@@ -75,14 +75,26 @@ class SlotsMixin:
                               (country, first.isoformat(), before.isoformat())).fetchall()
         return [_slot(r) for r in rows]
 
-    def listed_slots(self, now: datetime) -> list[Slot]:
-        """What a person lists and cancels: the calls booked from now on and the times added by hand. Not the many
-        free times made from recruiters' availability, which they change by changing the availability."""
+    def listed_slots(self, now: datetime, country: str | None = None, first: date | None = None,
+                     before: date | None = None) -> list[Slot]:
+        """What a person lists and cancels: the calls booked from now on and the times added by hand, optionally of one
+        country and of the days from `first` up to `before`, cut in the database so the page never loads them all. Not
+        the many free times made from recruiters' availability, which they change by changing the availability."""
         if self.calendar is None:
             return []
+        where, args = "", []
+        if country is not None:
+            where += " AND country = ?"
+            args.append(country)
+        if first is not None:
+            where += " AND starts_at >= ?"
+            args.append(first.isoformat())
+        if before is not None:
+            where += " AND starts_at < ?"
+            args.append(before.isoformat())
         with self._connect() as db:
             rows = db.execute(f"{_SLOT_SELECT} WHERE cancelled_at IS NULL AND (candidate_id IS NOT NULL OR "
-                              "created_by != 'availability') ORDER BY starts_at, id").fetchall()
+                              f"created_by != 'availability'){where} ORDER BY starts_at, id", args).fetchall()
         horizon = now - self.calendar.min_notice
         return [s for s in map(_slot, rows) if self.calendar.has_enough_notice(s.country, s.starts_at, horizon)]
 

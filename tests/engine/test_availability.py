@@ -237,3 +237,14 @@ def test_a_time_added_by_hand_for_a_recruiter_must_be_in_that_recruiters_own_cou
         store.add_slot("MX", when, "ana@sazon.test", BOSS, NOW.astimezone())
     assert refused.value.code == "wrong_country"
     assert store.add_slot("ES", when, "ana@sazon.test", BOSS, NOW.astimezone()) > 0
+
+
+def test_the_list_can_be_limited_to_one_country_and_one_week_in_the_database(store):
+    hire(store, "Ana", "ES")
+    hire(store, "Marta", "MX")
+    candidates(store, 3)
+    for cid, country, day in (("c0", "ES", MONDAY), ("c1", "ES", MONDAY + timedelta(days=7)), ("c2", "MX", MONDAY)):
+        store.book_slot(store.free_slots_on(country, day, NOW.astimezone())[0].id, cid, NOW.astimezone())
+    week = lambda country, first: [s.candidate_id for s in store.listed_slots(NOW.astimezone(), country, first, first + timedelta(days=7))]
+    assert week("ES", MONDAY) == ["c0"] and week("ES", MONDAY + timedelta(days=7)) == ["c1"] and week("MX", MONDAY) == ["c2"]
+    assert sorted(s.candidate_id for s in store.listed_slots(NOW.astimezone())) == ["c0", "c1", "c2"]

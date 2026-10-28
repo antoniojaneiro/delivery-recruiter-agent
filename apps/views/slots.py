@@ -28,6 +28,13 @@ st.caption(t("slots.caption"))
 
 # The page is drawn top to bottom as: the week grid, organising a call, then adding and cancelling times. They are
 # worked out in the opposite order, so the grid always shows what was just added, booked or cancelled.
+records = ui.candidates()
+by_id = {r.candidate_id: r for r in records}
+if "cal_week" not in st.session_state:
+    st.session_state["cal_week"] = week_start(date.today())
+start = st.session_state["cal_week"]  # the week and country the grid shows also bound the list below it
+shown_country = st.session_state.get("cal_country") or list(calendar.timezones)[0]
+
 grid_box = st.container()
 avail_box = st.container()
 schedule_box = st.container()
@@ -55,7 +62,7 @@ with manage_box:
                 st.success(t("slots.added"))
 
     now = datetime.now().astimezone()
-    slots = store.listed_slots(now)
+    slots = store.listed_slots(now, shown_country, start, start + timedelta(days=7))
 
     with st.expander(t("slots.list_title"), expanded=bool(slots)):
         if slots:
@@ -84,13 +91,13 @@ with manage_box:
                                      notice=t("slots.notice_left") if told else t("slots.notice_failed")))
                     else:
                         st.success(t("slots.cancelled"))
-                slots = store.listed_slots(now)
+                slots = store.listed_slots(now, shown_country, start, start + timedelta(days=7))
 
         if not slots:
             st.info(t("slots.none"))
         else:
             def state(slot) -> str:
-                booked = store.get(slot.candidate_id) if slot.candidate_id else None
+                booked = by_id.get(slot.candidate_id)
                 return view.slot_state(slot, view.name_of(booked) if booked else None, now)
 
             st.dataframe(
@@ -100,8 +107,6 @@ with manage_box:
                 hide_index=True, width="stretch")
 
 # --- organising a call for a candidate ----------------------------------------------------------------------------------
-records = ui.candidates()
-by_id = {r.candidate_id: r for r in records}
 eligible = [r for r in records if can_schedule(r)]
 
 
@@ -241,15 +246,10 @@ with avail_box:
                 changed(store.set_day_off(who, day_off, False, recruiter, datetime.now()))
 
 # --- the week grid (drawn above, filled last so it shows everything just changed) ---------------------------------------
-if "cal_week" not in st.session_state:
-    st.session_state["cal_week"] = week_start(date.today())
-
-
 def shift_week(days: int | None) -> None:
     st.session_state["cal_week"] = week_start(date.today()) if days is None else st.session_state["cal_week"] + timedelta(days=days)
 
 
-start = st.session_state["cal_week"]
 with grid_box:
     countries = list(calendar.timezones)
     with st.container(horizontal=True, vertical_alignment="center"):
@@ -263,7 +263,6 @@ with grid_box:
     st.segmented_control(t("cal.scope"), ["mine", "all"], default="all" if ui.is_manager() else "mine", key="cal_scope",
                          format_func=lambda value: t(f"cal.scope_{value}"), label_visibility="collapsed")
     everyone = (st.session_state.get("cal_scope") or "all") == "all"
-    shown_country = st.session_state.get("cal_country") or countries[0]
     zone = calendar.zone(shown_country)
     local_now = datetime.now(zone).replace(tzinfo=None)  # the country's own clock: a time is past by that clock
     names = {r.email: r.name for r in store.recruiters()}

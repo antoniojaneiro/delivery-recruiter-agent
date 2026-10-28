@@ -80,3 +80,5 @@ def test_the_funnel_and_the_calendar_stay_quick_with_five_thousand_candidates(bi
     print(f"\n{page}: a rerun takes {again * 1000:.0f} ms with {CANDIDATES} candidates")
     assert not at.exception, at.exception
     assert again < RERUN_SECONDS
+    if page.endswith("slots.py"):  # 300 call times were added over a month: the cancel list holds one week of them, not all
+        assert len(at.selectbox(key="cancel_slot").options) <= 40
