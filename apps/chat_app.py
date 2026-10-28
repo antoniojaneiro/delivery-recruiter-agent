@@ -21,15 +21,10 @@ from screener.store import Store
 from sazon import config, ui
 from sazon.client import SAZON_CLIENT
 from sazon.demo.team import ensure_demo_team
-from sazon.ui import t
+from sazon.ui import open_store, t
 from sazon.ui_pack import PACK
 
 st.set_page_config(page_title=t("chat.page_title"), page_icon=":material/chat:", layout="wide")
-
-
-@st.cache_resource
-def open_store(path: str) -> Store:
-    return Store(path, calendar=SAZON_CLIENT.calendar)
 
 
 def active_store() -> Store:

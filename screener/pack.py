@@ -8,6 +8,11 @@ from screener.model import Language, Outcome
 Text = dict[Language, str]  # language -> wording; {placeholders} are filled in by the engine
 
 
+def bi(es: str, en: str) -> Text:
+    """A text in Spanish and English, the two languages a pack is written in."""
+    return {Language.ES: es, Language.EN: en}
+
+
 @dataclass(frozen=True)
 class SlotTexts:
     """Only for a client whose agent books a call when a candidate qualifies."""

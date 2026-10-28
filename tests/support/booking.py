@@ -42,3 +42,9 @@ def add_slots(store, country="ES", times=ES_SLOTS):
 
 def booked(store, cid="c1"):
     return store.booking_of(cid)
+
+
+def hire(store, *names, country="ES"):
+    """Recruiters with the default week, named by their first name (ana@sazon.test), created by the hiring manager."""
+    for name in names:
+        store.add_recruiter(f"{name.lower()}@sazon.test", name, country, "contraseña-segura-1", "boss@sazon.test", NOW)

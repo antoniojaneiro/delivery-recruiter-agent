@@ -7,8 +7,7 @@ from screener.slot_calendar import SlotCalendar
 # Where each service area is, and the time zone of each country (D48).
 SAZON_CALENDAR = SlotCalendar(
     timezones={"ES": "Europe/Madrid", "MX": "America/Mexico_City"},
-    country_of={"Madrid": "ES", "Barcelona": "ES", "Valencia": "ES",
-                "Ciudad de México": "MX", "Guadalajara": "MX", "Monterrey": "MX"},
+    country_of=config.COUNTRY_OF,
 )
 
 SAZON_CLIENT = Client(spec=SAZON, areas=config.AREAS, calendar=SAZON_CALENDAR)

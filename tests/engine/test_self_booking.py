@@ -6,9 +6,9 @@ from datetime import datetime
 import pytest
 
 from sazon import config
-from screener import turn
+
 from screener.store import Store
-from tests.support.booking import NOW, NOW_AWARE, qualify, say
+from tests.support.booking import NOW_AWARE, hire, qualify, say
 from tests.support.clients import client_for
 from sazon.client import SAZON_CALENDAR
 
@@ -18,11 +18,6 @@ CLIENT = client_for(config.AREAS)
 @pytest.fixture
 def store(tmp_path):
     return Store(tmp_path / "s.db", calendar=SAZON_CALENDAR)
-
-
-def hire(store, *names, country="ES"):
-    for name in names:
-        store.add_recruiter(f"{name.lower()}@sazon.test", name, country, "contraseña-segura-1", "boss@sazon.test", NOW)
 
 
 def owner(store, cid):

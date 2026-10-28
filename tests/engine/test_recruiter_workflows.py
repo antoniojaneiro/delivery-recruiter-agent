@@ -10,7 +10,7 @@ from sazon.client import SAZON_CALENDAR
 from screener import slot_flow
 from screener.store import InputError, Store
 from screener.model import RecruiterStatus as S
-from tests.support.booking import NOW, NOW_AWARE, qualify
+from tests.support.booking import NOW, NOW_AWARE, hire, qualify
 from tests.support.clients import client_for
 
 CLIENT = client_for(config.AREAS)
@@ -22,11 +22,6 @@ ANA = "ana@sazon.test"
 @pytest.fixture
 def store(tmp_path):
     return Store(tmp_path / "s.db", calendar=SAZON_CALENDAR)
-
-
-def hire(store, *names):
-    for name in names:
-        store.add_recruiter(f"{name.lower()}@sazon.test", name, "ES", "contraseña-segura-1", BOSS, NOW)
 
 
 def book(store, cid, minute=0):

@@ -1,12 +1,9 @@
 """Every word Grupo Sazón's recruiter dashboard shows, in Spanish and English (D66). Pages ask for a key."""
 from screener.model import Language
+from screener.pack import bi
 from screener.ui_texts import UiPack
 
 ES, EN = Language.ES, Language.EN
-
-
-def bi(es: str, en: str) -> dict:
-    return {ES: es, EN: en}
 
 
 PACK = UiPack((ES, EN), {

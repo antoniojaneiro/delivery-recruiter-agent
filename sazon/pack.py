@@ -1,10 +1,6 @@
 """Grupo Sazón's fixed wording, Spanish and English (D63)."""
 from screener.model import Language, Outcome
-from screener.pack import CvTexts, Pack, SlotTexts, Text
-
-
-def bi(es: str, en: str) -> Text:
-    return {Language.ES: es, Language.EN: en}
+from screener.pack import CvTexts, Pack, SlotTexts, bi
 
 
 SLOTS = SlotTexts(
