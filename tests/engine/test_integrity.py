@@ -115,7 +115,7 @@ def test_opening_the_same_old_database_twice_at_once_does_not_crash(tmp_path):
 
 def test_a_booking_for_a_candidate_who_was_just_erased_is_refused(store):
     started(store)
-    slot = store.add_slot("ES", datetime(2027, 6, 15, 10, 0), "Ana", "Ana", NOW.astimezone())
+    slot = store.add_slot("ES", datetime(2026, 11, 10, 10, 0), "Ana", "Ana", NOW.astimezone())
     store.erase_candidate("c1", "recruiter:Ana", NOW, "request")
     assert store.book_slot(slot, "c1", NOW.astimezone(), must_exist=True) is None
     assert store.booking_of("c1") is None and [e for e in store.events("c1")] == []

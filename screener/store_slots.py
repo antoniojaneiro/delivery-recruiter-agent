@@ -41,21 +41,26 @@ class SlotsMixin:
             raise InputError("wrong_country", "a recruiter takes calls in their own country only")
         if not calendar.wall_time_exists(country, starts_at):
             raise InputError("clock_change", "that time does not exist on the day the clocks change")
-        if not calendar.has_enough_notice(country, starts_at, now):
-            raise InputError("too_soon", "the slot is in the past or too soon")
+        if not calendar.recruiter_may_book(country, starts_at, now):
+            raise InputError("in_the_past", "the time has already started")
         with self._connect() as db:
             cursor = db.execute(
                 "INSERT INTO slots (country, starts_at, recruiter, created_by, created_at) VALUES (?, ?, ?, ?, ?)",
                 (country, starts_at.isoformat(), (recruiter or "").strip() or None, created_by, _stamp(now)))
             return cursor.lastrowid
 
-    def free_slots(self, country: str, now: datetime, limit: int = 3) -> list[Slot]:
-        """The next free times, one per start time (two recruiters at the same time are one option)."""
+    def _may_take(self, as_recruiter: bool):
+        """The rule for who is looking: a recruiter may take a time that has not started, a candidate only from tomorrow."""
+        return self.calendar.recruiter_may_book if as_recruiter else self.calendar.candidate_may_book
+
+    def free_slots(self, country: str, now: datetime, limit: int = 3, as_recruiter: bool = False) -> list[Slot]:
+        """The next free times, one per start time (two recruiters at the same time are one option), as a candidate
+        would be offered them, or as a recruiter may book them."""
         if self.calendar is None:
             return []
         self.sync_availability(now)
         here = (now if now.tzinfo else now.astimezone()).astimezone(self.calendar.zone(country)).replace(tzinfo=None)
-        free, floor = [], here.isoformat()  # never look at times that have passed
+        free, floor, may_take = [], here.isoformat(), self._may_take(as_recruiter)  # never look at times that have passed
         while len(free) < limit:
             with self._connect() as db:
                 rows = db.execute("SELECT MIN(id), country, starts_at, recruiter, NULL, 0 FROM slots WHERE country = ? AND "
@@ -63,7 +68,7 @@ class SlotsMixin:
                                   "ORDER BY starts_at LIMIT ?", (country, floor, limit + 20)).fetchall()
             if not rows:
                 break
-            free += [s for s in map(_slot, rows) if self.calendar.has_enough_notice(s.country, s.starts_at, now)]
+            free += [s for s in map(_slot, rows) if may_take(s.country, s.starts_at, now)]
             floor = rows[-1][2]
         return free[:limit]
 
@@ -95,10 +100,9 @@ class SlotsMixin:
         with self._connect() as db:
             rows = db.execute(f"{_SLOT_SELECT} WHERE cancelled_at IS NULL AND (candidate_id IS NOT NULL OR "
                               f"created_by != 'availability'){where} ORDER BY starts_at, id", args).fetchall()
-        horizon = now - self.calendar.min_notice
-        return [s for s in map(_slot, rows) if self.calendar.has_enough_notice(s.country, s.starts_at, horizon)]
+        return [s for s in map(_slot, rows) if self.calendar.recruiter_may_book(s.country, s.starts_at, now)]
 
-    def free_slots_on(self, country: str, day: date, now: datetime) -> list[Slot]:
+    def free_slots_on(self, country: str, day: date, now: datetime, as_recruiter: bool = False) -> list[Slot]:
         """Every free time of one day, one per start time: what the picker shows once a day is chosen."""
         if self.calendar is None:
             return []
@@ -109,7 +113,7 @@ class SlotsMixin:
                               "candidate_id IS NULL AND cancelled_at IS NULL AND starts_at >= ? AND starts_at < ? "
                               "GROUP BY starts_at ORDER BY starts_at",
                               (country, start.isoformat(), (start + timedelta(days=1)).isoformat())).fetchall()
-        return [s for s in map(_slot, rows) if self.calendar.has_enough_notice(s.country, s.starts_at, now)]
+        return [s for s in map(_slot, rows) if self._may_take(as_recruiter)(s.country, s.starts_at, now)]
 
     def slots(self, now: datetime, include_past: bool = False, include_cancelled: bool = False) -> list[Slot]:
         if self.calendar is None:
@@ -120,7 +124,7 @@ class SlotsMixin:
         if not include_cancelled:
             found = [s for s in found if not s.cancelled]
         if not include_past:
-            found = [s for s in found if self.calendar.has_enough_notice(s.country, s.starts_at, now - self.calendar.min_notice)]
+            found = [s for s in found if self.calendar.recruiter_may_book(s.country, s.starts_at, now)]
         return found
 
     def book_slot(self, slot_id: int, candidate_id: str, now: datetime, must_exist: bool = False) -> Booking | None:
@@ -147,7 +151,7 @@ class SlotsMixin:
             if row is None:
                 return None
             booking = _booking(row)
-            if not self.calendar.has_enough_notice(booking.country, booking.starts_at, now):
+            if not self.calendar.candidate_may_book(booking.country, booking.starts_at, now):
                 return None
             slot_id = self._least_busy(db, booking.country, booking.starts_at)
             if slot_id is None:
@@ -168,7 +172,7 @@ class SlotsMixin:
                      country: str | None = None) -> tuple[Booking, Booking | None]:
         """A recruiter books a time for a candidate, or moves the one they hold, in one step: the old time is freed (not
         cancelled), the new one booked and one audit line written by the recruiter. Returns the new booking and the
-        one it replaced. Refused (InputError): no name, a time that is not free, in the wrong country, or too soon."""
+        one it replaced. Refused (InputError): no name, a time that is not free, in the wrong country, or already started."""
         calendar = self._calendar()
         recruiter = (recruiter or "").strip()
         if not recruiter:
@@ -190,8 +194,8 @@ class SlotsMixin:
                 raise InputError("wrong_country", "that time is in another country than the candidate's")
             slot_id = self._least_busy(db, booking.country, booking.starts_at) or slot_id  # the least busy recruiter then
             booking = _booking(db.execute(f"{_BOOKING_SELECT} WHERE id = ?", (slot_id,)).fetchone())
-            if not calendar.has_enough_notice(booking.country, booking.starts_at, now):
-                raise InputError("too_soon", "the time is in the past or too soon")
+            if not calendar.recruiter_may_book(booking.country, booking.starts_at, now):
+                raise InputError("in_the_past", "the time has already started")
             if held:
                 db.execute("UPDATE slots SET candidate_id = NULL, booked_at = NULL WHERE id = ?", (held.slot_id,))
             db.execute("UPDATE slots SET candidate_id = ?, booked_at = ? WHERE id = ? AND candidate_id IS NULL",

@@ -14,7 +14,7 @@ from screener.chat import log_error
 from screener.inspector import inspect
 from screener.language import language_of
 from screener.llm import LLMError
-from screener.model import Language, Outcome
+from screener.model import Language
 from screener.recruiter_view import OUTCOME_COLOR
 from screener.store import Store
 
@@ -131,9 +131,7 @@ with chat_side:
             if len(store.messages(candidate_id)) == saved_before:  # refused: the reply is not part of the chat
                 st.session_state["_cv_refused"] = reply
             st.rerun()
-    can_pick = (record is not None and record.outcome == Outcome.QUALIFIED and SAZON_CLIENT.calendar is not None
-                and store.booking_of(candidate_id) is None)
-    if can_pick:  # the button, then a month of days that have free times, then that day's 15-minute times
+    if slot_flow.may_choose_time(store, SAZON_CLIENT, candidate_id):  # the button, then a month of days that have free times, then that day's 15-minute times
         country = slot_flow.country_of(store, SAZON_CLIENT, candidate_id)
 
         def open_picker() -> None:

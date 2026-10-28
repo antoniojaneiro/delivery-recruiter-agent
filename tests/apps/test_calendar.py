@@ -9,7 +9,7 @@ from sazon.client import SAZON_CALENDAR
 from screener.calendar_view import week_start
 from screener.model import RecruiterStatus as S
 from screener.store import Store
-from tests.support.dash import login, seed_accounts
+from tests.support.dash import book_as_candidate, login, seed_accounts
 from tests.support.paths import DASHBOARD
 
 NOW = datetime(2026, 10, 25, 10, 0)
@@ -56,7 +56,7 @@ def chips(at):
 
 def book(db, cid, country, when, name="Juan Pérez", city="Madrid"):
     add(db, cid, city, name=name)
-    db.book_slot(slot(db, country, when), cid, NOW.astimezone())
+    book_as_candidate(db, slot(db, country, when), cid)
 
 
 def everyones(at):
@@ -135,7 +135,7 @@ def test_only_free_times_in_the_candidates_country_are_offered(db):
     slot(db, "MX", TUESDAY.replace(hour=11))
     taken = slot(db, "ES", TUESDAY.replace(hour=16))
     add(db, "c9", "Madrid")
-    db.book_slot(taken, "c9", NOW.astimezone())
+    book_as_candidate(db, taken, "c9")
     at = opened()
     schedule_picker(at).select(next(o for o in schedule_picker(at).options if "(c1)" in o)).run()
     spanish = at.selectbox(key="sched_slot").options
@@ -162,13 +162,13 @@ def test_scheduling_books_the_call_tells_the_candidate_and_logs_it(db):
 def test_a_candidate_with_a_call_can_be_moved_to_another_time(db):
     add(db, "c1", "Madrid")
     first, second = slot(db, "ES", TUESDAY), slot(db, "ES", TUESDAY.replace(hour=16))
-    db.book_slot(first, "c1", NOW.astimezone())
+    book_as_candidate(db, first, "c1")
     at = opened()
     assert "10:00" in schedule_picker(at).options[0]  # the picker shows the call they already have
     schedule_picker(at).select(schedule_picker(at).options[0]).run()
     at.selectbox(key="sched_slot").select(second).run()
     at.button(key="sched_submit").click().run()
-    assert db.booking_of("c1").slot_id == second and first in [s.id for s in db.free_slots("ES", NOW)]
+    assert db.booking_of("c1").slot_id == second and first in [s.id for s in db.free_slots("ES", NOW, as_recruiter=True)]
     assert "cambiado" in db.outbox_pending("c1")[0].text
 
 
@@ -179,7 +179,7 @@ def test_a_time_someone_else_booked_meanwhile_disappears_from_the_list_and_nothi
     at = opened()
     schedule_picker(at).select(next(o for o in schedule_picker(at).options if "(c1)" in o)).run()
     at.selectbox(key="sched_slot").select(chosen).run()
-    db.book_slot(chosen, "c2", NOW.astimezone())  # someone else got it first
+    book_as_candidate(db, chosen, "c2")  # someone else got it first
     at.run()
     assert at.selectbox(key="sched_slot").value is None and not at.selectbox(key="sched_slot").options
     assert db.booking_of("c1") is None and db.outbox_pending("c1") == []  # (the store itself refuses it too)

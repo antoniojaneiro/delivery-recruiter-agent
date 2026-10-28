@@ -11,7 +11,7 @@ from tests.support.paths import DASHBOARD
 from sazon.client import SAZON_CALENDAR
 from screener.model import RecruiterStatus
 from screener.store import Store
-from tests.support.dash import MANAGER_EMAIL, PASSWORD, login, login_manager, logout, seed_accounts, set_manager
+from tests.support.dash import book_as_candidate, MANAGER_EMAIL, PASSWORD, login, login_manager, logout, seed_accounts, set_manager
 
 APP = str(DASHBOARD)
 NOW = datetime.now()
@@ -355,8 +355,8 @@ def test_deleting_a_recruiter_moves_or_releases_their_future_calls_and_says_how_
         candidate(db, cid, f"Persona {cid}")
     day = min(db.free_days("ES", NOW.date(), NOW.astimezone()))
     first = db.free_slots_on("ES", day, NOW.astimezone())[0]
-    db.book_slot(first.id, "c1", NOW.astimezone())  # Ana
-    db.book_slot(first.id, "c2", NOW.astimezone())  # Luis: both have a call at the same minute
+    book_as_candidate(db, first.id, "c1")  # Ana
+    book_as_candidate(db, first.id, "c2")  # Luis: both have a call at the same minute
     at = open_recruiters(as_manager(monkeypatch))
     at.selectbox(key="delete_who").select("ana@sazon.test").run()
     assert any("Llamadas reservadas por delante: 1" in str(c.value) for c in at.caption)  # what leaving would affect

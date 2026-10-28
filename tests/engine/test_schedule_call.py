@@ -78,12 +78,13 @@ def test_a_time_in_another_country_is_refused_when_the_candidates_country_is_giv
     assert refused.value.code == "wrong_country" and store.booking_of("c1") is None
 
 
-def test_a_past_or_too_soon_time_is_refused(store):
+def test_a_recruiter_may_book_a_time_later_today_but_not_one_that_has_started(store):
     slots = add_slots(store)
     qualify(store)
     with pytest.raises(InputError) as refused:
-        schedule(store, "c1", slots[0], now=datetime(2026, 11, 3, 9, 0).astimezone())
-    assert refused.value.code == "too_soon"
+        schedule(store, "c1", slots[0], now=datetime(2026, 11, 3, 10, 1).astimezone())
+    assert refused.value.code == "in_the_past" and store.booking_of("c1") is None
+    assert schedule(store, "c1", slots[0], now=datetime(2026, 11, 3, 9, 0).astimezone())[0].slot_id == slots[0]
 
 
 def test_the_recruiters_name_is_required_and_an_unknown_candidate_is_not_found(store):

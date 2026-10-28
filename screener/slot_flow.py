@@ -8,6 +8,7 @@ from screener.conversation import RETRY_ONCE, SKIP, Turn
 from screener.client import Client
 from screener.consent import is_stop_request
 from screener.model import Outcome
+from screener.recruiter_rules import can_schedule
 from screener.directive import LATER, Directive, Kind
 from screener.phrasing import fixed, slot_cancelled_message, slot_label, slot_scheduled_message
 from screener.screening import Screening
@@ -36,6 +37,10 @@ def handle_pick(store: Store, client: Client, screening: Screening, candidate_id
     """The candidate's reply to the numbered list. Read in plain code; nothing is sent to the model."""
     if is_stop_request(message):  # a withdrawal is a withdrawal, whatever question was open
         return screening.apply_stop_request()
+    record = store.get(candidate_id)
+    if record is None or not can_schedule(record):  # a recruiter closed their case since the times were offered
+        screening.resolve_slots()
+        return replace(screening.close_directive(), repeat=True)
     held = store.booking_of(candidate_id)
     if held:  # a retry after a turn that booked but was never saved
         screening.resolve_slots()
@@ -73,9 +78,10 @@ def schedule_by_recruiter(store: Store, client: Client, candidate_id: str, slot_
     record = store.get(candidate_id)
     if record is None:
         raise LookupError(f"no candidate {candidate_id}")
-    area = client.spec.area_field
-    country = client.calendar.country_of.get(record.extracted.get(area)) if client.calendar and area else None
-    booking, before = store.move_booking(candidate_id, slot_id, recruiter, now.astimezone(), country=country)
+    if not can_schedule(record):
+        raise InputError("not_schedulable", "only a candidate the agent qualified, and no recruiter has closed, gets a call")
+    booking, before = store.move_booking(candidate_id, slot_id, recruiter, now.astimezone(),
+                                         country=country_in(client, record.extracted))
     if before is not None and before.slot_id == booking.slot_id:
         return Scheduled(booking, before, True)  # nothing changed, so there is nothing to tell
 
@@ -113,13 +119,23 @@ def resolve_calls(store: Store, client: Client, calls, by: str, now: datetime) -
     return Resolved(moved, released)
 
 
-def country_of(store: Store, client: Client, candidate_id: str) -> str | None:
-    """The country of the candidate's place, which decides the clock and the recruiters they can be given."""
-    record = store.get(candidate_id)
+def country_in(client: Client, values: dict) -> str | None:
+    """The country of the place in a candidate's answers, which decides the clock and the recruiters they can be given."""
     area = client.spec.area_field
-    if record is None or client.calendar is None or not area:
-        return None
-    return client.calendar.country_of.get(record.extracted.get(area))
+    return client.calendar.country_of.get(values.get(area)) if client.calendar and area else None
+
+
+def may_choose_time(store: Store, client: Client, candidate_id: str) -> bool:
+    """The one question every way of choosing a time asks (the chat's picker, the service's list of times, the reminder
+    job): a candidate the agent qualified and no recruiter has closed, with no call yet, at a client that books calls."""
+    record = store.get(candidate_id)
+    return bool(record and client.calendar and client.spec.pack.slots and can_schedule(record)
+                and store.booking_of(candidate_id) is None)
+
+
+def country_of(store: Store, client: Client, candidate_id: str) -> str | None:
+    record = store.get(candidate_id)
+    return country_in(client, record.extracted) if record else None
 
 
 def pick_slot(store: Store, client: Client, screening: Screening, candidate_id: str, slot_id: int,
@@ -132,8 +148,7 @@ def pick_slot(store: Store, client: Client, screening: Screening, candidate_id: 
     if held:
         screening.resolve_slots()
         return chosen, Directive(Kind.ALREADY_BOOKED, label=slot_label(held.starts_at, screening.language))
-    area = client.spec.area_field
-    country = client.calendar.country_of.get(screening.values.get(area)) if client.calendar and area else None
+    country = country_in(client, screening.values)
     booking = store.book_slot(slot_id, candidate_id, now, must_exist=True) if wanted and wanted.country == country else None
     if booking is None:
         return chosen, _offer(store, client, screening, now, "taken") or _give_up(screening)
@@ -171,9 +186,8 @@ def on_idle(store: Store, client: Client, screening: Screening, now: datetime) -
 
 
 def _offer(store: Store, client: Client, screening: Screening, now: datetime, reason: str) -> Directive | None:
-    calendar, area = client.calendar, screening.spec.area_field
-    country = calendar.country_of.get(screening.values.get(area)) if calendar and area else None
-    free = store.free_slots(country, now, calendar.offer_size) if country else []
+    country = country_in(client, screening.values)
+    free = store.free_slots(country, now, client.calendar.offer_size) if country else []
     if not free:
         return None
     previous = screening.slot_offer

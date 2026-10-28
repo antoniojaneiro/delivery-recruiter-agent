@@ -245,8 +245,7 @@ PACK = UiPack((ES, EN), {
     "slots.col_caller": bi("Llama", "Caller"),
     "slots.col_state": bi("Estado", "State"),
     "slot.booked": bi("Reservado: {name} ({id})", "Booked: {name} ({id})"),
-    "slot.too_close": bi("Ya no se ofrece (faltan menos de {hours} horas)",
-                         "No longer offered (less than {hours} hours away)"),
+    "slot.recruiters_only": bi("Libre, solo la reserva un reclutador", "Free, only a recruiter can book it"),
     "slot.free": bi("Libre", "Free"),
     "slot.no_name": bi("(sin nombre)", "(no name)"),
 
@@ -382,8 +381,8 @@ PACK = UiPack((ES, EN), {
     "error.clock_change": bi(
         "Esa hora no existe: ese día cambia la hora y se salta de las 02:00 a las 03:00. Elige otra.",
         "That time does not exist: the clocks change that day and 02:00 jumps to 03:00. Pick another."),
-    "error.too_soon": bi("Ese horario ya ha pasado o falta muy poco. Elige uno más adelante.",
-                         "That time has passed or is too soon. Pick a later one."),
+    "error.in_the_past": bi("Ese horario ya ha pasado. Elige uno más adelante.",
+                            "That time has already passed. Pick a later one."),
     "error.no_calendar": bi("Este cliente no reserva llamadas.", "This client does not book calls."),
     "error.gone": bi("Eso ya no existe: puede que lo hayan borrado o cancelado mientras tanto.",
                      "That no longer exists: it may have been erased or cancelled meanwhile."),

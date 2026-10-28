@@ -138,7 +138,7 @@ with schedule_box:
         if chosen is not None:
             record = by_id[chosen]
             where = calendar.country_of.get(record.extracted.get(spec.area_field))
-            free = store.free_slots(where, now, FREE_TIMES_SHOWN) if where else []
+            free = store.free_slots(where, now, FREE_TIMES_SHOWN, as_recruiter=True) if where else []
             if record.booking:  # the time they already have is not an option to move to
                 free = [s for s in free if s.id != record.booking.slot_id]
             if not free:
@@ -276,7 +276,7 @@ with grid_box:
                 who = f" · {names.get(item.recruiter, item.recruiter or '')}" if everyone else ""
                 label = f"{item.starts_at:%H:%M} · {escape_markdown(view.name_of(booked)) if booked else '?'}{who}"
                 st.markdown(f":gray-badge[{label}]" if item.starts_at < local_now else f":blue-badge[{label}]")
-            free_count = len(store.free_slots_on(shown_country, day, now)) if day >= date.today() else 0
+            free_count = len(store.free_slots_on(shown_country, day, now, as_recruiter=True)) if day >= date.today() else 0
             if free_count:
                 st.caption(t("cal.free", n=free_count))
     st.caption(t("cal.legend"))

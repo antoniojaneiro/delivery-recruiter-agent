@@ -42,9 +42,11 @@ def test_the_clients_own_countries_and_notice_rules_apply(store):
     assert error.value.code == "unknown_country"
     now = datetime(2026, 10, 26, 9, 0, tzinfo=timezone.utc)  # London is on GMT that day
     with pytest.raises(InputError) as error:
-        store.add_slot("GB", datetime(2026, 10, 26, 12, 0), None, "Ana", now)  # this client needs 4 hours' notice
-    assert error.value.code == "too_soon"
-    assert store.add_slot("GB", datetime(2026, 10, 26, 13, 0), None, "Ana", now) > 0
+        store.add_slot("GB", datetime(2026, 10, 26, 8, 30), None, "Ana", now)
+    assert error.value.code == "in_the_past"
+    store.add_slot("GB", datetime(2026, 10, 27, 12, 0), None, "Ana", now)
+    store.add_slot("GB", datetime(2026, 10, 28, 12, 0), None, "Ana", now)
+    assert [s.starts_at for s in store.free_slots("GB", now)] == [datetime(2026, 10, 28, 10, 0), datetime(2026, 10, 28, 12, 0)]  # this client books from two days on
 
 
 def test_a_qualified_candidate_is_offered_slots_in_their_towns_country_up_to_the_clients_offer_size(store):

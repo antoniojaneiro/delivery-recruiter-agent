@@ -83,19 +83,19 @@ def test_the_key_numbers_count_what_a_recruiter_must_act_on(store):
 def test_a_booked_call_shows_in_the_table_and_leaves_the_to_contact_number(store):
     view = view_for("es")
     store.commit_turn("c1", T1, {}, {"name": "Juan Pérez"}, "QUALIFIED", [], [])
-    slot_id = store.add_slot("ES", datetime(2027, 6, 15, 10, 0), "Ana", "Ana", T1.astimezone())
+    slot_id = store.add_slot("ES", datetime(2026, 11, 10, 10, 0), "Ana", "Ana", T1.astimezone())
     before = store.kpi_counts()["to_contact"]
     store.book_slot(slot_id, "c1", T1.astimezone())
     records = store.list_candidates()
     row = next(r for r in view.table_rows(records) if r["Id"] == "c1")
-    assert row["Llamada"] == "mar 15 jun, 10:00 (España)"
+    assert row["Llamada"] == "mar 10 nov, 10:00 (España)"
     assert store.kpi_counts()["to_contact"] == before - 1
-    assert view.call_label(next(r for r in records if r.candidate_id == "c1").booking) == "mar 15 jun, 10:00 (España)"
+    assert view.call_label(next(r for r in records if r.candidate_id == "c1").booking) == "mar 10 nov, 10:00 (España)"
     assert view.call_label(None) == ""
     assert next(r for r in view.table_rows(records) if r["Id"] == "c2")["Llamada"] == ""
 
 
-def test_the_slot_state_says_when_a_free_slot_is_too_close_to_be_offered():
+def test_the_slot_state_says_when_a_free_time_is_only_for_recruiters():
     from screener.store import Slot
     slot_state = view_for("es").slot_state
     soon = Slot(1, "ES", datetime(2026, 10, 26, 10, 30), None, None, False)
@@ -103,7 +103,7 @@ def test_the_slot_state_says_when_a_free_slot_is_too_close_to_be_offered():
     taken = Slot(3, "ES", datetime(2026, 11, 3, 11, 0), None, "c1", False)
     now = datetime(2026, 10, 26, 8, 0, tzinfo=timezone.utc)  # a fixed instant, independent of this machine's zone
     assert slot_state(later, None, now) == "Libre"
-    assert slot_state(soon, None, now) == "Ya no se ofrece (faltan menos de 2 horas)"
+    assert slot_state(soon, None, now) == "Libre, solo la reserva un reclutador"
     assert slot_state(taken, "Juan Pérez", now) == "Reservado: Juan Pérez (c1)"
 
 
@@ -134,16 +134,6 @@ def test_markdown_in_a_name_is_shown_as_text():
     for char in "*[]()!<#_`":
         assert escaped.count(char) == escaped.count("\\" + char), char
     assert escape_markdown("María García-López") == "María García-López"
-
-
-def test_the_notice_period_shown_to_recruiters_comes_from_the_one_rule():
-    from sazon.client import SAZON_CALENDAR
-    from screener.store import Slot
-    slot_state = view_for("es").slot_state
-    soon = Slot(1, "ES", datetime(2026, 10, 26, 10, 30), None, None, False)
-    now = datetime(2026, 10, 26, 8, 0, tzinfo=timezone.utc)
-    hours = int(SAZON_CALENDAR.min_notice.total_seconds() // 3600)
-    assert f"menos de {hours} horas" in slot_state(soon, None, now)
 
 
 # --- badges (D66) ---------------------------------------------------------------------------------------------

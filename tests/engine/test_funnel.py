@@ -26,7 +26,7 @@ def add(store, cid, outcome, fields=0, consent=True, reasons=(), booked=False):
     extracted = dict(list(FIELDS.items())[:fields])
     store.commit_turn(cid, NOW, {"consent": consent}, extracted, outcome, [], [], reasons=list(reasons))
     if booked:
-        slot = store.add_slot("ES", datetime(2027, 6, 15, 10, 0), "Ana", "Ana", NOW.astimezone())
+        slot = store.add_slot("ES", datetime(2026, 11, 10, 10, 0), "Ana", "Ana", NOW.astimezone())
         store.book_slot(slot, cid, NOW.astimezone())
 
 

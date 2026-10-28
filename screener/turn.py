@@ -14,6 +14,7 @@ from screener.llm import LLM, LLMError
 from screener.model import Outcome
 from screener.directive import Directive, Kind
 from screener.phrasing import closed_message, consent_message, fixed, phrase, technical_error_message
+from screener.recruiter_rules import can_schedule
 from screener.screening import ExtractionContext, Screening
 from screener.spec import ScreeningSpec
 from screener.store import ConflictError
@@ -69,7 +70,8 @@ def handle_slot(store, client: Client, candidate_id: str, slot_id: int, now: dat
         return ""
 
     def work(screening: Screening) -> Turn:
-        if screening.decide().outcome != Outcome.QUALIFIED or screening.spec.pack.slots is None:
+        if (screening.decide().outcome != Outcome.QUALIFIED or screening.spec.pack.slots is None
+                or not can_schedule(store.get(candidate_id))):
             return Turn("", save=False)
         chosen, directive = slot_flow.pick_slot(store, client, screening, candidate_id, slot_id, now)
         reply = fixed(client.spec, directive, screening.language)

@@ -7,7 +7,7 @@ from streamlit.testing.v1 import AppTest
 
 from sazon.client import SAZON_CALENDAR
 from screener.store import Store
-from tests.support.dash import MANAGER_EMAIL, email_of, login, login_manager, seed_accounts, set_manager
+from tests.support.dash import book_as_candidate, MANAGER_EMAIL, email_of, login, login_manager, seed_accounts, set_manager
 from tests.support.paths import DASHBOARD
 
 APP = str(DASHBOARD)
@@ -70,7 +70,7 @@ def test_a_change_that_takes_away_a_booked_call_moves_it_to_the_other_recruiter_
     db.commit_turn("c1", now, {"consent": True, "language": "es"}, {"name": "Juan Pérez", "city": "Madrid"}, "QUALIFIED", [], [])
     day = min(db.free_days("ES", now.date(), now.astimezone()))
     first = db.free_slots_on("ES", day, now.astimezone())[0]
-    db.book_slot(first.id, "c1", now.astimezone())
+    book_as_candidate(db, first.id, "c1")
     owner = db.slot(db.booking_of("c1").slot_id).recruiter
     name = "Ana" if owner == email_of("Ana") else "Luis"
     at = opened(name)
@@ -102,8 +102,8 @@ def test_a_recruiter_sees_their_own_calls_by_default_and_everyones_when_they_ask
         db.commit_turn(cid, now, {"consent": True}, {"name": f"Persona {cid}", "city": "Madrid"}, "QUALIFIED", [], [])
     day = min(db.free_days("ES", now.date(), now.astimezone()))
     slots = db.free_slots_on("ES", day, now.astimezone())
-    db.book_slot(slots[0].id, "c1", now.astimezone())
-    db.book_slot(slots[0].id, "c2", now.astimezone())  # the same minute: one for each recruiter
+    book_as_candidate(db, slots[0].id, "c1")
+    book_as_candidate(db, slots[0].id, "c2")  # the same minute: one for each recruiter
     at = opened("Ana")
     at.session_state["cal_week"] = day - timedelta(days=day.weekday())
     at.run()

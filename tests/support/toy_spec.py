@@ -137,5 +137,5 @@ TOY_UK_SPEC = replace(
                             close=say("We do not hire in your town yet."), summary=say("outside the hiring towns"))),
 )
 UK_CALENDAR = SlotCalendar(timezones={"GB": "Europe/London"}, country_of={"Leeds": "GB", "London": "GB"},
-                           min_notice=timedelta(hours=4), offer_size=2)
+                           book_from_days=2, offer_size=2)
 TOY_UK = Client(spec=TOY_UK_SPEC, areas={"Leeds": ["Headingley"], "London": []}, calendar=UK_CALENDAR)

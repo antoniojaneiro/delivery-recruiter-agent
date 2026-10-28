@@ -227,7 +227,7 @@ def create_app(client: Client, store, llm: LLM, *, api_key: str | None = None, l
     def times(candidate_id: str = Depends(candidate), month: str | None = None, day: str | None = None):
         """For the picker: `month=YYYY-MM` gives the days with free times, `day=YYYY-MM-DD` that day's times. Only the
         times of the candidate's own country are shown."""
-        country = slot_flow.country_of(store, client, candidate_id)
+        country = slot_flow.country_of(store, client, candidate_id) if slot_flow.may_choose_time(store, client, candidate_id) else None
         try:
             if month is not None:
                 first = date.fromisoformat(month + "-01")

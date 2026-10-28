@@ -174,7 +174,7 @@ class AvailabilityMixin:
         days: dict[date, int] = {}
         for (at,) in rows:
             starts = datetime.fromisoformat(at)
-            if self.calendar.has_enough_notice(country, starts, now):
+            if self.calendar.candidate_may_book(country, starts, now):
                 days[starts.date()] = days.get(starts.date(), 0) + 1
         return dict(sorted(days.items()))
 
@@ -191,4 +191,4 @@ class AvailabilityMixin:
                               "IS NOT NULL AND cancelled_at IS NULL ORDER BY starts_at", (email,)).fetchall()
         calendar = self._calendar()
         return [Call(i, c, country, datetime.fromisoformat(at), email) for i, c, country, at in rows
-                if calendar.has_enough_notice(country, datetime.fromisoformat(at), now - calendar.min_notice)]
+                if calendar.recruiter_may_book(country, datetime.fromisoformat(at), now)]

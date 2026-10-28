@@ -74,7 +74,7 @@ STATUS_COLOR = {
 # The keys of the client's text pack that the recruiter screens use (a missing one is refused when the view is built).
 REQUIRED_TEXT_KEYS = (
     "col.id", "col.name", "col.city", "col.agent", "col.recruiter", "col.assigned", "col.call", "col.updated",
-    "slot.booked", "slot.too_close", "slot.free", "slot.no_name", "error.gone", "error.generic",
+    "slot.booked", "slot.recruiters_only", "slot.free", "slot.no_name", "error.gone", "error.generic",
     *(f"status.{status.value}" for status in RecruiterStatus),
 )
 
@@ -119,12 +119,12 @@ class RecruiterView:
         return f"{slot_label(booking.starts_at, self.language)} ({self.country_label(booking.country)})"
 
     def slot_state(self, slot: Slot, booked_name: str | None, now) -> str:
-        """Free, booked, or free but too close to be offered or booked."""
+        """Free, booked, or free but no longer offered to candidates (today or earlier)."""
         if slot.candidate_id:
             return self.text("slot.booked", name=booked_name or self.no_name(), id=slot.candidate_id)
         calendar = self.client.calendar
-        if not calendar.has_enough_notice(slot.country, slot.starts_at, now):
-            return self.text("slot.too_close", hours=int(calendar.min_notice.total_seconds() // 3600))
+        if not calendar.candidate_may_book(slot.country, slot.starts_at, now):
+            return self.text("slot.recruiters_only")
         return self.text("slot.free")
 
     def explain_error(self, error: Exception) -> str:
