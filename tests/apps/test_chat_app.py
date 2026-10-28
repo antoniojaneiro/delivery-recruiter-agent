@@ -229,3 +229,40 @@ def test_a_candidate_who_finishes_in_the_shared_chat_shows_up_in_the_dashboard(t
     assert not dashboard.exception, dashboard.exception
     row = next(r for _, r in dashboard.dataframe[0].value.iterrows() if r["Id"] == shared)
     assert row["Nombre"] == "Juan Pérez" and row["Agente"] == "Cualificado"
+
+
+@pytest.fixture
+def spinners(monkeypatch):
+    """The texts shown while the agent is working (a spinner is gone by the time a run ends, so they are recorded)."""
+    from contextlib import contextmanager
+    import streamlit as st
+    shown = []
+
+    @contextmanager
+    def recording(text="", **kwargs):
+        shown.append(text)
+        yield
+
+    monkeypatch.setattr(st, "spinner", recording)
+    return shown
+
+
+def test_the_typing_text_follows_the_language_of_the_message_even_on_the_first_one(demo, spinners):
+    at = start("es")  # the page is in Spanish; nothing is saved yet about the candidate's language
+    say(at, "yes")
+    assert spinners and spinners[-1] == "The assistant is typing…"
+
+
+def test_the_typing_text_follows_the_language_the_candidate_switches_to(demo, spinners):
+    at = say(start("en"), "sí")
+    say(at, "Me llamo Juan Pérez")
+    assert spinners[-1] == "El asistente está escribiendo…"
+
+
+def test_a_failed_turn_is_told_in_the_language_of_the_message(demo, monkeypatch, tmp_path):
+    monkeypatch.setattr("sazon.config.LOG_PATH", tmp_path / "errors.log")  # not the real log
+    at = start("es")
+    monkeypatch.setattr("screener.turn.handle_message", lambda *a, **k: (_ for _ in ()).throw(RuntimeError("boom")))
+    at.chat_input[0].set_value("yes please").run()
+    from sazon.ui_pack import PACK
+    assert PACK.get("chat.failed", "en") in [str(e.value) for e in at.error]

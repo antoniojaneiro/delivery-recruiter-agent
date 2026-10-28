@@ -12,7 +12,7 @@ import streamlit as st
 from screener import accounts
 
 from sazon import accounts as sazon_accounts
-from sazon import ui
+from sazon import config, ui
 from sazon.ui import t
 
 st.set_page_config(page_title=t("app.page_title"), page_icon=":material/groups:", layout="wide")
@@ -68,9 +68,7 @@ with st.sidebar:
             if key != "ui_language":
                 del st.session_state[key]
         st.rerun()
-    st.divider()
-
-    st.divider()
+    st.link_button(t("link.chat"), config.chat_url(), icon=":material/open_in_new:", width="stretch")
     accepting = store.accepting_applications()
     st.caption(t("sidebar.open") if accepting else t("sidebar.closed"))
     if st.button(t("sidebar.close_button") if accepting else t("sidebar.open_button"), key="toggle_applications",

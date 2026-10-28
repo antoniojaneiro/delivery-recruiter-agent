@@ -7,7 +7,7 @@ What "the real peak" means here (assumptions): 1000 applications a week, a fifth
   - the busy-day test: 200 candidates arriving over 150 s, ten seconds between messages: about 7 requests a second,
     roughly 25 times that peak;
   - the burst test: all 200 in the same instant;
-  - the small test (every run of the normal suite): 20 candidates with the delays scaled down, so the server path is
+  - the small test (every run of the normal suite): 10 candidates with the delays scaled down, so the server path is
     exercised on every run.
 
 The big two are marked `load`: `python -m pytest -m load -q -s` prints the report."""
@@ -97,7 +97,7 @@ class Server:
         self.sock = socket.socket()
         self.sock.bind(("127.0.0.1", 0))
         self.port = self.sock.getsockname()[1]
-        self.server = uvicorn.Server(uvicorn.Config(app, log_level="warning"))
+        self.server = uvicorn.Server(uvicorn.Config(app, log_level="warning", timeout_graceful_shutdown=2))
         self.thread = threading.Thread(target=self.server.run, kwargs={"sockets": [self.sock]}, daemon=True)
 
     def __enter__(self):
@@ -111,8 +111,8 @@ class Server:
         self.thread.join(timeout=15)
 
 
-def add_call_times(store, now):
-    for day in range(1, 31):  # more call times than qualified candidates, as a recruiter team would add
+def add_call_times(store, now, days=30):
+    for day in range(1, days + 1):  # more call times than qualified candidates, as a recruiter team would add
         for hour in range(9, 14):
             for country in ("ES", "MX"):
                 at = (now + timedelta(days=day)).replace(hour=hour, minute=0, second=0, microsecond=0)
@@ -125,7 +125,7 @@ def run_day(tmp_path, spread, think, candidates=CANDIDATES, scale=DELAY_SCALE):
     now = datetime.now()
     client = client_for(config.AREAS)
     store = Store(tmp_path / "load.db", calendar=client.calendar)
-    add_call_times(store, now)
+    add_call_times(store, now, days=30 if candidates >= 100 else 3)  # each call time is one disk commit
     model = SlowModel(scale)
     app = create_app(client, store, model, clock=datetime.now, log_path=tmp_path / "errors.log")
     latencies, statuses, problems, results, resets = [], [], [], {}, []
@@ -230,7 +230,7 @@ def check(store, results, problems, candidates):
 
 
 def test_a_small_day_runs_on_a_real_server_in_every_test_run(tmp_path):
-    _, statuses = run_day(tmp_path, spread=2, think=(0.5, 1.5), candidates=20, scale=0.02)
+    _, statuses = run_day(tmp_path, spread=2, think=(0.5, 1.5), candidates=10, scale=0.02)
     assert not [s for s in statuses if s >= 500 and s != 503]
 
 

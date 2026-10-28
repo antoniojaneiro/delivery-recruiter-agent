@@ -6,8 +6,6 @@ from sazon.ui import t
 from screener.funnel import build_funnel
 from sazon.client import SAZON_CLIENT
 
-BAR_COLOR = "#4c78a8"  # one series, one hue: the stages are one measure, so no legend is needed
-
 store = ui.store()
 language = ui.language()
 view = ui.view()
@@ -33,7 +31,8 @@ st.caption(t("funnel.closed_by_agent", rate=f"{funnel.rates['closed_by_agent']:.
 stage_rows = [{"stage": name, "count": count} for name, count in funnel.stages]
 with st.container(border=True):
     st.subheader(t("funnel.how_far"))
-    bars = alt.Chart(alt.Data(values=stage_rows)).mark_bar(cornerRadiusEnd=4, size=18, color=BAR_COLOR).encode(
+    # one series, so it takes the theme's first colour and needs no legend
+    bars = alt.Chart(alt.Data(values=stage_rows)).mark_bar(cornerRadiusEnd=4, size=18).encode(
         y=alt.Y("stage:N", sort=None, title=None, axis=alt.Axis(labelLimit=260)),
         x=alt.X("count:Q", title=None, axis=alt.Axis(tickMinStep=1)),
         tooltip=[alt.Tooltip("stage:N", title=t("funnel.stage")), alt.Tooltip("count:Q", title=t("funnel.candidates"))])

@@ -28,3 +28,13 @@ def demo_db_path() -> Path:
     """The database of the browser chat for trying the agent. It is never the recruiters' file: SAZON_DB does not
     move it, only SAZON_DEMO_DB does."""
     return Path(os.environ.get("SAZON_DEMO_DB") or DEMO_DIR / "chat.db")
+
+
+def chat_url() -> str:
+    """Where the browser chat is. The default is the port demo_launch.py starts it on."""
+    return os.environ.get("SAZON_CHAT_URL") or "http://localhost:8501"
+
+
+def dashboard_url() -> str:
+    """Where the recruiter dashboard is (the port demo_launch.py starts it on, unless SAZON_DASHBOARD_URL says so)."""
+    return os.environ.get("SAZON_DASHBOARD_URL") or "http://localhost:8502"

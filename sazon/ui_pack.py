@@ -189,6 +189,10 @@ PACK = UiPack((ES, EN), {
         "Bórralo desde el panel cuando termines.",
         "You are saving to the recruiters' dashboard: this candidate will appear there and recruiters will see it. "
         "Erase it from the dashboard when you are done."),
+    "filter.choose": bi("Elegir opciones", "Choose options"),
+    "cand.updates": bi("Hay cambios nuevos: actualizar la lista", "There are new changes: refresh the list"),
+    "link.dashboard": bi("Abrir el panel de reclutadores", "Open the recruiters' dashboard"),
+    "link.chat": bi("Probar el chat de candidatos", "Try the candidate chat"),
     "chat.input": bi("Escribe un mensaje", "Write a message"),
     "chat.thinking": bi("El asistente está escribiendo…", "The assistant is typing…"),
     "chat.new": bi("Nuevo candidato", "New candidate"),

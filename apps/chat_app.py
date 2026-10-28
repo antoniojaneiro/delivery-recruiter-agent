@@ -11,6 +11,7 @@ import streamlit as st
 from screener import dialog, gemini, turn
 from screener.chat import log_error
 from screener.inspector import inspect
+from screener.language import language_of
 from screener.llm import LLMError
 from screener.model import Language
 from screener.recruiter_view import OUTCOME_COLOR
@@ -80,12 +81,13 @@ with st.sidebar:
               help=t("chat.wait_help"))
     st.caption(t("chat.candidate", id=candidate_id))
     st.caption(t("chat.rate_hint"))
+    st.link_button(t("link.dashboard"), config.dashboard_url(), icon=":material/open_in_new:", width="stretch")
 
 st.title(t("chat.title"))
 if st.session_state.get("share_with_dashboard"):
     st.warning(t("chat.shared_warning"))
 else:
-    st.info(t("chat.notice"))
+    st.caption(t("chat.notice"))
 if st.session_state.get("flash"):
     st.warning(t(st.session_state["flash"]))
 
@@ -128,11 +130,12 @@ with chat_side:
     if prompt:
         with st.chat_message("user"):
             st.text(prompt)
-        with st.spinner(tc("chat.thinking")):
+        now_in = language_of(prompt, None, chat_language)  # the message itself: nothing is saved yet on the first one
+        with st.spinner(PACK.get("chat.thinking", now_in)):
             try:
                 turn.handle_message(llm, store, SAZON_CLIENT, candidate_id, prompt, datetime.now())
             except Exception as error:  # a database or network failure: say so, log it, never show internals
-                st.error(tc("chat.failed"))
+                st.error(PACK.get("chat.failed", now_in))
                 st.caption(log_error(error, datetime.now(), config.LOG_PATH))
                 st.stop()
         st.rerun()

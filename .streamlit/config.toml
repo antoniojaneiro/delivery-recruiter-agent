@@ -4,3 +4,20 @@ headless = false
 
 [browser]
 gatherUsageStats = false
+
+# One look for both apps (the chat and the recruiter dashboard): warm and plain, one brand colour. No web fonts are
+# loaded, so the candidate's browser makes no request to a font provider.
+[theme]
+base = "light"
+primaryColor = "#B4361C"
+backgroundColor = "#FFFFFF"
+secondaryBackgroundColor = "#F7F1EA"
+textColor = "#2B2420"
+borderColor = "#E4D8CB"
+baseRadius = "0.6rem"
+showWidgetBorder = true
+paddingTop = "2.5rem"
+chartCategoricalColors = ["#B4361C", "#2F6F5E", "#C98A1B", "#4C6A92", "#7A4B8A", "#8A8178"]
+dataframeHeaderBackgroundColor = "#F7F1EA"
+dataframeHeaderTextColor = "#2B2420"
+dataframeBorderColor = "#E4D8CB"

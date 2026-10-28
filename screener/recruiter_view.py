@@ -13,6 +13,8 @@ from screener.summary import card_for
 from screener.ui_texts import UiPack, UiTextError
 
 PAGE_SIZE = 50
+TABLE_MAX_ROWS = 10  # a table this many rows tall or more scrolls inside itself
+ROW_PX, HEADER_PX, BORDER_PX = 35, 38, 3
 
 
 def escape_markdown(text: str) -> str:
@@ -25,6 +27,19 @@ def page_of(items: list, page: int, size: int = PAGE_SIZE) -> tuple[list, int, i
     pages = max(1, -(-len(items) // size))
     page = min(max(int(page), 1), pages)
     return items[(page - 1) * size: page * size], pages, page
+
+
+def table_height(rows: int) -> int:
+    """Pixels for a table of `rows` rows: as tall as its rows up to TABLE_MAX_ROWS, then that height (it scrolls)."""
+    return HEADER_PX + min(rows, TABLE_MAX_ROWS) * ROW_PX + BORDER_PX
+
+
+def refresh_action(seen: int | None, current: int, candidate_open: bool) -> str:
+    """What a dashboard that was drawn at revision `seen` does when the database is at `current`: nothing, reload, or
+    (when a recruiter has a candidate open, with a note maybe half written) only offer the update."""
+    if seen is None or seen == current:
+        return "none"
+    return "offer" if candidate_open else "reload"
 
 
 def matches(record: Record, search: str, spec: ScreeningSpec) -> bool:

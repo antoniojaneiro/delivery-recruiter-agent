@@ -118,3 +118,14 @@ def test_spanish_is_still_the_default(db):
     at = AppTest.from_file(APP, default_timeout=10).run()
     login(at)
     assert at.title[0].value == "Candidatos"
+
+
+@pytest.mark.parametrize("language,expected", [("es", "Elegir opciones"), ("en", "Choose options")])
+def test_the_filter_dropdowns_say_their_placeholder_in_the_page_language(db, language, expected):
+    """Streamlit's own default placeholder is English whatever the app's language switch says."""
+    at = AppTest.from_file(APP, default_timeout=20)
+    at.session_state["ui_language"] = language
+    at.run()
+    login(at)
+    assert not at.exception, at.exception
+    assert {at.multiselect(key="f_outcome").proto.placeholder, at.multiselect(key="f_status").proto.placeholder} == {expected}
