@@ -12,7 +12,7 @@ import sqlite3
 import time
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from pathlib import Path
 
 import anyio.to_thread
@@ -20,7 +20,7 @@ from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
-from screener import dialog, turn
+from screener import dialog, slot_flow, turn
 from screener.chat import write_error
 from screener.client import Client
 from screener.cv import MAX_BYTES as MAX_CV_BYTES
@@ -83,6 +83,11 @@ class Limits:
 class MessageIn(BaseModel):
     message_id: str = Field(min_length=1, max_length=100)
     text: str = Field(max_length=MAX_TEXT)
+
+
+class BookIn(BaseModel):
+    message_id: str = Field(min_length=1, max_length=100)
+    slot_id: int
 
 
 class AckIn(BaseModel):
@@ -217,6 +222,29 @@ def create_app(client: Client, store, llm: LLM, *, api_key: str | None = None, l
         if len(data) > MAX_CV_BYTES:
             return JSONResponse({"error": "file too big"}, status_code=413)
         return once(candidate_id, message_id, lambda: turn.handle_cv(llm, store, client, candidate_id, data, clock()))
+
+    @app.get("/candidates/{candidate_id}/times")
+    def times(candidate_id: str = Depends(candidate), month: str | None = None, day: str | None = None):
+        """For the picker: `month=YYYY-MM` gives the days with free times, `day=YYYY-MM-DD` that day's times. Only the
+        times of the candidate's own country are shown."""
+        country = slot_flow.country_of(store, client, candidate_id)
+        try:
+            if month is not None:
+                first = date.fromisoformat(month + "-01")
+                days = store.free_days(country, first, clock()) if country else {}
+                return {"days": {d.isoformat(): n for d, n in days.items()}}
+            if day is not None:
+                found = store.free_slots_on(country, date.fromisoformat(day), clock()) if country else []
+                return {"times": [{"id": s.id, "label": f"{s.starts_at:%H:%M}"} for s in found]}
+        except ValueError:
+            raise HTTPException(422, "a month is YYYY-MM and a day is YYYY-MM-DD") from None
+        raise HTTPException(422, "give a month or a day")
+
+    @app.post("/candidates/{candidate_id}/book")
+    def book(body: BookIn, candidate_id: str = Depends(candidate)):
+        """A time chosen in the picker: the answer typing its number would give."""
+        return once(candidate_id, body.message_id,
+                    lambda: turn.handle_slot(store, client, candidate_id, body.slot_id, clock()))
 
     @app.get("/candidates/{candidate_id}/outbox")
     def outbox(candidate_id: str = Depends(candidate)):

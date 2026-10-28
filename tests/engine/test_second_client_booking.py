@@ -76,7 +76,7 @@ def test_the_cancel_message_uses_the_clients_wording_and_areas(store):
     talk(store, ScriptedLLM(), "1")
     store.cancel_slot(store.booking_of("c1").slot_id, "Ana", NOW)
     assert slot_flow.notify_cancelled(store, TOY_UK, "c1", NOW) is True
-    assert store.messages("c1")[-1].text == "Your call was cancelled."
+    assert store.messages("c1")[-1].text == "Your call was cancelled. Write to us when you want to book."  # no other time is free
 
 
 def test_the_reminder_clock_is_the_clients(store):

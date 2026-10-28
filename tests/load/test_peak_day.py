@@ -21,7 +21,7 @@ import statistics
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 
 import httpx
 import pytest
@@ -111,12 +111,12 @@ class Server:
         self.thread.join(timeout=15)
 
 
-def add_call_times(store, now, days=30):
-    for day in range(1, days + 1):  # more call times than qualified candidates, as a recruiter team would add
-        for hour in range(9, 14):
-            for country in ("ES", "MX"):
-                at = (now + timedelta(days=day)).replace(hour=hour, minute=0, second=0, microsecond=0)
-                store.add_slot(country, at, "Ana", "Ana", now.astimezone())
+def hire_recruiters(store, now, spanish, mexican):
+    """The recruiter team: each has the default week (Monday to Friday, 9 to 17), so call times exist without anyone typing them."""
+    for country, count in (("ES", spanish), ("MX", mexican)):
+        for n in range(count):
+            store.add_recruiter(f"{country.lower()}{n}@sazon.test", f"Recruiter {country}{n}", country, "contraseña-segura-1",
+                                "boss@sazon.test", now)
 
 
 def run_day(tmp_path, spread, think, candidates=CANDIDATES, scale=DELAY_SCALE):
@@ -125,19 +125,19 @@ def run_day(tmp_path, spread, think, candidates=CANDIDATES, scale=DELAY_SCALE):
     now = datetime.now()
     client = client_for(config.AREAS)
     store = Store(tmp_path / "load.db", calendar=client.calendar)
-    add_call_times(store, now, days=30 if candidates >= 100 else 3)  # each call time is one disk commit
+    hire_recruiters(store, now, *((9, 4) if candidates >= 100 else (2, 1)))  # 13 recruiters on a big day
     model = SlowModel(scale)
     app = create_app(client, store, model, clock=datetime.now, log_path=tmp_path / "errors.log")
     latencies, statuses, problems, results, resets = [], [], [], {}, []
     guard = threading.Lock()
     pacing = random.Random(11)
 
-    def call(http, url, **kwargs):
+    def call(http, url, method="post", **kwargs):
         """One request, sent again after a 503 (the server asking to retry later); latency counts the whole wait."""
         started = time.perf_counter()
         for _ in range(40):
             try:
-                response = http.post(url, **kwargs)
+                response = http.request(method, url, **kwargs)
             except httpx.TransportError:  # the server closed an idle connection just as it was reused: send again
                 with guard:
                     resets.append(1)
@@ -152,6 +152,23 @@ def run_day(tmp_path, spread, think, candidates=CANDIDATES, scale=DELAY_SCALE):
             if response.status_code >= 400:
                 problems.append(f"{response.status_code} {response.text[:200]}")
         return response
+
+    def pick_with_the_picker(http, cid, auth, attempt):
+        """What the button does: the days of the month, the times of a day, then book one."""
+        today = date.today()
+        for month in (today, (today.replace(day=1) + timedelta(days=32)).replace(day=1)):
+            days = call(http, f"/candidates/{cid}/times", method="get", params={"month": f"{month:%Y-%m}"}, headers=auth).json()["days"]
+            if days:
+                break
+        else:
+            return
+        with guard:
+            day = pacing.choice(sorted(days))
+        times = call(http, f"/candidates/{cid}/times", method="get", params={"day": day}, headers=auth).json()["times"]
+        if times:
+            with guard:
+                chosen = pacing.choice(times)
+            call(http, f"/candidates/{cid}/book", json={"message_id": f"book{attempt}", "slot_id": chosen["id"]}, headers=auth)
 
     def pause():
         with guard:
@@ -186,7 +203,11 @@ def run_day(tmp_path, spread, think, candidates=CANDIDATES, scale=DELAY_SCALE):
                     pause()
                     with guard:
                         choice = str(pacing.randint(1, 3))
-                    call(http, url, json={"message_id": f"pick{attempt}", "text": choice}, headers=auth)
+                        picks_by_picker = int(cid, 16) % 2 == 0  # half of the candidates use the picker, half type a number
+                    if picks_by_picker:
+                        pick_with_the_picker(http, cid, auth, attempt)
+                    else:
+                        call(http, url, json={"message_id": f"pick{attempt}", "text": choice}, headers=auth)
         with guard:
             results[cid] = (expected, lines)
 
@@ -221,6 +242,12 @@ def check(store, results, problems, candidates):
             assert booking.slot_id not in booked, "a call time was given twice"
             booked.add(booking.slot_id)
         assert len(store.messages(cid)) > len(lines), (cid, "a message was lost")
+    with sqlite3.connect(store._path) as db:  # a recruiter takes one call at a time, and in their own country
+        double = db.execute("SELECT recruiter, starts_at FROM slots WHERE candidate_id IS NOT NULL AND cancelled_at IS NULL "
+                            "GROUP BY recruiter, starts_at HAVING COUNT(*) > 1").fetchall()
+        wrong_country = db.execute("SELECT COUNT(*) FROM slots s JOIN recruiters r ON r.email = s.recruiter "
+                                   "WHERE s.candidate_id IS NOT NULL AND s.country != r.country").fetchone()[0]
+    assert not double and wrong_country == 0, (double[:3], wrong_country)
     # every message id that got an answer was applied once: resent copies and retries add no second candidate message
     with sqlite3.connect(store._path) as db:
         off = db.execute("""SELECT c.candidate_id FROM candidates c WHERE

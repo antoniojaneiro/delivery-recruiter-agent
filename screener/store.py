@@ -9,6 +9,7 @@ from pathlib import Path
 from screener.model import RecruiterStatus
 from screener.recruiter_rules import AGENT_CLOSED, BLOCKED, NEEDS_REVIEW, STALLED, TO_CONTACT
 from screener.store_schema import prepare
+from screener.store_availability import AvailabilityMixin
 from screener.store_recruiters import RecruitersMixin
 from screener.store_service import ServiceMixin
 from screener.store_slots import SlotsMixin
@@ -27,7 +28,7 @@ _CANDIDATE_JOINS = ("FROM candidates c LEFT JOIN recruiter r ON r.candidate_id =
                     "LEFT JOIN slots s ON s.candidate_id = c.candidate_id AND s.cancelled_at IS NULL")
 
 
-class Store(SlotsMixin, ServiceMixin, RecruitersMixin):
+class Store(SlotsMixin, ServiceMixin, RecruitersMixin, AvailabilityMixin):
     def __init__(self, path: Path | str, calendar=None):
         self._path = str(path)
         self.calendar = calendar

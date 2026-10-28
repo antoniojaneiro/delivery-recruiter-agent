@@ -99,6 +99,18 @@ CREATE TABLE IF NOT EXISTS login_failures (
     key TEXT NOT NULL,
     at REAL NOT NULL
 );
+CREATE TABLE IF NOT EXISTS availability (
+    email TEXT NOT NULL,
+    weekday INTEGER NOT NULL,
+    start_min INTEGER NOT NULL,
+    end_min INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS availability_custom (email TEXT PRIMARY KEY);
+CREATE TABLE IF NOT EXISTS days_off (
+    email TEXT NOT NULL,
+    day TEXT NOT NULL,
+    PRIMARY KEY (email, day)
+);
 CREATE TABLE IF NOT EXISTS notes (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     candidate_id TEXT NOT NULL,
@@ -107,6 +119,9 @@ CREATE TABLE IF NOT EXISTS notes (
     at TEXT NOT NULL
 );
 """
+
+_ONE_CALL_AT_A_TIME = ("CREATE UNIQUE INDEX IF NOT EXISTS one_call_per_recruiter_time ON slots(recruiter, starts_at) "
+                       "WHERE recruiter IS NOT NULL AND cancelled_at IS NULL")
 
 _INDEXES = """
 CREATE UNIQUE INDEX IF NOT EXISTS one_booking_per_candidate
@@ -150,5 +165,9 @@ def prepare(db: sqlite3.Connection) -> None:
                 except sqlite3.OperationalError:  # another process added it first
                     pass
     db.executescript(_INDEXES)
+    try:  # a recruiter takes one call at a time; a database that already breaks that keeps working without the guard
+        db.execute(_ONE_CALL_AT_A_TIME)
+    except sqlite3.IntegrityError:
+        pass
     db.execute("INSERT OR IGNORE INTO settings (key, value) VALUES ('rev', '0')")
     db.executescript(_TRIGGERS)

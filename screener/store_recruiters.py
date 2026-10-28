@@ -32,6 +32,8 @@ class RecruitersMixin:
                            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
                            (email, name, country, salt.hex(), digest.hex(), json.dumps(params), created_by, stamp(now)))
                 self._log(db, created_by, "recruiter_created", f"{email} ({country})", now)
+                if self.calendar is not None:
+                    self._apply(db, email, country, now)  # their default week is on the calendar from this moment
         except sqlite3.IntegrityError:
             raise InputError("exists", f"there is already a recruiter with {email}") from None
         return Recruiter(email, name, country, now)
@@ -52,6 +54,9 @@ class RecruitersMixin:
         with self._connect() as db:
             gone = db.execute("DELETE FROM recruiters WHERE email = ?", (email,)).rowcount
             if gone:
+                for table in ("availability", "availability_custom", "days_off"):
+                    db.execute(f"DELETE FROM {table} WHERE email = ?", (email,))
+                db.execute("DELETE FROM slots WHERE recruiter = ? AND candidate_id IS NULL AND cancelled_at IS NULL", (email,))
                 self._log(db, removed_by, "recruiter_removed", email, now)
         return bool(gone)
 

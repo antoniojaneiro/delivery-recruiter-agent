@@ -35,7 +35,9 @@ def qualify(store, cid="c1", city="Madrid", language="sí", english=False):
 
 
 def add_slots(store, country="ES", times=ES_SLOTS):
-    return [store.add_slot(country, t, "Ana", "Ana", NOW_AWARE) for t in times]
+    """One free time each; a recruiter takes one call at a time, so a time given twice is a second recruiter."""
+    return [store.add_slot(country, t, "Ana" + (str(times[:i].count(t) + 1) if t in times[:i] else ""), "Ana", NOW_AWARE)
+            for i, t in enumerate(times)]
 
 
 def booked(store, cid="c1"):

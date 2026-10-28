@@ -69,7 +69,7 @@ def test_the_funnel_and_the_calendar_stay_quick_with_five_thousand_candidates(bi
         for hour in range(9, 14):
             for country in ("ES", "MX"):
                 at_time = (datetime.now() + timedelta(days=day)).replace(hour=hour, minute=0, second=0, microsecond=0)
-                slot_id = big_database.add_slot(country, at_time, "Ana", "Ana", now)
+                slot_id = big_database.add_slot(country, at_time, f"Ana {country}", "Ana", now)
                 if day % 3 == 0:
                     big_database.book_slot(slot_id, f"seed{day * 10 + hour}", now)
     at = AppTest.from_file(str(DASHBOARD), default_timeout=120).run()

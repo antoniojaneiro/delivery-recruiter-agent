@@ -122,6 +122,16 @@ def parse_stamp(text: str) -> datetime:
 
 
 @dataclass(frozen=True)
+class Call:
+    """A booked call, as the calendar sees it: whose, when, and with which recruiter."""
+    slot_id: int
+    candidate_id: str
+    country: str
+    starts_at: datetime
+    recruiter: str
+
+
+@dataclass(frozen=True)
 class Claim:
     """The answer to claiming a message id: `new` (do the work), `busy` (someone is doing it now) or `done` (the
     stored `reply` is the answer)."""

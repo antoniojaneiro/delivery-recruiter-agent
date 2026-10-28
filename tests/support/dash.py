@@ -15,12 +15,15 @@ def email_of(name: str) -> str:
     return f"{name.lower()}@sazon.test"
 
 
-def seed_accounts(path=None, *names, country="ES"):
-    """Creates recruiters (default Ana and Luis) in the database named by SAZON_DB, which a test sets first. The first
-    argument is only kept so older calls read the same."""
+def seed_accounts(path=None, *names, country="ES", available=False):
+    """Creates recruiters (default Ana and Luis) in the database named by SAZON_DB, which a test sets first. They start
+    with an empty week, so a test that adds call times by hand sees only those; `available=True` keeps the default
+    week. The first argument is only kept so older calls read the same."""
     store = Store(os.environ["SAZON_DB"], calendar=SAZON_CALENDAR)
     for name in names or ("Ana", "Luis"):
         store.add_recruiter(email_of(name), name, country, PASSWORD, MANAGER_EMAIL, datetime(2026, 10, 1))
+        if not available:
+            store.set_weekly(email_of(name), [], MANAGER_EMAIL, datetime(2026, 10, 1))
 
 
 def set_manager(monkeypatch):

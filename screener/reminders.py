@@ -61,6 +61,9 @@ def _remind(store: Store, client: Client, candidate_id: str, now: datetime) -> A
     def work(screening: Screening) -> Turn:
         if screening.needs_consent:
             return Turn(None, save=False)  # they have not agreed to anything yet, so they are not contacted again
+        if screening.awaiting_slot_choice and store.booking_of(candidate_id):
+            screening.resolve_slots()  # booked some other way (a recruiter, a moved call): nothing to ask them
+            return Turn(None)
         if screening.awaiting_slot_choice:
             kind, directive = slot_flow.on_idle(store, client, screening, now)
         elif screening.is_open:

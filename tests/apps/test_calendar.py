@@ -33,7 +33,7 @@ def add(store, cid, city, outcome="QUALIFIED", name=None):
 
 
 def slot(store, country, when):
-    return store.add_slot(country, when, "Ana", "Ana", NOW.astimezone())
+    return store.add_slot(country, when, f"Ana {country}", "Ana", NOW.astimezone())  # one country per recruiter
 
 
 def opened(language="es", week=MONDAY):
@@ -53,30 +53,36 @@ def chips(at):
 
 # --- the grid ----------------------------------------------------------------------------------------------------------
 
-def test_the_week_grid_shows_free_and_booked_times_of_the_chosen_country(db):
-    add(db, "c1", "Madrid", name="Juan Pérez")
-    free = slot(db, "ES", TUESDAY)
-    booked = slot(db, "ES", TUESDAY.replace(hour=16))
-    db.book_slot(booked, "c1", NOW.astimezone())
-    slot(db, "MX", TUESDAY)
-    text = chips(opened())
-    assert ":green-badge[10:00]" in text and "16:00 · Juan Pérez" in text
-    assert text.count("10:00") == 1  # the Mexican 10:00 is not in the Spanish grid
+def book(db, cid, country, when, name="Juan Pérez", city="Madrid"):
+    add(db, cid, city, name=name)
+    db.book_slot(slot(db, country, when), cid, NOW.astimezone())
+
+
+def everyones(at):
+    at.segmented_control(key="cal_scope").set_value("all").run()
+    return chips(at)
+
+
+def test_the_week_grid_shows_booked_calls_with_the_candidate_and_the_recruiter_of_the_chosen_country(db):
+    book(db, "c1", "ES", TUESDAY.replace(hour=16))
+    book(db, "c2", "MX", TUESDAY, "María Gil", "Guadalajara")
+    text = everyones(opened())
+    assert "16:00 · Juan Pérez · Ana ES" in text and "María" not in text  # the Mexican call is on the Mexican grid
 
 
 def test_the_other_country_has_its_own_grid_in_its_own_clock(db):
-    slot(db, "ES", TUESDAY)
-    slot(db, "MX", TUESDAY.replace(hour=9, minute=30))
+    book(db, "c1", "ES", TUESDAY)
+    book(db, "c2", "MX", TUESDAY.replace(hour=9, minute=30), "María Gil", "Guadalajara")
     at = opened()
     at.segmented_control(key="cal_country").set_value("MX").run()
-    text = chips(at)
-    assert "09:30" in text and "10:00" not in text
+    text = everyones(at)
+    assert "09:30 · María Gil" in text and "10:00" not in text
 
 
 def test_the_week_buttons_move_the_grid_and_today_brings_it_back(db):
-    slot(db, "ES", TUESDAY)
+    book(db, "c1", "ES", TUESDAY)
     at = opened()
-    assert "10:00" in chips(at)
+    assert "10:00" in everyones(at)
     at.button(key="week_next").click().run()
     assert at.session_state["cal_week"] == MONDAY + timedelta(days=7) and "10:00" not in chips(at)
     at.button(key="week_prev").click().run()

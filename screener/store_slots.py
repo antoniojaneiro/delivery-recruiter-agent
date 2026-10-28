@@ -1,6 +1,6 @@
 """D48: call slots and bookings. A mixin of Store; it uses the store's `_connect`."""
 import sqlite3
-from datetime import datetime
+from datetime import date, datetime, timedelta
 
 from screener.store_types import AGENT, Booking, InputError, Slot, stamp as _stamp
 
@@ -47,17 +47,53 @@ class SlotsMixin:
             return cursor.lastrowid
 
     def free_slots(self, country: str, now: datetime, limit: int = 3) -> list[Slot]:
+        """The next free times, one per start time (two recruiters at the same time are one option)."""
+        if self.calendar is None:
+            return []
+        self.sync_availability(now)
+        free, floor = [], ""
+        while len(free) < limit:
+            with self._connect() as db:
+                rows = db.execute("SELECT MIN(id), country, starts_at, recruiter, NULL, 0 FROM slots WHERE country = ? AND "
+                                  "candidate_id IS NULL AND cancelled_at IS NULL AND starts_at > ? GROUP BY starts_at "
+                                  "ORDER BY starts_at LIMIT ?", (country, floor, limit + 20)).fetchall()
+            if not rows:
+                break
+            free += [s for s in map(_slot, rows) if self.calendar.has_enough_notice(s.country, s.starts_at, now)]
+            floor = rows[-1][2]
+        return free[:limit]
+
+    def booked_slots(self, country: str, first: date, before: date) -> list[Slot]:
+        """The booked calls of one country from `first` up to (not including) `before`: the calendar grid."""
+        with self._connect() as db:
+            rows = db.execute(f"{_SLOT_SELECT} WHERE country = ? AND candidate_id IS NOT NULL AND cancelled_at IS NULL "
+                              "AND starts_at >= ? AND starts_at < ? ORDER BY starts_at, id",
+                              (country, first.isoformat(), before.isoformat())).fetchall()
+        return [_slot(r) for r in rows]
+
+    def listed_slots(self, now: datetime) -> list[Slot]:
+        """What a person lists and cancels: the calls booked from now on and the times added by hand. Not the many
+        free times made from recruiters' availability, which they change by changing the availability."""
         if self.calendar is None:
             return []
         with self._connect() as db:
-            rows = db.execute(f"{_SLOT_SELECT} WHERE country = ? AND candidate_id IS NULL AND cancelled_at IS NULL "
-                              "ORDER BY starts_at, id", (country,)).fetchall()
-        free, seen = [], set()
-        for slot in map(_slot, rows):
-            if slot.starts_at not in seen and self.calendar.has_enough_notice(slot.country, slot.starts_at, now):
-                seen.add(slot.starts_at)  # two recruiters at the same time make one option, not two
-                free.append(slot)
-        return free[:limit]
+            rows = db.execute(f"{_SLOT_SELECT} WHERE cancelled_at IS NULL AND (candidate_id IS NOT NULL OR "
+                              "created_by != 'availability') ORDER BY starts_at, id").fetchall()
+        horizon = now - self.calendar.min_notice
+        return [s for s in map(_slot, rows) if self.calendar.has_enough_notice(s.country, s.starts_at, horizon)]
+
+    def free_slots_on(self, country: str, day: date, now: datetime) -> list[Slot]:
+        """Every free time of one day, one per start time: what the picker shows once a day is chosen."""
+        if self.calendar is None:
+            return []
+        self.sync_availability(now)
+        start = datetime.combine(day, datetime.min.time())
+        with self._connect() as db:
+            rows = db.execute("SELECT MIN(id), country, starts_at, recruiter, NULL, 0 FROM slots WHERE country = ? AND "
+                              "candidate_id IS NULL AND cancelled_at IS NULL AND starts_at >= ? AND starts_at < ? "
+                              "GROUP BY starts_at ORDER BY starts_at",
+                              (country, start.isoformat(), (start + timedelta(days=1)).isoformat())).fetchall()
+        return [s for s in map(_slot, rows) if self.calendar.has_enough_notice(s.country, s.starts_at, now)]
 
     def slots(self, now: datetime, include_past: bool = False, include_cancelled: bool = False) -> list[Slot]:
         if self.calendar is None:
@@ -91,13 +127,17 @@ class SlotsMixin:
             held = self._held_booking(db, candidate_id)
             if held:
                 return _booking(held)
-            row = db.execute(f"{_BOOKING_SELECT} WHERE id = ? AND candidate_id IS NULL AND cancelled_at IS NULL",
-                             (slot_id,)).fetchone()
+            row = db.execute(f"{_BOOKING_SELECT} WHERE id = ? AND cancelled_at IS NULL", (slot_id,)).fetchone()
             if row is None:
                 return None
             booking = _booking(row)
             if not self.calendar.has_enough_notice(booking.country, booking.starts_at, now):
                 return None
+            slot_id = self._least_busy(db, booking.country, booking.starts_at)
+            if slot_id is None:
+                return None  # nobody is free at that time any more
+            row = db.execute(f"{_BOOKING_SELECT} WHERE id = ?", (slot_id,)).fetchone()
+            booking = _booking(row)
             updated = db.execute("UPDATE slots SET candidate_id = ?, booked_at = ? "
                                  "WHERE id = ? AND candidate_id IS NULL AND cancelled_at IS NULL",
                                  (candidate_id, _stamp(now), slot_id)).rowcount
@@ -132,6 +172,8 @@ class SlotsMixin:
                 return booking, held  # already theirs: nothing changes
             if country is not None and booking.country != country:
                 raise InputError("wrong_country", "that time is in another country than the candidate's")
+            slot_id = self._least_busy(db, booking.country, booking.starts_at) or slot_id  # the least busy recruiter then
+            booking = _booking(db.execute(f"{_BOOKING_SELECT} WHERE id = ?", (slot_id,)).fetchone())
             if not calendar.has_enough_notice(booking.country, booking.starts_at, now):
                 raise InputError("too_soon", "the time is in the past or too soon")
             if held:
@@ -146,11 +188,47 @@ class SlotsMixin:
                         _stamp(now)))
             return booking, held
 
+    @staticmethod
+    def _least_busy(db, country: str, starts_at: datetime) -> int | None:
+        """Of the recruiters free at this time, the one with the fewest calls that day, then by email. The row offered
+        stands in for its time: a candidate who picks it is given whoever is free then, even when that row was taken."""
+        free = db.execute("SELECT id, recruiter FROM slots WHERE country = ? AND starts_at = ? AND candidate_id IS NULL "
+                          "AND cancelled_at IS NULL", (country, starts_at.isoformat())).fetchall()
+        if len(free) < 2:
+            return free[0][0] if free else None
+        day = starts_at.date().isoformat()
+
+        def load(entry) -> tuple:
+            calls = db.execute("SELECT COUNT(*) FROM slots WHERE recruiter = ? AND candidate_id IS NOT NULL AND cancelled_at "
+                               "IS NULL AND substr(starts_at, 1, 10) = ?", (entry[1], day)).fetchone()[0]
+            return calls, entry[1] or "", entry[0]
+        return min(free, key=load)[0]
+
     def booking_of(self, candidate_id: str) -> Booking | None:
         with self._connect() as db:
             row = db.execute(f"{_BOOKING_SELECT} WHERE candidate_id = ? AND cancelled_at IS NULL",
                              (candidate_id,)).fetchone()
         return _booking(row) if row else None
+
+    def reassign_call(self, slot_id: int, now: datetime) -> Booking | None:
+        """The recruiter of a booked call can no longer take it: another recruiter free at the same time takes it over
+        (the least busy), the candidate keeps their time. None when nobody else is free then."""
+        with self._connect() as db:
+            db.execute("BEGIN IMMEDIATE")
+            row = db.execute("SELECT country, starts_at, candidate_id FROM slots WHERE id = ? AND cancelled_at IS NULL "
+                             "AND candidate_id IS NOT NULL", (slot_id,)).fetchone()
+            if row is None:
+                return None
+            country, starts_at, candidate_id = row
+            new_id = self._least_busy(db, country, datetime.fromisoformat(starts_at))
+            if new_id is None:
+                return None
+            db.execute("UPDATE slots SET candidate_id = NULL, booked_at = NULL, cancelled_at = ?, cancelled_by = ? WHERE id = ?",
+                       (_stamp(now), "availability", slot_id))
+            db.execute("UPDATE slots SET candidate_id = ?, booked_at = ? WHERE id = ?", (candidate_id, _stamp(now), new_id))
+            db.execute("INSERT INTO events (candidate_id, type, detail, actor, at) VALUES (?, ?, ?, ?, ?)",
+                       (candidate_id, "slot_reassigned", f"{country} {starts_at}", AGENT, _stamp(now)))
+            return _booking(db.execute(f"{_BOOKING_SELECT} WHERE id = ?", (new_id,)).fetchone())
 
     def cancel_slot(self, slot_id: int, recruiter: str, now: datetime) -> str | None:
         """Cancels a slot. Returns the candidate who had booked it, if any, who must be told."""

@@ -29,6 +29,7 @@ st.caption(t("slots.caption"))
 # The page is drawn top to bottom as: the week grid, organising a call, then adding and cancelling times. They are
 # worked out in the opposite order, so the grid always shows what was just added, booked or cancelled.
 grid_box = st.container()
+avail_box = st.container()
 schedule_box = st.container()
 manage_box = st.container()
 
@@ -54,7 +55,7 @@ with manage_box:
                 st.success(t("slots.added"))
 
     now = datetime.now().astimezone()
-    slots = store.slots(now)
+    slots = store.listed_slots(now)
 
     with st.expander(t("slots.list_title"), expanded=bool(slots)):
         if slots:
@@ -83,7 +84,7 @@ with manage_box:
                                      notice=t("slots.notice_left") if told else t("slots.notice_failed")))
                     else:
                         st.success(t("slots.cancelled"))
-                slots = store.slots(now)
+                slots = store.listed_slots(now)
 
         if not slots:
             st.info(t("slots.none"))
@@ -175,6 +176,65 @@ with schedule_box:
                     if store.booking_of(chosen) is None or store.booking_of(chosen).slot_id != new_slot:
                         store.cancel_slot(new_slot, recruiter, now)  # not booked after all: do not leave the time behind
 
+# --- a recruiter's own week and days off ---------------------------------------------------------------------------------
+with avail_box:
+    st.subheader(t("avail.title"))
+    st.caption(t("avail.caption"))
+    people = store.recruiters()
+    if ui.is_manager():  # the hiring manager may edit anyone's week
+        who = st.selectbox(t("avail.who"), [p.email for p in people], key="avail_who", index=0 if people else None,
+                           format_func=lambda e: next(f"{p.name} ({p.email})" for p in people if p.email == e)) if people else None
+    else:
+        who = recruiter if store.get_recruiter(recruiter) else None
+    if who is None:
+        st.caption(t("avail.none_who"))
+    else:
+        if st.session_state.get("_avail_for") != who:  # another person's week: start the boxes from theirs
+            for key in [k for k in st.session_state if k.startswith(("avail_on_", "avail_start_", "avail_end_"))]:
+                del st.session_state[key]
+            st.session_state["_avail_for"] = who
+        if flash := st.session_state.pop("_avail_flash", None):
+            st.success(flash)
+        week_now = {w: (s, e) for w, s, e in store.weekly(who)}
+        picks = []
+        for weekday in range(7):
+            with st.container(horizontal=True, vertical_alignment="bottom"):
+                on = st.checkbox(t(f"cal.day.{weekday}"), value=weekday in week_now, key=f"avail_on_{weekday}")
+                first, last = week_now.get(weekday, (calendar.default_start, calendar.default_end))
+                start_at = st.time_input(t("avail.start"), value=time(first // 60, first % 60), step=900,
+                                         key=f"avail_start_{weekday}", disabled=not on)
+                end_at = st.time_input(t("avail.end"), value=time(last // 60, last % 60), step=900,
+                                       key=f"avail_end_{weekday}", disabled=not on)
+            if on:
+                picks.append((weekday, start_at.hour * 60 + start_at.minute, end_at.hour * 60 + end_at.minute))
+
+        def changed(conflicts) -> None:
+            done = slot_flow.resolve_calls(store, SAZON_CLIENT, conflicts, recruiter, datetime.now())
+            text = t("avail.saved")
+            if done.moved or done.released:
+                text += " " + t("avail.effect", moved=done.moved, released=done.released)
+            st.session_state["_avail_flash"] = text
+            for key in [k for k in st.session_state if k.startswith(("avail_on_", "avail_start_", "avail_end_"))]:
+                del st.session_state[key]
+            st.rerun()
+
+        with st.container(horizontal=True):
+            if st.button(t("avail.save"), key="avail_save", icon=":material/save:", type="primary"):
+                try:
+                    changed(store.set_weekly(who, picks, recruiter, datetime.now()))
+                except InputError as error:
+                    st.error(view.explain_error(error))
+            if st.button(t("avail.reset"), key="avail_reset"):
+                changed(store.reset_weekly(who, recruiter, datetime.now()))
+        with st.container(horizontal=True, vertical_alignment="bottom"):
+            off_day = st.date_input(t("avail.off_day"), key="off_day")
+            if st.button(t("avail.off_add"), key="off_add"):
+                changed(store.set_day_off(who, off_day, True, recruiter, datetime.now()))
+        for day_off in store.days_off(who):
+            if day_off >= date.today() and st.button(t("avail.off_remove", day=f"{day_off:%d/%m/%Y}"),
+                                                     key=f"off_remove_{day_off.isoformat()}", icon=":material/close:"):
+                changed(store.set_day_off(who, day_off, False, recruiter, datetime.now()))
+
 # --- the week grid (drawn above, filled last so it shows everything just changed) ---------------------------------------
 if "cal_week" not in st.session_state:
     st.session_state["cal_week"] = week_start(date.today())
@@ -195,24 +255,24 @@ with grid_box:
         st.button(t("cal.next"), key="week_next", on_click=shift_week, args=(7,), icon=":material/chevron_right:")
         end = start + timedelta(days=6)
         st.markdown(f"**{t('cal.week', first=f'{start:%d/%m}', last=f'{end:%d/%m/%Y}')}**")
+    st.segmented_control(t("cal.scope"), ["mine", "all"], default="all" if ui.is_manager() else "mine", key="cal_scope",
+                         format_func=lambda value: t(f"cal.scope_{value}"), label_visibility="collapsed")
+    everyone = (st.session_state.get("cal_scope") or "all") == "all"
     shown_country = st.session_state.get("cal_country") or countries[0]
     zone = calendar.zone(shown_country)
     local_now = datetime.now(zone).replace(tzinfo=None)  # the country's own clock: a time is past by that clock
-    week = week_slots(store.slots(now, include_past=True), start, shown_country)
+    names = {r.email: r.name for r in store.recruiters()}
+    week = week_slots(store.booked_slots(shown_country, start, start + timedelta(days=7)), start, shown_country)
     columns = st.columns(7)
     for column, (day, found) in zip(columns, week.items()):
         with column:
             st.markdown(f"**{t(f'cal.day.{day.weekday()}')} {day.day}**" + (" ·" if day == date.today() else ""))
-            for item in found:
-                clock = f"{item.starts_at:%H:%M}"
-                booked = by_id.get(item.candidate_id) if item.candidate_id else None
-                name = f" · {escape_markdown(view.name_of(booked))}" if booked else (" · ?" if item.candidate_id else "")
-                if item.starts_at < local_now:
-                    st.markdown(f":gray-badge[{clock}{name}]")
-                elif item.candidate_id:
-                    st.markdown(f":blue-badge[{clock}{name}]")
-                else:
-                    st.markdown(f":green-badge[{clock}]")
-    if not any(week.values()):
-        st.caption(t("cal.empty_week"))
+            for item in (i for i in found if everyone or i.recruiter == recruiter):
+                booked = by_id.get(item.candidate_id)
+                who = f" · {names.get(item.recruiter, item.recruiter or '')}" if everyone else ""
+                label = f"{item.starts_at:%H:%M} · {escape_markdown(view.name_of(booked)) if booked else '?'}{who}"
+                st.markdown(f":gray-badge[{label}]" if item.starts_at < local_now else f":blue-badge[{label}]")
+            free_count = len(store.free_slots_on(shown_country, day, now)) if day >= date.today() else 0
+            if free_count:
+                st.caption(t("cal.free", n=free_count))
     st.caption(t("cal.legend"))

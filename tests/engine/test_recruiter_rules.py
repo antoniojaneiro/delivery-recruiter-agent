@@ -1,5 +1,7 @@
 """D70: what a recruiter must act on is defined once. The same rule answers in Python for one record and in SQL for
 the counters, and a test fills a database with every combination to prove they agree."""
+import json
+import sqlite3
 from datetime import datetime
 from itertools import product
 
@@ -17,17 +19,19 @@ REASONS = ([], ["NO_CONSENT"], ["NO_LICENSE"])
 
 @pytest.fixture
 def store(tmp_path):
+    """Every combination of outcome, recruiter status, reason and booked or not, written in one transaction."""
     store = Store(tmp_path / "s.db", calendar=SAZON_CALENDAR)
-    slot = 0
-    for n, (outcome, status, reasons, booked) in enumerate(product(OUTCOMES, RecruiterStatus, REASONS, (False, True))):
-        cid = f"c{n}"
-        store.commit_turn(cid, T, {}, {}, outcome, [], [], reasons=reasons)
-        if status != RecruiterStatus.NEW:
-            store.set_status(cid, status, "Ana", T)
-        if booked:
-            slot = store.add_slot("ES", datetime(2027, 6, 15, 9 + slot % 8, 0), "Ana", "Ana", T.astimezone())
-            store.book_slot(slot, cid, T.astimezone())
-            slot += 1
+    stamp = T.isoformat()
+    with sqlite3.connect(tmp_path / "s.db") as db:
+        for n, (outcome, status, reasons, booked) in enumerate(product(OUTCOMES, RecruiterStatus, REASONS, (False, True))):
+            cid = f"c{n}"
+            db.execute("INSERT INTO candidates (candidate_id, state, extracted, outcome, reasons, updated_at) VALUES "
+                       "(?, '{}', '{}', ?, ?, ?)", (cid, outcome, json.dumps(reasons), stamp))
+            if status != RecruiterStatus.NEW:
+                db.execute("INSERT INTO recruiter (candidate_id, status, updated_at) VALUES (?, ?, ?)", (cid, status.value, stamp))
+            if booked:
+                db.execute("INSERT INTO slots (country, starts_at, recruiter, created_by, created_at, candidate_id, booked_at) "
+                           "VALUES ('ES', ?, ?, 'Ana', ?, ?, ?)", (datetime(2027, 6, 15, 9, 0).isoformat(), f"recruiter-{n}", stamp, cid, stamp))
     return store
 
 

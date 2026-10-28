@@ -145,6 +145,13 @@ class Screening:
         self._unclear_picks += 1
         return self._unclear_picks
 
+    def reopen_slots(self) -> None:
+        """A booked call was taken away: the candidate may be offered times again."""
+        self._slots_done = False
+        self._slot_offer = []
+        self._unclear_picks = 0
+        self.reminder_sent = False
+
     def resolve_slots(self) -> None:
         """The offer is over: booked, declined, or nothing to offer."""
         self._slot_offer = []

@@ -7,9 +7,9 @@ Everything [TASK.md](TASK.md) asks for, whether we do it, and how, in plain word
 | What the task says | Done? | How |
 | --- | --- | --- |
 | About 1000 applications a week | Yes, tested with a fake model | The agent keeps no state in memory, so many chats run at once. An HTTP service answers each message once even if it is sent twice, limits abuse, and asks callers to retry when busy. A load test (200 candidates, a slow fake model that sometimes fails) passes at about 25 times the real peak (assuming a fifth of the week in 2 hours). There is no real channel yet (WhatsApp or similar), and the real model was not load-tested because of the free tier. |
-| 60% of candidates don't answer calls | Yes | The candidate chats when it suits them, and a call is booked only for those who qualify. A reminder goes out after 24 hours. |
+| 60% of candidates don't answer calls | Yes | The candidate chats when it suits them and books their own call (a button with a calendar, or a numbered list) as soon as they qualify. A reminder goes out after 24 hours. |
 | 80% of recruiter time goes to unqualified candidates | Yes | The agent screens first. Recruiters only see a short card for each candidate, and those who don't qualify go to a review queue. |
-| 13 recruiters | Yes | The dashboard has one login per recruiter, a status and notes for each candidate, and call times per recruiter. |
+| 13 recruiters | Yes | Each recruiter signs in with email and password (created by the hiring manager), has their own hours and days off, and gets their share of the calls; more recruiters mean more times candidates can book. |
 | Spain and Mexico | Yes | Service areas and call times are set per country, in each country's time zone. |
 
 ## What the agent must collect and check

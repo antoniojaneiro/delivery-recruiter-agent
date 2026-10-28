@@ -38,7 +38,7 @@ Only validated values are stored (JSON); the conversation is the audit record; c
 
 | Outcome | When | The candidate hears | The recruiter gets |
 | --- | --- | --- | --- |
-| **Qualified** | All fields, license yes, city in area. | The next three free call times of their country; a pick books it. None free or none chosen: "write to us when you want to book"; nothing is promised (D81). | Card and booking. |
+| **Qualified** | All fields, license yes, city in area. | They book a 15-minute call themselves: a calendar button in the browser chat, or the next three times as a list. None free or none chosen: "write to us when you want to book" (D81-D83). | Card and booking. |
 | **Disqualified** | No license, or outside the area. | "I can't continue with the automated process; a recruiter can review your case" (D52). | Reason and card, in the review queue until a recruiter sets a status. |
 
 ## 6. Edge cases

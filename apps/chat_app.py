@@ -4,16 +4,17 @@ It runs the same turn code as the terminal chat and the real model. It saves int
 data/demo/chat.db by default), unless the switch in the sidebar sends new candidates to the recruiters' database
 (SAZON_DB) so they appear in the dashboard (D73). There is no login: it is meant to run on your own computer.
 On the right, an inspector shows what the agent has understood, read from that database."""
-from datetime import datetime
+import calendar
+from datetime import date, datetime, timedelta
 
 import streamlit as st
 
-from screener import dialog, gemini, turn
+from screener import dialog, gemini, slot_flow, turn
 from screener.chat import log_error
 from screener.inspector import inspect
 from screener.language import language_of
 from screener.llm import LLMError
-from screener.model import Language
+from screener.model import Language, Outcome
 from screener.recruiter_view import OUTCOME_COLOR
 from screener.store import Store
 
@@ -127,6 +128,54 @@ with chat_side:
             if len(store.messages(candidate_id)) == saved_before:  # refused: the reply is not part of the chat
                 st.session_state["_cv_refused"] = reply
             st.rerun()
+    can_pick = (record is not None and record.outcome == Outcome.QUALIFIED and SAZON_CLIENT.calendar is not None
+                and store.booking_of(candidate_id) is None)
+    if can_pick:  # the button, then a month of days that have free times, then that day's 15-minute times
+        country = slot_flow.country_of(store, SAZON_CLIENT, candidate_id)
+
+        def open_picker() -> None:
+            st.session_state.update(picker_open=True, picker_month=date.today().replace(day=1), picker_day=None)
+
+        def move_month(step: int) -> None:
+            month = st.session_state["picker_month"]
+            st.session_state.update(picker_month=(month + timedelta(days=32 if step > 0 else -1)).replace(day=1), picker_day=None)
+
+        def book(time_id: int) -> None:
+            try:
+                turn.handle_slot(store, SAZON_CLIENT, candidate_id, time_id, datetime.now())
+            except Exception as error:  # a database or network failure: say so, log it, never show internals
+                st.session_state["flash"] = "chat.failed"
+                log_error(error, datetime.now(), config.LOG_PATH)
+            st.session_state.update(picker_open=False, picker_day=None)
+
+        st.button(tc("picker.open"), key="pick_open", icon=":material/event:", type="primary", on_click=open_picker)
+        if st.session_state.get("picker_open") and country:
+            month = st.session_state["picker_month"]
+            free_days = store.free_days(country, month, datetime.now())
+            with st.container(border=True):
+                with st.container(horizontal=True, vertical_alignment="center"):
+                    st.button(tc("picker.prev"), key="pick_prev", icon=":material/chevron_left:", on_click=move_month, args=(-1,))
+                    st.markdown(f"**{tc(f'month.{month.month}')} {month.year}**")
+                    st.button(tc("picker.next"), key="pick_next", icon=":material/chevron_right:", on_click=move_month, args=(1,))
+                head = st.columns(7)
+                for column, weekday in zip(head, range(7)):
+                    column.caption(tc(f"cal.day.{weekday}"))
+                for week in calendar.monthcalendar(month.year, month.month):
+                    for column, number in zip(st.columns(7), week):
+                        if number:
+                            day = date(month.year, month.month, number)
+                            column.button(str(number), key=f"pick_day_{day.isoformat()}", disabled=day not in free_days,
+                                          width="stretch", on_click=lambda d=day: st.session_state.update(picker_day=d))
+                if not free_days:
+                    st.caption(tc("picker.none"))
+                chosen_day = st.session_state.get("picker_day")
+                if chosen_day and chosen_day in free_days:
+                    st.markdown(f"**{tc('picker.times', day=f'{chosen_day:%d/%m}')}**")
+                    free_times = store.free_slots_on(country, chosen_day, datetime.now())
+                    for row in range(0, len(free_times), 6):
+                        for column, found in zip(st.columns(6), free_times[row:row + 6]):
+                            column.button(f"{found.starts_at:%H:%M}", key=f"pick_time_{found.id}", width="stretch",
+                                          on_click=book, args=(found.id,))
     if prompt:
         with st.chat_message("user"):
             st.text(prompt)
