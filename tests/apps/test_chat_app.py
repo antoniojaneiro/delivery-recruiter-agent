@@ -229,3 +229,12 @@ def test_a_failed_turn_is_told_in_the_language_of_the_message(demo, monkeypatch,
     at.chat_input[0].set_value("yes please").run()
     from sazon.ui_pack import PACK
     assert PACK.get("chat.failed", "en") in [str(e.value) for e in at.error]
+
+
+def test_a_chat_id_left_from_another_database_starts_a_new_candidate_who_has_the_button(demo, tmp_path):
+    at = AppTest.from_file(APP, default_timeout=10)
+    at.session_state["chat_id"] = "left-over-from-the-old-test-database"  # a tab open since before the database moved
+    at.run()
+    assert not at.exception, at.exception
+    mine = candidate_id(at)
+    assert mine != "left-over-from-the-old-test-database" and saved_store(tmp_path).get(mine).state["buttons"] is True

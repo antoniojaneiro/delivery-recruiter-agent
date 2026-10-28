@@ -24,12 +24,12 @@ def store(tmp_path):
 
 def test_a_candidate_with_a_button_is_asked_to_book_with_it_and_is_given_no_list(store):
     reply = qualify(store, buttons=True)
-    assert reply == "¡Genial, tu perfil encaja! Reserva una llamada para hablar con un reclutador con el botón de abajo."
+    assert reply == "¡Genial, tu perfil encaja! Por favor, reserva una llamada para hablar con un reclutador."
     assert store.get("c1").state["buttons"] is True
 
 
 def test_the_same_in_english_and_a_candidate_without_a_button_keeps_the_numbered_list(store):
-    assert qualify(store, "c1", english=True, buttons=True).startswith("Great, your profile fits! Please book a call")
+    assert qualify(store, "c1", english=True, buttons=True) == "Great, your profile fits! Please book a call to talk with a recruiter."
     assert "1)" not in qualify(store, "c2", english=True, buttons=True)
     plain = qualify(store, "c3")
     assert "1) " in plain and "Reserva una llamada" in plain and "número" in plain

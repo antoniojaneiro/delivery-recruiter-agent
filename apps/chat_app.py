@@ -65,8 +65,8 @@ def deliver_queued() -> None:
     dialog.deliver_queued(active_store(), st.session_state["chat_id"], datetime.now())
 
 
-if "chat_id" not in st.session_state:
-    new_candidate()
+if "chat_id" not in st.session_state or store.get(st.session_state["chat_id"]) is None:
+    new_candidate()  # also for an id left in a tab from another database or erased since: a new candidate, with the button
 candidate_id = st.session_state["chat_id"]
 
 with st.sidebar:
