@@ -80,8 +80,7 @@ if recruiters:
             if not sure:
                 st.error(t("recruiters.delete_need_check"))
             else:  # each future call goes to another recruiter free then, or the candidate is told and can pick again
-                store.remove_recruiter(gone, actor, datetime.now())
-                done = slot_flow.resolve_calls(store, SAZON_CLIENT, calls, actor, datetime.now())
+                done = slot_flow.remove_recruiter(store, SAZON_CLIENT, gone, actor, datetime.now())
                 st.session_state["_recruiter_flash"] = t("recruiters.deleted") + (
                     " " + t("avail.effect", moved=done.moved, released=done.released) if calls else "")
                 st.rerun()

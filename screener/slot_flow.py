@@ -1,7 +1,7 @@
 """Offering and booking a call slot when a candidate qualifies (D7, D8, D48). The slots table is the
 single source of truth for a booking: the screening only remembers which slots are on offer."""
 from dataclasses import dataclass, replace
-from datetime import datetime
+from datetime import date, datetime
 
 from screener import conversation
 from screener.conversation import RETRY_ONCE, SKIP, Turn
@@ -117,6 +117,45 @@ def country_in(client: Client, values: dict) -> str | None:
     """The country of the place in a candidate's answers, which decides the clock and the recruiters they can be given."""
     area = client.spec.area_field
     return client.calendar.country_of.get(values.get(area)) if client.calendar and area else None
+
+
+def schedule_new_time(store: Store, client: Client, candidate_id: str, country: str, starts_at: datetime, owner: str,
+                      recruiter: str, now: datetime) -> Scheduled:
+    """A recruiter makes a time for a candidate (the owner's, in the candidate's own country) and books it in one go.
+    A booking that is refused leaves no new time behind, and so does one the least busy recruiter took instead."""
+    slot_id = store.add_slot(country, starts_at, owner, recruiter, now.astimezone())
+    try:
+        done = schedule_by_recruiter(store, client, candidate_id, slot_id, recruiter, now)
+    except Exception:
+        store.cancel_slot(slot_id, recruiter, now.astimezone())
+        raise
+    if done.booking.slot_id != slot_id:
+        store.cancel_slot(slot_id, recruiter, now.astimezone())
+    return done
+
+
+def remove_recruiter(store: Store, client: Client, email: str, by: str, now: datetime) -> Resolved:
+    """A recruiter leaves (D86): the account goes first, so nobody can book their times again, and each call they held goes
+    to another recruiter free then or is released with the candidate told (D84). Not one transaction (telling a candidate
+    is not part of the database), but it can be run again: a failure part-way is finished by the same call, because the
+    calls are found by the email, not by the account."""
+    calls = store.future_calls(email, now.astimezone())
+    if not store.remove_recruiter(email, by, now) and not calls:
+        raise LookupError(f"no recruiter {email}")
+    return resolve_calls(store, client, calls, by, now)
+
+
+def save_week(store: Store, client: Client, email: str, picks: list, by: str, now: datetime) -> Resolved:
+    """A recruiter's new weekly hours; the calls that no longer fit are dealt with (D84)."""
+    return resolve_calls(store, client, store.set_weekly(email, picks, by, now), by, now)
+
+
+def reset_week(store: Store, client: Client, email: str, by: str, now: datetime) -> Resolved:
+    return resolve_calls(store, client, store.reset_weekly(email, by, now), by, now)
+
+
+def set_day_off(store: Store, client: Client, email: str, day: date, off: bool, by: str, now: datetime) -> Resolved:
+    return resolve_calls(store, client, store.set_day_off(email, day, off, by, now), by, now)
 
 
 def may_choose_time(store: Store, client: Client, candidate_id: str) -> bool:
