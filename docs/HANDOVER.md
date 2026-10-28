@@ -18,7 +18,7 @@ Keep the dashboard and the chat on your own computer until the login is replaced
 | Item | Why it matters | Where it goes |
 | --- | --- | --- |
 | The real service areas (cities and nearby towns, per country) | The list in the code is a sample; candidates are accepted or rejected by it. | `sazon/config.py` |
-| Recruiters, their country and their hours | Call times come from recruiters' availability: the hiring manager creates them (Recruiters page); by default each works Monday to Friday, 9:00 to 17:00 in their country, and changes it in the Calendar page. | Dashboard (D80, D82) |
+| Recruiters, their country and their hours | Call times come from recruiters' availability: the hiring manager creates them (Recruiters page); by default each works Monday to Friday, 9:00 to 17:00 in their country, and changes it in the Calendar page. The hiring manager takes calls too (`HIRING_MANAGER_COUNTRY` in `.env`, Spain if empty; D89). | Dashboard (D80, D82) |
 | A paid model plan with a data-processing agreement | The free tier allows 15 requests a minute, may train on prompts, and cannot serve about 1000 applications a week. | `.env` (`GEMINI_API_KEY`, `LLM_MODEL`) |
 | Single sign-on for recruiters | The built-in login (email and password, recruiters created by the hiring manager from `.env`) is a prototype; keep the dashboard local until it is replaced. | Dashboard login (D80) |
 | A messaging channel (WhatsApp or similar) | Today candidates use the terminal or the test chat. The service is ready for an adapter. | `screener/service.py` (D75) |

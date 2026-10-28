@@ -5,7 +5,7 @@ import streamlit as st
 
 from screener import slot_flow
 
-from sazon import ui
+from sazon import config, ui
 from sazon.client import SAZON_CLIENT
 from sazon.ui import t
 from screener.store import InputError
@@ -53,9 +53,11 @@ with st.container(border=True):
         except InputError as error:
             st.error(view.explain_error(error))
 
-if recruiters:
-    emails = [r.email for r in recruiters]
-    by_email = {r.email: r for r in recruiters}
+manager_email = (config.manager_credentials() or ("",))[0].strip().lower()
+others = [r for r in recruiters if r.email != manager_email]  # the manager's password is in .env and their calls go with them
+if others:
+    emails = [r.email for r in others]
+    by_email = {r.email: r for r in others}
     with st.container(border=True):
         st.subheader(t("recruiters.reset_title"))
         with st.form("reset_form", clear_on_submit=True):

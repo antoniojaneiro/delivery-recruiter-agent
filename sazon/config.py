@@ -44,6 +44,13 @@ def manager_credentials() -> tuple[str, str] | None:
     return (email, password) if email and password else None
 
 
+def manager_country() -> str:
+    """The country whose calls the hiring manager takes (D89): HIRING_MANAGER_COUNTRY, Spain when it is not set or is not
+    one of Grupo Sazón's countries."""
+    value = os.environ.get("HIRING_MANAGER_COUNTRY", "").strip().upper()
+    return value if value in COUNTRY_OF.values() else "ES"
+
+
 def chat_url() -> str:
     """Where the browser chat is. The default is the port demo_launch.py starts it on."""
     return os.environ.get("SAZON_CHAT_URL") or "http://localhost:8501"

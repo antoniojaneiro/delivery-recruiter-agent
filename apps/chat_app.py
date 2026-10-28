@@ -8,8 +8,10 @@ import calendar
 from datetime import date, datetime, timedelta
 
 import streamlit as st
+from dotenv import load_dotenv
 
 from screener import dialog, gemini, reminders, slot_flow, turn
+from screener.login import ensure_manager_takes_calls
 from screener.chat import log_error
 from screener.inspector import inspect
 from screener.language import language_of
@@ -24,6 +26,7 @@ from sazon.demo.team import ensure_demo_team
 from sazon.ui import open_store, t
 from sazon.ui_pack import PACK
 
+load_dotenv()  # the hiring manager, who takes calls, is named there
 st.set_page_config(page_title=t("chat.page_title"), page_icon=":material/chat:", layout="wide")
 
 
@@ -36,6 +39,8 @@ def active_store() -> Store:
 store = active_store()
 if not st.session_state.get("share_with_dashboard"):  # the test database gets a fictional team; the real one never does
     ensure_demo_team(store, datetime.now())
+else:  # the recruiters' own database has at least the hiring manager, who takes calls (D89)
+    ensure_manager_takes_calls(store, config.manager_credentials(), config.manager_country(), datetime.now())
 language = ui.language()
 view = ui.view()
 
