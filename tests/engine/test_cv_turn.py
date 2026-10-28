@@ -6,7 +6,7 @@ import pytest
 
 from sazon.pack import CV
 from sazon.spec import SAZON
-from screener import turn
+from screener import reminders, turn
 from screener.llm import LLMError
 from tests.support.clients import client_for
 from tests.support.fakes import FakeLLM, ScriptedLLM
@@ -187,8 +187,8 @@ def test_a_candidate_who_withdrew_at_the_offer_cannot_upload_and_nothing_is_read
 
 def test_an_upload_from_a_stalled_candidate_brings_them_back(offered):
     store, _ = offered
-    turn.wait_24h(ScriptedLLM(), store, CLIENT, "c1", NOW)
-    turn.wait_24h(ScriptedLLM(), store, CLIENT, "c1", NOW)
+    reminders.wait_a_day(store, CLIENT, "c1")
+    reminders.wait_a_day(store, CLIENT, "c1")
     assert store.get("c1").outcome == "STALLED"
     upload(store, pdf_with_text("Juan Perez"))
     assert store.get("c1").outcome == "IN_PROGRESS" and store.cv("c1") is not None

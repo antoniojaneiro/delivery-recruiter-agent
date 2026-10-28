@@ -41,10 +41,8 @@ def handle_pick(store: Store, client: Client, screening: Screening, candidate_id
     if record is None or not can_schedule(record):  # a recruiter closed their case since the times were offered
         screening.resolve_slots()
         return replace(screening.close_directive(), repeat=True)
-    held = store.booking_of(candidate_id)
-    if held:  # a retry after a turn that booked but was never saved
-        screening.resolve_slots()
-        return Directive(Kind.ALREADY_BOOKED, label=slot_label(held.starts_at, screening.language))
+    if held := _already_booked(store, screening, candidate_id):  # a retry after a turn that booked but was never saved
+        return held
     offered = screening.slot_offer
     choice = read_slot_choice(message, len(offered))
     if choice is NONE:
@@ -53,11 +51,7 @@ def handle_pick(store: Store, client: Client, screening: Screening, candidate_id
         if screening.note_unclear_pick() > MAX_UNCLEAR_PICKS:
             return _give_up(screening, later=True)
         return _offer(store, client, screening, now, "unclear") or _give_up(screening)
-    booking = store.book_slot(offered[choice - 1], candidate_id, now, must_exist=True)
-    if booking is None:
-        return _offer(store, client, screening, now, "taken") or _give_up(screening)
-    screening.resolve_slots()
-    return Directive(Kind.SLOT_BOOKED, label=slot_label(booking.starts_at, screening.language))
+    return _take(store, client, screening, candidate_id, offered[choice - 1], now)
 
 
 @dataclass(frozen=True)
@@ -144,16 +138,27 @@ def pick_slot(store: Store, client: Client, screening: Screening, candidate_id: 
     Returns what the transcript shows they chose, and what the agent says."""
     wanted = store.slot(slot_id)
     chosen = slot_label(wanted.starts_at, screening.language) if wanted else ""
+    return chosen, _already_booked(store, screening, candidate_id) or _take(store, client, screening, candidate_id, slot_id, now)
+
+
+def _already_booked(store: Store, screening: Screening, candidate_id: str) -> Directive | None:
     held = store.booking_of(candidate_id)
     if held:
         screening.resolve_slots()
-        return chosen, Directive(Kind.ALREADY_BOOKED, label=slot_label(held.starts_at, screening.language))
-    country = country_in(client, screening.values)
-    booking = store.book_slot(slot_id, candidate_id, now, must_exist=True) if wanted and wanted.country == country else None
+        return Directive(Kind.ALREADY_BOOKED, label=slot_label(held.starts_at, screening.language))
+    return None
+
+
+def _take(store: Store, client: Client, screening: Screening, candidate_id: str, slot_id: int, now: datetime) -> Directive:
+    """The one place a candidate's chosen time is booked, by number or by the picker: only a time in their own country, and
+    a time that went meanwhile gets a fresh offer."""
+    wanted = store.slot(slot_id)
+    booking = (store.book_slot(slot_id, candidate_id, now, must_exist=True)
+               if wanted and wanted.country == country_in(client, screening.values) else None)
     if booking is None:
-        return chosen, _offer(store, client, screening, now, "taken") or _give_up(screening)
+        return _offer(store, client, screening, now, "taken") or _give_up(screening)
     screening.resolve_slots()
-    return chosen, Directive(Kind.SLOT_BOOKED, label=slot_label(booking.starts_at, screening.language))
+    return Directive(Kind.SLOT_BOOKED, label=slot_label(booking.starts_at, screening.language))
 
 
 def notify_cancelled(store: Store, client: Client, candidate_id: str, now: datetime) -> bool:

@@ -206,3 +206,31 @@ def test_the_command_runs_once_and_says_what_it_did(store, tmp_path, monkeypatch
     sazon_reminders.main(["--now", (T0 + 24 * HOUR).isoformat()])
     out = capsys.readouterr().out
     assert "c1" in out and "reminder" in out
+
+
+# --- the demo's "wait a day" is the job's own step (D88) ---------------------------------------------------------------
+
+def test_waiting_a_day_is_the_jobs_step_a_day_after_the_last_message_then_stalled(store):
+    in_progress(store)
+    assert reminders.wait_a_day(store, SAZON_CLIENT, "c1") == REMINDER_TEXT and outcome(store) == "IN_PROGRESS"
+    assert reminders.wait_a_day(store, SAZON_CLIENT, "c1") is None and outcome(store) == "STALLED"
+    assert store.outbox_pending("c1") == []  # the button is the delivery, so nothing is left to be sent twice
+
+
+def test_waiting_a_day_after_the_offer_of_times_reminds_with_the_times_and_then_ends_the_offer(store):
+    add_slots(store)
+    qualify(store)
+    reminder = reminders.wait_a_day(store, SAZON_CLIENT, "c1")
+    assert "Te recuerdo las horas disponibles" in reminder and "1)" in reminder
+    assert "cuando quieras reservar tu llamada" in reminders.wait_a_day(store, SAZON_CLIENT, "c1").lower()
+    assert outcome(store) == "QUALIFIED"
+
+
+def test_waiting_a_day_does_nothing_for_a_booked_candidate_or_while_applications_are_closed(store):
+    add_slots(store)
+    qualify(store)
+    turn.handle_message(ScriptedLLM(), store, SAZON_CLIENT, "c1", "1", T0)
+    assert reminders.wait_a_day(store, SAZON_CLIENT, "c1") is None
+    in_progress(store, "c2")
+    store.set_accepting(False, "Ana", T0)
+    assert reminders.wait_a_day(store, SAZON_CLIENT, "c2") is None and outcome(store, "c2") == "IN_PROGRESS"

@@ -34,6 +34,12 @@ class Action:
     kind: str  # "reminder", "stalled", "gave_up_offer" or "error"
 
 
+@dataclass(frozen=True)
+class Sent:
+    action: Action
+    text: str | None  # what the candidate was sent (None: they were marked stalled, with nothing to say)
+
+
 def run_once(store: Store, client: Client, now: datetime) -> list[Action]:
     if not store.accepting_applications():
         return []
@@ -45,7 +51,8 @@ def run_once(store: Store, client: Client, now: datetime) -> list[Action]:
         if record.outcome not in WATCHED or last is None or now - local_naive(last) < client.remind_after:
             continue
         try:
-            action = _remind(store, client, record.candidate_id, now)
+            sent = _remind(store, client, record.candidate_id, now)
+            action = sent.action if sent else None
         except Exception:  # noqa: BLE001  one damaged record must not stop the pass for everyone else
             action = Action(record.candidate_id, "error")
         if action:
@@ -53,7 +60,7 @@ def run_once(store: Store, client: Client, now: datetime) -> list[Action]:
     return actions
 
 
-def _remind(store: Store, client: Client, candidate_id: str, now: datetime) -> Action | None:
+def _remind(store: Store, client: Client, candidate_id: str, now: datetime) -> Sent | None:
     last = store.last_activity_of(candidate_id)  # fresh: they may have written since the pass started
     if last is None or now - local_naive(last) < client.remind_after:
         return None
@@ -72,11 +79,29 @@ def _remind(store: Store, client: Client, candidate_id: str, now: datetime) -> A
         else:
             return Turn(None, save=False)
         text = phrase(NO_MODEL, client.spec, directive, screening.language) if directive else None  # fixed: no model
-        return Turn(Action(candidate_id, kind), messages=[("agent", text)] if text else [],
+        return Turn(Sent(Action(candidate_id, kind), text), messages=[("agent", text)] if text else [],
                     outbox=[text] if text else [])
 
     # the candidate wrote (or was erased) while we worked: leave them for the next pass
     return conversation.run(store, client, candidate_id, now, work, on_conflict=SKIP)
+
+
+def wait_a_day(store: Store, client: Client, candidate_id: str) -> str | None:
+    """The demo's "wait a day": the job's own step for one candidate, run a day after their last message, as the job
+    would then. Returns what they were sent (None: nothing, or they are marked stalled). The demo shows the text itself,
+    so it is not left in the outbox for a channel to send again. The messages are stamped a day ahead of the clock."""
+    last = store.last_activity_of(candidate_id)
+    if last is None or not store.accepting_applications():
+        return None
+    at = local_naive(last) + client.remind_after
+    sent = _remind(store, client, candidate_id, at)
+    if sent is None:
+        return None
+    if sent.text:
+        queued = store.outbox_pending(candidate_id)
+        if queued:
+            store.mark_delivered(queued[-1].id, at)
+    return sent.text
 
 
 def main(client: Client, db_path: Path, prog: str, argv: list[str] | None = None) -> None:

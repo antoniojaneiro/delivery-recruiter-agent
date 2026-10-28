@@ -9,7 +9,7 @@ from datetime import date, datetime, timedelta
 
 import streamlit as st
 
-from screener import dialog, gemini, slot_flow, turn
+from screener import dialog, gemini, reminders, slot_flow, turn
 from screener.chat import log_error
 from screener.inspector import inspect
 from screener.language import language_of
@@ -64,7 +64,7 @@ def new_candidate() -> None:
 
 
 def wait_a_day() -> None:
-    reply = turn.wait_24h(llm, active_store(), SAZON_CLIENT, st.session_state["chat_id"], datetime.now())
+    reply = reminders.wait_a_day(active_store(), SAZON_CLIENT, st.session_state["chat_id"])
     st.session_state["flash"] = None if reply else "chat.wait_nothing"
 
 
