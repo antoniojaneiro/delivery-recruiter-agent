@@ -38,6 +38,10 @@ class EventType(StrEnum):
     SLOTS_OFFERED = "slots_offered"
     PAY_QUESTION = "pay_question"
     FIELD_CHANGED = "field_changed"
+    CV_UPLOADED = "cv_uploaded"
+    CV_PREFILLED = "cv_prefilled"
+    CV_SKIPPED = "cv_skipped"
+    CV_UNREADABLE = "cv_unreadable"
 
 
 class AreaMatchStatus(StrEnum):

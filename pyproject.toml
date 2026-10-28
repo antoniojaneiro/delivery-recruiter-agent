@@ -2,7 +2,7 @@
 name = "sazon-screening"
 version = "0.1.0"
 requires-python = ">=3.12"
-dependencies = ["pydantic>=2", "openai>=1.50", "python-dotenv>=1", "tzdata"]
+dependencies = ["pydantic>=2", "openai>=1.50", "python-dotenv>=1", "tzdata", "pypdf>=5"]
 
 [project.optional-dependencies]
 dashboard = ["streamlit>=1.57"]

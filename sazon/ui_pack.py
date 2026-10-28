@@ -13,9 +13,18 @@ PACK = UiPack((ES, EN), {
     # the app and its sign-in
     "app.page_title": bi("Candidatos · Grupo Sazón", "Candidates · Grupo Sazón"),
     "login.title": bi("Grupo Sazón · Reclutamiento", "Grupo Sazón · Recruiting"),
-    "login.no_accounts": bi(
-        "No hay cuentas de reclutador, así que nadie puede entrar. Crea una con: python -m sazon.accounts add NOMBRE",
-        "There are no recruiter accounts, so nobody can sign in. Create one with: python -m sazon.accounts add NAME"),
+    "login.tab_sign_in": bi("Iniciar sesión", "Sign in"),
+    "login.tab_sign_up": bi("Crear cuenta", "Create account"),
+    "login.signup_submit": bi("Crear cuenta", "Create account"),
+    "account.confirm": bi("Repite la contraseña", "Repeat the password"),
+    "account.err.name_required": bi("Escribe un nombre.", "Enter a name."),
+    "account.err.password_short": bi("La contraseña necesita al menos {n} caracteres.",
+                                    "The password needs at least {n} characters."),
+    "account.err.exists": bi("Ya hay una cuenta con ese nombre.", "There is already an account with that name."),
+    "account.err.mismatch": bi("Las contraseñas no coinciden.", "The passwords do not match."),
+    "account.err.damaged": bi("El archivo de cuentas está dañado: arréglalo o bórralo a mano.",
+                              "The accounts file is damaged: fix or delete it by hand."),
+    "account.created": bi("Cuenta creada para {name}.", "Account created for {name}."),
     "login.name": bi("Nombre", "Name"),
     "login.password": bi("Contraseña", "Password"),
     "login.submit": bi("Entrar", "Sign in"),
@@ -170,6 +179,16 @@ PACK = UiPack((ES, EN), {
         "reclutadores. Escribe como lo haría un candidato, en español o en inglés.",
         "Demo: conversations are saved in a test database, not the one recruiters see. Write as a candidate would, "
         "in Spanish or English."),
+    "chat.share": bi("Guardar en el panel de reclutadores", "Save to the recruiters' dashboard"),
+    "chat.share_help": bi("Activado, los candidatos nuevos se guardan en la base de datos del panel y aparecen allí. "
+                          "Al cambiarlo empieza un candidato nuevo.",
+                          "When on, new candidates are saved in the dashboard's database and appear there. "
+                          "Changing it starts a new candidate."),
+    "chat.shared_warning": bi(
+        "Estás guardando en el panel de reclutadores: este candidato aparecerá allí y los reclutadores lo verán. "
+        "Bórralo desde el panel cuando termines.",
+        "You are saving to the recruiters' dashboard: this candidate will appear there and recruiters will see it. "
+        "Erase it from the dashboard when you are done."),
     "chat.input": bi("Escribe un mensaje", "Write a message"),
     "chat.thinking": bi("El asistente está escribiendo…", "The assistant is typing…"),
     "chat.new": bi("Nuevo candidato", "New candidate"),
@@ -187,6 +206,7 @@ PACK = UiPack((ES, EN), {
                          "gratuita: espera un minuto y repite el mensaje.",
                          "If the assistant is slow or reports a technical problem, it may be the free tier's rate limit: "
                          "wait a minute and send the message again."),
+    "chat.cv_label": bi("Subir mi CV (solo PDF, opcional)", "Upload my CV (PDF only, optional)"),
     "inspector.title": bi("Lo que ha entendido el agente", "What the agent has understood"),
     "inspector.outcome": bi("Resultado", "Outcome"),
     "inspector.data": bi("Datos validados", "Validated data"),
@@ -195,6 +215,9 @@ PACK = UiPack((ES, EN), {
     "inspector.queued": bi("Mensajes en cola", "Queued messages"),
     "inspector.queued_none": bi("No hay mensajes en cola.", "No queued messages."),
     "inspector.deliver": bi("Marcar como entregados", "Mark as delivered"),
+
+    "detail.cv": bi("CV del candidato", "Candidate's CV"),
+    "detail.cv_download": bi("Descargar el CV (PDF, {size} KB)", "Download the CV (PDF, {size} KB)"),
 
     # statuses, countries and refused inputs
     "status.new": bi("Nuevo", "New"),

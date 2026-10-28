@@ -21,6 +21,15 @@ class ConflictError(Exception):
 
 
 @dataclass(frozen=True)
+class CvFile:
+    """The PDF a candidate uploaded (D71)."""
+    data: bytes
+    size: int
+    sha256: str
+    uploaded_at: datetime
+
+
+@dataclass(frozen=True)
 class Message:
     role: str
     text: str

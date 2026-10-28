@@ -67,6 +67,13 @@ CREATE TABLE IF NOT EXISTS admin_log (
     action TEXT NOT NULL,
     detail TEXT NOT NULL DEFAULT ''
 );
+CREATE TABLE IF NOT EXISTS cvs (
+    candidate_id TEXT PRIMARY KEY,
+    data BLOB NOT NULL,
+    size INTEGER NOT NULL,
+    sha256 TEXT NOT NULL,
+    uploaded_at TEXT NOT NULL
+);
 CREATE TABLE IF NOT EXISTS notes (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     candidate_id TEXT NOT NULL,

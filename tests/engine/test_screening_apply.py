@@ -21,10 +21,10 @@ def consented():
     return s
 
 
-def test_a_clear_yes_asks_the_first_question_and_sets_the_language():
+def test_a_clear_yes_sets_the_language_and_offers_the_cv_before_the_first_question():
     s = Screening(AREAS, SAZON)
     directive = s.apply_consent_reply(ConsentReading(True, Language.EN))
-    assert (directive.kind, directive.field) == (Kind.ASK, Field.NAME) and s.language == Language.EN
+    assert directive.kind == Kind.CV_OFFER and s.next_field() == Field.NAME and s.language == Language.EN
     assert not s.needs_consent
 
 

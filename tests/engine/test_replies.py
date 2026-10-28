@@ -113,7 +113,7 @@ def test_asking_for_a_person_is_acknowledged_before_the_next_question():
     s.record_consent(True)
     directive = s.apply(Extraction(wants_human=True), "¿puedo hablar con una persona?", TODAY)
     out = phrase(FakeLLM("¿Cómo te llamas?"), SAZON, directive, "es")
-    assert out.startswith("Soy un asistente virtual") and "reclutador" in out and out.endswith("¿Cómo te llamas?")
+    assert out.startswith("Soy Sofía, una asistente virtual") and "reclutador" in out and out.endswith("¿Cómo te llamas?")
 
 
 def test_asking_about_pay_says_a_recruiter_will_answer():

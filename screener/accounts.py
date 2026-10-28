@@ -101,19 +101,29 @@ def list_names(path: Path) -> list[str]:
     return sorted(entry["name"] for entry in _read(path).values())
 
 
-def add_account(path: Path, name: str, password: str, replace: bool = False) -> None:
+class AccountError(ValueError):
+    """An account that cannot be created. `code` says why, so a screen need not read the English message."""
+
+    def __init__(self, code: str, message: str):
+        super().__init__(message)
+        self.code = code
+
+
+def add_account(path: Path, name: str, password: str, replace: bool = False) -> str:
+    """Creates the account and returns the name as stored."""
     clean = " ".join((name or "").split())
     if not clean:
-        raise ValueError("a name is required")
+        raise AccountError("name_required", "a name is required")
     if len(password or "") < MIN_PASSWORD_LENGTH:
-        raise ValueError(f"the password needs at least {MIN_PASSWORD_LENGTH} characters")
+        raise AccountError("password_short", f"the password needs at least {MIN_PASSWORD_LENGTH} characters")
     data = _read_for_update(path)
     if _key(clean) in data and not replace:
-        raise ValueError(f"there is already an account for {clean}")
+        raise AccountError("exists", f"there is already an account for {clean}")
     salt = secrets.token_bytes(16)
     data[_key(clean)] = {"name": clean, "algorithm": "scrypt", "params": dict(SCRYPT), "salt": salt.hex(),
                          "hash": _hash(password, salt, SCRYPT).hex()}
     _write(path, data)
+    return clean
 
 
 def remove_account(path: Path, name: str) -> bool:

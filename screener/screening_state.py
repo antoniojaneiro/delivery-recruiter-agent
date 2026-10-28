@@ -63,6 +63,8 @@ STATE_FIELDS = (
     StateField("validation_flags", "validation_flags", lambda spec: {},
                load=lambda raw, spec: {k: list(v) for k, v in raw.items()}),
     StateField("_partial", "partial", lambda spec: {}, load=lambda raw, spec: dict(raw)),
+    StateField("_cv", "cv", lambda spec: None),  # None, "offered", "skipped", "uploaded" or "unreadable"
+    StateField("sources", "sources", lambda spec: {}, load=lambda raw, spec: dict(raw)),  # field -> where its answer came from
     StateField("_pending_reject", "pending_reject", lambda spec: None,
                dump=lambda v: list(v) if v else None, load=lambda raw, spec: (raw[0], raw[1]) if raw else None),
     StateField("_pending_change", "pending_change", lambda spec: None, dump=dump_change,

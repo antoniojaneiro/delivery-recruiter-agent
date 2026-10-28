@@ -1,6 +1,6 @@
 """Grupo Sazón's fixed wording, Spanish and English (D63)."""
 from screener.model import Language, Outcome
-from screener.pack import Pack, SlotTexts, Text
+from screener.pack import CvTexts, Pack, SlotTexts, Text
 
 
 def bi(es: str, en: str) -> Text:
@@ -28,14 +28,31 @@ SLOTS = SlotTexts(
                  "The call you had booked is no longer available. A recruiter will write to you with another time."),
 )
 
+CV = CvTexts(
+    offer=bi("Si quieres ir más rápido, puedes subir tu CV en PDF (es opcional) y rellenaré lo que pueda.",
+             "If you want to go faster, you can upload your CV as a PDF (it's optional) and I'll fill in what I can."),
+    notice=bi("Tu CV (solo PDF, máximo 2 MB) lo verá únicamente el equipo de reclutamiento y se procesa con un servicio "
+              "de IA externo para adelantar tus respuestas. Puedes pedir que se borre junto con el resto de tus datos.",
+              "Your CV (PDF only, 2 MB at most) will only be seen by the recruiting team and is processed by an external "
+              "AI service to fill in your answers. You can ask for it to be erased along with the rest of your data."),
+    read_back=bi("He leído tu CV y he tomado estos datos: {items}. Si algo no es correcto, dímelo.",
+                 "I read your CV and took this: {items}. If anything is wrong, tell me."),
+    unreadable=bi("No he podido sacar datos de tu CV, pero el equipo de reclutamiento podrá verlo. Seguimos con las preguntas.",
+                  "I couldn't get any answers out of your CV, but the recruiting team will be able to see it. Let's go on with the questions."),
+    invalid=bi("Solo puedo aceptar un CV en PDF de hasta 2 MB. Prueba con otro archivo o responde a las preguntas.",
+               "I can only accept a CV as a PDF of up to 2 MB. Try another file or answer the questions."),
+    not_now=bi("Ya no es el momento de subir el CV. Sigamos con las preguntas.",
+               "It's too late to upload a CV now. Let's go on with the questions."),
+)
+
 PACK = Pack(
     company="Grupo Sazón",
     default_language=Language.ES,
     consent=bi(
-        "Hola, soy el asistente virtual (una IA) de Grupo Sazón. Te haré unas preguntas para tu solicitud "
+        "Hola, soy Sofía, la asistente virtual (una IA) de Grupo Sazón. Te haré unas preguntas para tu solicitud "
         "de repartidor. Tus respuestas se procesan con un servicio de IA externo y siempre las revisa un "
         "reclutador. ¿Te parece bien que guarde tus respuestas para el equipo de reclutamiento?",
-        "Hi, I'm Grupo Sazón's virtual assistant (an AI). I'll ask a few questions for your delivery "
+        "Hi, I'm Sofía, Grupo Sazón's virtual assistant (an AI). I'll ask a few questions for your delivery "
         "driver application. Your answers are processed by an external AI service and always reviewed by a "
         "recruiter. Is it OK if I save your answers for the recruiting team?"),
     closed=bi("Por ahora no estamos aceptando solicitudes. ¡Gracias por tu interés!",
@@ -80,8 +97,8 @@ PACK = Pack(
     close_repeat_other=bi("Esta conversación ya está cerrada. Un reclutador revisará tu caso.",
                           "This conversation is closed. A recruiter will review your case."),
     notices={
-        "human": bi("Soy un asistente virtual: un reclutador revisará tu solicitud y podrá hablar contigo después.",
-                    "I'm a virtual assistant: a recruiter will review your application and can talk to you afterwards."),
+        "human": bi("Soy Sofía, una asistente virtual: un reclutador revisará tu solicitud y podrá hablar contigo después.",
+                    "I'm Sofía, a virtual assistant: a recruiter will review your application and can talk to you afterwards."),
         "pay": bi("Sobre el sueldo, te informará un reclutador.", "A recruiter will tell you about the pay."),
         "changed": bi("Hecho, lo he cambiado.", "Done, I've changed it."),
         "kept": bi("De acuerdo, lo dejo como estaba.", "OK, I'll leave it as it was."),
@@ -89,4 +106,5 @@ PACK = Pack(
                        "That's not part of my role; let's continue with your application."),
     },
     slots=SLOTS,
+    cv=CV,
 )

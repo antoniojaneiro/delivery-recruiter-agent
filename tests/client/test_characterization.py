@@ -70,6 +70,11 @@ def _fixed_texts() -> dict:
             for i, value in enumerate(items):
                 out[f"describe/{field}/{i}/{lang}"] = phrasing.describe_value(SAZON, field, value, lang)
         out[f"slot_label/{lang}"] = phrasing.slot_label(datetime(2026, 11, 3, 10, 0), lang)
+        out[f"cv/offer/{lang}"] = _say(Directive(Kind.CV_OFFER), lang)
+        out[f"cv/read_back/{lang}"] = _say(Directive(Kind.CV_READ, options=["Ana Ruiz", "Madrid"]), lang)
+        for name in ("notice", "unreadable", "invalid", "not_now"):
+            out[f"cv/{name}/{lang}"] = getattr(SAZON.pack.cv, name)[lang]
+    out["cv/notice_hash"] = phrasing.cv_notice_hash(SAZON)
     return out
 
 
@@ -79,7 +84,7 @@ def _prompts() -> dict:
                        awaiting_rejection=Field.LICENSE)
     return {"extraction_system": SYSTEM, "extraction_user": llm.user,
             "extraction_schema": Extraction.model_json_schema(),
-            "phrasing_system": phrasing._system_prompt(SAZON)}
+            "phrasing_system": phrasing._system_prompt(SAZON), "cv_system": extraction.build_cv_prompt(SAZON)}
 
 
 class _Recorder:

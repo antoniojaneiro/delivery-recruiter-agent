@@ -19,6 +19,7 @@ class Turn:
     messages: list[tuple[str, str]] = field(default_factory=list)
     outbox: list[str] = field(default_factory=list)
     save: bool = True  # False: nothing changed that is worth saving (the caller only wanted to look)
+    cv: bytes | None = None  # a PDF uploaded in this turn, saved with it
 
 
 def run(store: Store, client: Client, candidate_id: str, now: datetime, work: Callable[[Screening], Turn],
@@ -34,7 +35,8 @@ def run(store: Store, client: Client, candidate_id: str, now: datetime, work: Ca
         if not turn.save:
             return turn.value
         try:
-            session.commit(store, candidate_id, screening, now, messages=turn.messages, outbox=turn.outbox)
+            session.commit(store, candidate_id, screening, now, messages=turn.messages, outbox=turn.outbox,
+                           cv=turn.cv)
             return turn.value
         except ConflictError:
             erased = screening.version is not None and store.get(candidate_id) is None

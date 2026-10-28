@@ -185,3 +185,42 @@ def test_inbox_shows_the_queued_messages_for_the_current_candidate_once(store):
 
 def run_resume(store, cid, lines):
     return run(store, [f"/resume {cid}", *lines])
+
+
+# --- /cv (D71) -------------------------------------------------------------------------------------------------
+
+def test_the_cv_command_uploads_a_pdf_for_the_active_candidate(store, tmp_path):
+    from tests.support.pdfs import pdf_with_text
+    path = tmp_path / "cv.pdf"
+    path.write_bytes(pdf_with_text("Juan Perez", "Glovo"))
+    llm = ScriptedLLM(['{"name": "Juan Pérez", "city": "Madrid"}'])  # consent is read in plain code
+    out = run(store, ["sí", f"/cv {path}"], llm)
+    [record] = store.list_candidates()
+    assert record.extracted == {"name": "Juan Pérez", "city": "Madrid"} and store.cv(record.candidate_id) is not None
+    assert any("He leído tu CV" in line for line in out)
+
+
+@pytest.mark.parametrize("argument", ["", "   ", "no-such-file.pdf"])
+def test_the_cv_command_with_nothing_to_read_says_so_and_changes_nothing(store, argument):
+    out = run(store, ["sí", f"/cv {argument}".rstrip()], ScriptedLLM([{"consent": True}]))
+    assert any("[cv]" in line for line in out) and store.cv(store.list_candidates()[0].candidate_id) is None
+
+
+def test_a_file_that_is_too_big_is_refused_without_being_read_whole(store, tmp_path):
+    from screener.cv import MAX_BYTES
+    path = tmp_path / "huge.pdf"
+    path.write_bytes(b"%PDF-1.4\n" + b"0" * (MAX_BYTES + 10))
+    out = run(store, ["sí", f"/cv {path}"], ScriptedLLM([{"consent": True}]))
+    assert any("[cv]" in line for line in out) and store.cv(store.list_candidates()[0].candidate_id) is None
+
+
+def test_the_cv_command_is_in_the_help():
+    assert "/cv" in chat.HELP
+
+
+def test_the_terminal_shows_the_cv_notice_as_soon_as_the_upload_is_offered(store):
+    from sazon.pack import CV
+    out = run(store, ["sí"], ScriptedLLM())
+    assert CV.notice["es"] in "\n".join(out)
+    quiet = run(Store(store._path.replace("sazon.db", "other.db")), ["no"], ScriptedLLM())
+    assert CV.notice["es"] not in "\n".join(quiet)

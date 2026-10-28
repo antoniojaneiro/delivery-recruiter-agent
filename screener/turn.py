@@ -1,5 +1,6 @@
 """One candidate message in, one reply out. The rules live in Screening; this module only does the
 outside work: calling the model, loading and saving, and writing the reply."""
+import hashlib
 from dataclasses import replace
 from datetime import date, datetime
 
@@ -7,15 +8,17 @@ from screener import conversation, session, slot_flow
 from screener.conversation import RETRY_ONCE, SKIP, Turn
 from screener.client import Client
 from screener.consent import ConsentReading, is_stop_request, read_consent
+from screener.cv import CvProblem, extract_cv, read_pdf
 from screener.extraction import ControlFlags, extract
 from screener.llm import LLM, LLMError
 from screener.directive import Directive, Kind
-from screener.phrasing import closed_message, consent_message, phrase, technical_error_message
+from screener.phrasing import closed_message, consent_message, fixed, phrase, technical_error_message
 from screener.screening import ExtractionContext, Screening
 from screener.spec import ScreeningSpec
 from screener.store import ConflictError
 
 NOT_STORED = "[message not stored: no consent]"
+CV_MARK = "[CV uploaded]"  # what the transcript shows of an upload; the file itself is kept apart
 
 
 def start(store, client: Client, candidate_id: str, now: datetime) -> str:
@@ -58,6 +61,56 @@ def handle_message(llm: LLM, store, client: Client, candidate_id: str, message: 
         return technical_error_message(client.spec, session.load(store, candidate_id, client).language)
 
 
+def handle_cv(llm: LLM, store, client: Client, candidate_id: str, data: bytes, now: datetime) -> str:
+    """A PDF uploaded while the CV is on offer (D71). It is kept for the recruiter; the clear answers in it are taken
+    for the fields the client allows, and the candidate is told what was taken so they can correct it."""
+    texts = client.spec.pack.cv
+    if texts is None:
+        raise ValueError("this client takes no CVs")
+    if not store.accepting_applications():
+        return closed_message(client.spec)
+    if store.get(candidate_id) is None:
+        return start(store, client, candidate_id, now)
+    peek = session.load(store, candidate_id, client)
+    pick = client.spec.pack.pick
+    if peek.needs_consent:
+        return consent_message(client.spec)
+    if not peek.cv_offered:
+        return pick(texts.not_now, peek.language)
+    cv = read_pdf(data)
+    if cv.problem in (CvProblem.NOT_A_PDF, CvProblem.TOO_BIG):
+        return pick(texts.invalid, peek.language)
+    digest = hashlib.sha256(data).hexdigest()[:12]
+    extraction, failure = None, None
+    if cv.problem is None:
+        try:
+            extraction = extract_cv(llm, client.spec, cv.text, now.date())
+        except LLMError as error:
+            failure = f"unreachable:{error.kind}"
+        failure = failure or (None if extraction is not None else "unparseable")
+
+    def work(screening: Screening) -> Turn:
+        screening.resume()
+        if not (screening.cv_offered and screening.is_open):  # answered by hand while the file was being read
+            return Turn(pick(texts.not_now, screening.language), save=False)
+        taken: list[str] = []
+        if extraction is None:
+            if failure:
+                screening.record_model_failure(failure)
+            directive = screening.cv_unreadable(len(data), digest)
+        else:
+            taken, directive = screening.apply_cv(extraction, now.date(), len(data), digest)
+        lead = (phrase(llm, client.spec, Directive(Kind.CV_READ, options=taken), screening.language) if taken
+                else pick(texts.unreadable, screening.language))
+        reply = lead + " " + fixed(client.spec, directive, screening.language)  # no model right after a CV
+        return Turn(reply, messages=[("candidate", CV_MARK), ("agent", reply)], cv=data)
+
+    try:
+        return conversation.run(store, client, candidate_id, now, work, on_conflict=RETRY_ONCE)
+    except ConflictError:
+        return technical_error_message(client.spec, session.load(store, candidate_id, client).language)
+
+
 def _handle(llm: LLM, store, client: Client, candidate_id: str, message: str, now: datetime,
             screening: Screening) -> Turn:
     screening.resume()
@@ -73,6 +126,9 @@ def _handle(llm: LLM, store, client: Client, candidate_id: str, message: str, no
     context = [(m.role, m.text) for m in history] + [("candidate", message)] if consented_before else []
     reply = (consent_message(client.spec) if directive is None
              else phrase(llm, client.spec, directive, screening.language, history=context))
+    if directive is not None and directive.kind == Kind.CV_OFFER:  # the offer, then the first question
+        ask = Directive(Kind.ASK, field=screening.next_field())
+        reply = reply + " " + fixed(client.spec, ask, screening.language)  # nothing was said to acknowledge
     if directive is not None and directive.kind == Kind.CLOSE:
         short = phrase(llm, client.spec, replace(directive, repeat=True), screening.language)
         if last_question in (reply, short):  # already said once: not the same close word for word
@@ -96,6 +152,7 @@ def _directive_for(llm: LLM, screening: Screening, message: str, today: date,
         return screening.apply_consent_reply(reading)
     if is_stop_request(message):
         return screening.apply_stop_request()
+    screening.skip_cv()  # whatever was typed instead of uploading ends the offer; the message is read as usual
     if screening.awaiting_change:
         reading = read_consent(message)  # a yes or a no, read in plain code
         if reading.answer is not None:

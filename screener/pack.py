@@ -19,6 +19,17 @@ class SlotTexts:
 
 
 @dataclass(frozen=True)
+class CvTexts:
+    """Only for a client that lets a candidate upload a CV (D71)."""
+    offer: Text  # said once after consent: the upload is optional and speeds things up
+    notice: Text  # shown beside the uploader: what is kept, who sees it, that it can be erased
+    read_back: Text  # {items}: what was taken from the CV, for the candidate to correct
+    unreadable: Text  # the file was kept but nothing could be read from it
+    invalid: Text  # not a PDF, or too big: nothing was kept
+    not_now: Text  # a CV sent when none was being asked for
+
+
+@dataclass(frozen=True)
 class Pack:
     company: str
     default_language: Language
@@ -38,6 +49,7 @@ class Pack:
     close_repeat_other: Text
     notices: dict[str, Text]  # human, pay, changed, kept, offtopic
     slots: SlotTexts | None = None
+    cv: CvTexts | None = None  # None: this client takes no CVs
 
     def pick(self, text: Text, language) -> str:
         return pick(text, language, self.default_language)

@@ -151,3 +151,28 @@ def test_the_card_is_saved_with_every_turn_and_refreshed(tmp_path):
     session.commit(store, "c1", s, NOW)
     assert "En curso" in first and "Juan Pérez" not in first
     assert store.get("c1").summary.startswith("Juan Pérez")
+
+
+# --- answers taken from a CV (D71) -----------------------------------------------------------------------------
+
+def from_cv():
+    from sazon.spec import Extraction
+    s = Screening(AREAS, SAZON)
+    s.record_consent(True)
+    s.apply_cv(Extraction.model_validate({"name": "Juan Pérez", "city": "Madrid", "has_license": True}), TODAY, 10, "x")
+    return s
+
+
+def test_the_card_says_which_answers_were_taken_from_the_cv_in_the_recruiters_language():
+    assert "Datos tomados del CV: nombre, ciudad, licencia" in summarise(from_cv(), Language.ES)
+    assert "Taken from the CV: name, city, license" in summarise(from_cv(), Language.EN)
+
+
+def test_a_card_without_a_cv_has_no_such_line():
+    assert "CV" not in summarise(screening())
+
+
+def test_an_answer_the_candidate_changed_is_no_longer_listed_as_from_the_cv():
+    s = from_cv()
+    s.submit("name", "Pedro Gil", TODAY)
+    assert "nombre" not in [part.strip() for part in summarise(s, Language.ES).split("CV:")[1].split("\n")[0].split(",")]

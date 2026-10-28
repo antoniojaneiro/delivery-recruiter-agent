@@ -122,3 +122,110 @@ def test_the_candidates_side_of_the_screen_follows_the_language_the_candidate_wr
     at = say(at, "yes")
     assert at.chat_input[0].placeholder == "Write a message"  # the candidate writes English, so their side is English
     assert at.sidebar.button(key="new_candidate").label == "Nuevo candidato"  # the operator's side stays as chosen
+
+
+# --- the optional CV upload (D71) ------------------------------------------------------------------------------
+
+def test_the_uploader_appears_after_consent_with_its_notice_and_goes_away_once_the_candidate_types_an_answer(demo):
+    at = start()
+    assert at.get("file_uploader") == []  # nothing to upload before consent
+    at = say(at, "sí")
+    [uploader] = at.get("file_uploader")
+    assert "PDF" in uploader.proto.label
+    assert any("2 MB" in str(c.value) and "borre" in str(c.value) for c in at.caption)
+    at = say(at, "Me llamo Juan Pérez")
+    assert at.get("file_uploader") == []
+
+
+def test_the_uploader_notice_follows_the_language_of_the_candidate(demo):
+    at = say(start(), "yes")
+    assert any("recruiting team" in str(c.value) for c in at.caption)
+
+
+def upload(at, data, name="cv.pdf"):
+    at.file_uploader[0].set_value((name, data, "application/pdf")).run()
+    assert not at.exception, at.exception
+    return at
+
+
+def test_uploading_a_cv_in_the_browser_fills_answers_reads_them_back_and_removes_the_uploader(demo, tmp_path):
+    from tests.support.pdfs import pdf_with_text
+    at = upload(say(start(), "sí"), pdf_with_text("Juan Perez", "Madrid"))
+    assert any("He leído tu CV" in text for text in bubbles(at))
+    assert at.get("file_uploader") == []  # the offer is over: a second file cannot be sent
+    store = demo_store(tmp_path)
+    assert store.cv(candidate_id(at)) is not None and store.get(candidate_id(at)).extracted["name"] == "Juan Pérez"
+
+
+def test_a_text_file_renamed_to_pdf_is_refused_once_with_a_warning_and_the_offer_stays(demo, tmp_path):
+    at = upload(say(start(), "sí"), b"just some words, not a pdf", name="cv.pdf")
+    assert any("PDF de hasta 2 MB" in str(w.value) for w in at.warning)
+    assert len(at.get("file_uploader")) == 1 and demo_store(tmp_path).cv(candidate_id(at)) is None
+    at.run()  # nothing is said again on the next rerun
+    assert not any("PDF de hasta 2 MB" in str(w.value) for w in at.warning)
+
+
+def test_a_scanned_pdf_is_kept_and_the_questions_go_on(demo, tmp_path):
+    from tests.support.pdfs import pdf_without_text
+    at = upload(say(start(), "sí"), pdf_without_text())
+    assert any("No he podido sacar datos" in text for text in bubbles(at))
+    assert demo_store(tmp_path).cv(candidate_id(at)) is not None
+
+
+# --- sharing candidates with the dashboard (D73) ---------------------------------------------------------------
+
+def real_store(tmp_path):
+    from sazon.client import SAZON_CLIENT
+    return Store(tmp_path / "real.db", calendar=SAZON_CLIENT.calendar)
+
+
+def test_the_share_switch_is_off_by_default_and_nothing_reaches_the_recruiters_database(demo, tmp_path):
+    at = say(start(), "sí")
+    assert at.sidebar.toggle(key="share_with_dashboard").value is False
+    assert not (tmp_path / "real.db").exists()
+
+
+def test_with_the_switch_on_a_new_candidate_is_saved_where_the_dashboard_reads_and_a_warning_says_so(demo, tmp_path):
+    at = start()
+    first = candidate_id(at)
+    at.sidebar.toggle(key="share_with_dashboard").set_value(True).run()
+    assert not at.exception, at.exception
+    shared = candidate_id(at)
+    assert shared != first and any("panel de reclutadores" in str(w.value) for w in at.warning)
+    at = say(at, "sí")
+    assert [m.text for m in real_store(tmp_path).messages(shared)][1] == "sí"
+    assert real_store(tmp_path).get(shared) is not None
+    assert demo_store(tmp_path).get(shared) is None  # not in the test database
+
+
+def test_switching_it_off_again_starts_another_candidate_in_the_test_database(demo, tmp_path):
+    at = start()
+    at.sidebar.toggle(key="share_with_dashboard").set_value(True).run()
+    shared = candidate_id(at)
+    at.sidebar.toggle(key="share_with_dashboard").set_value(False).run()
+    assert candidate_id(at) != shared and demo_store(tmp_path).get(candidate_id(at)) is not None
+    assert real_store(tmp_path).get(candidate_id(at)) is None and not any("panel de reclutadores" in str(w.value) for w in at.warning)
+
+
+def test_a_candidate_who_finishes_in_the_shared_chat_shows_up_in_the_dashboard(tmp_path, monkeypatch):
+    """Both apps, one database file: the whole conversation in the chat, then the recruiter's table."""
+    from tests.support.dash import login, seed_accounts
+    from tests.support.paths import DASHBOARD
+    monkeypatch.setenv("SAZON_DEMO_DB", str(tmp_path / "demo.db"))
+    monkeypatch.setenv("SAZON_DB", str(tmp_path / "real.db"))
+    monkeypatch.setenv("SAZON_ACCOUNTS", str(tmp_path / "recruiters.json"))
+    everything = {"name": "Juan Pérez", "experience_years": 2, "platforms": ["glovo"], "availability": ["full_time"],
+                  "schedule": "morning", "start_date": {"in_weeks": 1}, "city": "Madrid", "has_license": True}
+    monkeypatch.setattr("screener.gemini.from_env", lambda: ScriptedLLM(extractions=[everything]))
+    at = start()
+    at.sidebar.toggle(key="share_with_dashboard").set_value(True).run()
+    shared = candidate_id(at)
+    say(say(at, "sí"), "Me llamo Juan Pérez, 2 años en Glovo, tiempo completo, mañanas, en una semana, vivo en Madrid y tengo licencia")
+    assert real_store(tmp_path).get(shared).outcome == "QUALIFIED"
+
+    seed_accounts(tmp_path / "recruiters.json")
+    dashboard = AppTest.from_file(str(DASHBOARD), default_timeout=10).run()
+    login(dashboard, "Ana")
+    assert not dashboard.exception, dashboard.exception
+    row = next(r for _, r in dashboard.dataframe[0].value.iterrows() if r["Id"] == shared)
+    assert row["Nombre"] == "Juan Pérez" and row["Agente"] == "Cualificado"

@@ -121,3 +121,17 @@ def test_without_a_model_a_question_falls_back_to_its_fixed_text_instead_of_cras
     assert phrase(NO_MODEL, SAZON, directive, "es") == SAZON.field(Field.NAME).ask["es"]
     follow_up = Directive(Kind.FOLLOW_UP, field=Field.NAME, reason="need last name")
     assert phrase(NO_MODEL, SAZON, follow_up, "en").endswith(SAZON.field(Field.NAME).ask["en"])
+
+
+# --- CV upload (D71) -------------------------------------------------------------------------------------------
+
+def test_the_cv_offer_and_the_read_back_are_fixed_texts_the_model_never_words():
+    from sazon.pack import CV
+    from screener.directive import Directive, Kind
+    from screener.phrasing import phrase
+    from sazon.spec import SAZON
+    from tests.support.fakes import FakeLLM
+    llm = FakeLLM("model words that must not appear")
+    assert phrase(llm, SAZON, Directive(Kind.CV_OFFER), "en") == CV.offer["en"]
+    said = phrase(llm, SAZON, Directive(Kind.CV_READ, options=["Juan Pérez", "Madrid"]), "es")
+    assert said == CV.read_back["es"].format(items="Juan Pérez, Madrid") and llm.calls == []
