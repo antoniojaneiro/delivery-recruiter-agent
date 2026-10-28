@@ -109,13 +109,7 @@ class AccountError(ValueError):
         self.code = code
 
 
-def create_first(path: Path, name: str, password: str) -> str:
-    """The very first account, for an install with none. Refused once any account exists, so this can never be used
-    to add a second one without signing in."""
-    return add_account(path, name, password, only_first=True)
-
-
-def add_account(path: Path, name: str, password: str, replace: bool = False, only_first: bool = False) -> str:
+def add_account(path: Path, name: str, password: str, replace: bool = False) -> str:
     """Creates the account and returns the name as stored."""
     clean = " ".join((name or "").split())
     if not clean:
@@ -123,8 +117,6 @@ def add_account(path: Path, name: str, password: str, replace: bool = False, onl
     if len(password or "") < MIN_PASSWORD_LENGTH:
         raise AccountError("password_short", f"the password needs at least {MIN_PASSWORD_LENGTH} characters")
     data = _read_for_update(path)
-    if only_first and data:
-        raise AccountError("not_first", "accounts already exist: sign in to add another")
     if _key(clean) in data and not replace:
         raise AccountError("exists", f"there is already an account for {clean}")
     salt = secrets.token_bytes(16)

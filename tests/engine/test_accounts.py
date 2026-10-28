@@ -109,13 +109,6 @@ def test_the_command_refuses_passwords_that_do_not_match(path, monkeypatch):
 
 # --- creating accounts from the dashboard ------------------------------------------------------------------------
 
-def test_the_first_account_can_be_created_only_while_there_are_no_accounts(path):
-    assert accounts.create_first(path, "  Ana  ", PASSWORD) == "Ana"
-    with pytest.raises(accounts.AccountError) as error:
-        accounts.create_first(path, "Intruso", PASSWORD)
-    assert error.value.code == "not_first" and accounts.list_names(path) == ["Ana"]
-
-
 @pytest.mark.parametrize("name,password,code", [("", PASSWORD, "name_required"), ("   ", PASSWORD, "name_required"),
                                                 ("Ana", "corta", "password_short"), ("Ana", "", "password_short")])
 def test_an_account_with_no_name_or_a_short_password_is_refused_with_a_code(path, name, password, code):
