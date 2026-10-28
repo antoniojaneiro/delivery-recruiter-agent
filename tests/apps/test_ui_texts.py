@@ -41,7 +41,7 @@ def literals(path: Path):
             yield node.value, node.lineno
 
 
-ALLOWED = {"%Y-%m-%d %H:%M", "%d/%m", "%d/%m/%Y", "%H:%M"}  # a date or time format is not a word
+ALLOWED = {"%Y-%m-%d %H:%M", "%Y-%m-%d", "%d/%m", "%d/%m/%Y", "%H:%M"}  # a date or time format is not a word
 CHART_FIELD = re.compile(r"^[a-z_]+:[QNOT]$")  # altair shorthand such as "count:Q"
 
 

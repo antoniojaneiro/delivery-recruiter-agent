@@ -115,7 +115,7 @@ def test_cancelling_a_booked_slot_tells_the_recruiter_to_warn_the_candidate(db):
     assert any("Juan Pérez" in str(w.value) and "aviso" in str(w.value).lower() for w in at.warning)
     assert db.booking_of("c1") is None
     assert "ya no está disponible" in db.outbox_pending("c1")[0].text
-    assert [e.actor for e in db.events("c1") if e.type == "slot_cancelled"] == ["recruiter:Ana"]
+    assert [e.actor for e in db.events("c1") if e.type == "slot_cancelled"] == ["recruiter:ana@sazon.test"]
 
 
 

@@ -122,7 +122,7 @@ def test_a_recruiter_can_change_the_status_and_it_is_logged_with_their_name(db):
     at.form_submit_button(key="save_status").click().run()
     assert not at.exception, at.exception
     assert db.recruiter("c1").status == RecruiterStatus.INTERVIEW_SCHEDULED
-    assert [e.actor for e in db.events("c1") if e.type == "recruiter_status"] == ["recruiter:Ana"]
+    assert [e.actor for e in db.events("c1") if e.type == "recruiter_status"] == ["recruiter:ana@sazon.test"]
     assert metrics(at)["Cualificados por contactar"] == "0"
 
 
@@ -136,7 +136,7 @@ def test_a_recruiter_can_assign_and_add_notes(db):
     at.form_submit_button(key="save_note").click().run()
     assert not at.exception, at.exception
     assert db.recruiter("c1").assignee == "Luis"
-    assert [(n.author, n.text) for n in db.notes("c1")] == [("Ana", "Llamé, volverá a llamar")]
+    assert [(n.author, n.text) for n in db.notes("c1")] == [("ana@sazon.test", "Llamé, volverá a llamar")]
     assert "Llamé, volverá a llamar" in texts(at)
 
 

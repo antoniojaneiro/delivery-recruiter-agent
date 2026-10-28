@@ -20,7 +20,7 @@ Keep the dashboard and the chat on your own computer until the login is replaced
 | The real service areas (cities and nearby towns, per country) | The list in the code is a sample; candidates are accepted or rejected by it. | `sazon/config.py` |
 | Call times and who answers calls | The agent offers real times only if recruiters add them. | Dashboard, Calendario |
 | A paid model plan with a data-processing agreement | The free tier allows 15 requests a minute, may train on prompts, and cannot serve about 1000 applications a week. | `.env` (`GEMINI_API_KEY`, `LLM_MODEL`) |
-| Single sign-on for recruiters | The built-in login is a prototype and anyone who can reach the page can create an account. | Dashboard login (D57, D74) |
+| Single sign-on for recruiters | The built-in login (email and password, recruiters created by the hiring manager from `.env`) is a prototype; keep the dashboard local until it is replaced. | Dashboard login (D80) |
 | A messaging channel (WhatsApp or similar) | Today candidates use the terminal or the test chat. The service is ready for an adapter. | `screener/service.py` (D75) |
 
 ## The client's lawyers must approve

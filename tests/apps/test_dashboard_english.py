@@ -63,7 +63,7 @@ def assert_english(at):
 def test_the_login_screen_is_in_english_and_the_switch_is_there(db):
     at = on_english()
     assert at.title[0].value == "Grupo Sazón · Recruiting"
-    assert at.text_input(key="login_name").label == "Name" and at.text_input(key="login_password").label == "Password"
+    assert at.text_input(key="login_email").label == "Email" and at.text_input(key="login_password").label == "Password"
     assert at.segmented_control(key="ui_language").value == "en"
     assert_english(at)
 

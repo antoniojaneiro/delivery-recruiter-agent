@@ -85,6 +85,20 @@ CREATE TABLE IF NOT EXISTS replies (
     reply TEXT,
     PRIMARY KEY (candidate_id, message_id)
 );
+CREATE TABLE IF NOT EXISTS recruiters (
+    email TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    country TEXT NOT NULL,
+    salt TEXT NOT NULL,
+    hash TEXT NOT NULL,
+    params TEXT NOT NULL,
+    created_by TEXT NOT NULL,
+    created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS login_failures (
+    key TEXT NOT NULL,
+    at REAL NOT NULL
+);
 CREATE TABLE IF NOT EXISTS notes (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     candidate_id TEXT NOT NULL,
@@ -103,6 +117,7 @@ CREATE INDEX IF NOT EXISTS idx_messages_candidate ON messages(candidate_id, id);
 CREATE INDEX IF NOT EXISTS idx_slots_country_start ON slots(country, starts_at);
 CREATE INDEX IF NOT EXISTS idx_outbox_pending ON outbox(delivered_at, candidate_id);
 CREATE INDEX IF NOT EXISTS idx_notes_candidate ON notes(candidate_id, id);
+CREATE INDEX IF NOT EXISTS idx_login_failures ON login_failures(key, at);
 """
 
 # A counter that moves whenever anything the candidate list shows changes, so the dashboard can cache the list

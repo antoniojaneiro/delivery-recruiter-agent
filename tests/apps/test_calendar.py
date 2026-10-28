@@ -148,7 +148,7 @@ def test_scheduling_books_the_call_tells_the_candidate_and_logs_it(db):
     assert not at.exception, at.exception
     assert db.booking_of("c1").slot_id == chosen
     assert len(db.outbox_pending("c1")) == 1 and "reservado tu llamada" in db.outbox_pending("c1")[0].text
-    assert [e.actor for e in db.events("c1") if e.type == "slot_booked"] == ["recruiter:Ana"]
+    assert [e.actor for e in db.events("c1") if e.type == "slot_booked"] == ["recruiter:ana@sazon.test"]
     assert at.success and "Persona c1" in " ".join(str(s.value) for s in at.success)
 
 
@@ -205,7 +205,7 @@ def test_a_call_can_be_booked_at_a_new_time_which_is_created_in_the_candidates_c
     assert not at.exception, at.exception
     held = db.booking_of("c2")
     assert held.country == "MX" and held.starts_at == datetime(2027, 6, 16, 9, 30)
-    assert [e.actor for e in db.events("c2") if e.type == "slot_booked"] == ["recruiter:Ana"]
+    assert [e.actor for e in db.events("c2") if e.type == "slot_booked"] == ["recruiter:ana@sazon.test"]
     assert len(db.outbox_pending("c2")) == 1 and at.success
 
 

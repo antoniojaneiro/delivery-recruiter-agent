@@ -48,8 +48,18 @@ def watch_for_changes() -> None:
 
 
 def recruiter_name() -> str:
-    """The name typed in the sidebar; every recruiter action is saved with it."""
+    """Who is signed in, by email; every recruiter action is saved with it."""
     return str(st.session_state.get("recruiter", "")).strip()
+
+
+def signed_in_name() -> str:
+    """The name to show for the person signed in."""
+    return str(st.session_state.get("recruiter_name", "")).strip()
+
+
+def is_manager() -> bool:
+    """True for the hiring manager (from .env), the only person who creates and deletes recruiters."""
+    return st.session_state.get("role") == "manager"
 
 
 def language() -> Language:
