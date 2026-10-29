@@ -1,75 +1,48 @@
-# delivery-recruiter-agent
+# Grupo Sazón: candidate screening agent
 
-An AI candidate-screening agent for a fictional client, Grupo Sazón, a restaurant chain hiring delivery drivers in Spain and Mexico. Candidates chat with the agent in Spanish or English; recruiters follow them in a dashboard. **The agent screens and summarises; a recruiter makes every hiring decision.**
+A conversational agent that screens delivery-driver applicants for **Grupo Sazón** (a fictional restaurant chain hiring in Spain and Mexico), so recruiters only speak to people who qualify. Candidates chat in Spanish or English, or talk to Sofía by voice; recruiters follow everyone in a dashboard. **The agent screens and summarises; a recruiter makes every hiring decision.**
 
-- **The agent** asks for consent, collects and validates seven screening fields (optionally reading a CV for four of them), disqualifies or qualifies, offers a call time, and stores the conversation, the structured JSON and a recruiter summary card in SQLite. The model words the messages in a written personality; code decides everything that matters and checks every message.
-- **The recruiter dashboard** (Spanish or English): filter and search candidates, read the card, transcript and audit log, set a hiring status, assign, add notes, work through the review queue of agent rejections, erase a candidate's data, manage call times per country, open or close applications, and see the funnel.
-- **A chat in the browser** to try the agent, with a live view of what it has understood. A candidate can optionally upload a CV (PDF) to fill in answers faster; a recruiter downloads it from the candidate's page.
+The design rule: the language model only reads a message and words a short reply. Plain, tested code decides everything that matters (what to ask, what is valid, who qualifies, which call times are free), and falls back to fixed texts if the model fails.
 
-Design: [docs/PHASE1_PROCESS_DESIGN.md](docs/PHASE1_PROCESS_DESIGN.md). Decisions and open items: [docs/DECISIONS.md](docs/DECISIONS.md). The assignment: [docs/TASK.md](docs/TASK.md).
+## What is in it
 
-## Run it
+- **The agent**: consent and an AI disclosure first, seven validated screening fields (optionally read from a PDF CV), a qualified or disqualified outcome, and the candidate books their own 15-minute call. Conversation, structured JSON and a recruiter summary card are kept separately in SQLite.
+- **The recruiter dashboard** (Streamlit, Spanish and English): candidates and their status, card, transcript and audit log, a review queue, a call-times calendar per country, the funnel, erasure of a candidate's data.
+- **A browser chat** to try the agent, a **live voice agent** (ElevenLabs does the audio, our engine is the brain), an **HTTP service** for a real channel, and a **24-hour reminder job**.
 
-Python **3.12 or newer** and a Gemini API key (free tier, from Google AI Studio).
-
-```
-python -m pip install -e ".[dev]"          # ".[service]" is enough to run only the HTTP service
-copy .env.example .env                 # Windows (cp on macOS/Linux); add your GEMINI_API_KEY; never commit .env
-
-python -m sazon.chat                   # terminal chat: /new, /resume <id>, /cv <pdf path>, /state, /inbox, /wait24h, /help, /quit
-streamlit run apps/chat_app.py         # the chat in the browser (always saves to the recruiters' database, so its candidates appear in the dashboard; erase test candidates there)
-streamlit run apps/dashboard.py        # recruiter dashboard, local only; sign in with email and password; the hiring manager (HIRING_MANAGER_EMAIL and HIRING_MANAGER_PASSWORD in .env) creates the recruiters on the Recruiters page
-python -m sazon.voice_launch            # live voice: a tunnel, the ElevenLabs agent and the voice endpoint (needs ELEVENLABS_API_KEY in .env); then press "Talk to Sofía" in the chat (VOICE_LOG_SHAPES=1 logs how ElevenLabs sends each turn, without the words)
-python demo_launch.py                  # the chat (port 8501) and the dashboard (port 8502) together, each with a button to the other; Ctrl+C stops both
-python -m sazon.server                 # the HTTP service for a real channel (needs SAZON_API_KEY in .env; port 8000); see docs for the calls
-python -m sazon.reminders --every 600  # the 24-hour reminder job (queues messages for a real channel; see /inbox)
-python -m sazon.demo --list            # fictional conversations played on the real agent
-python -m sazon.demo --only happy_es   # transcripts go to data/demo/transcripts.md
-```
-
-Tests:
+## Try it
 
 ```
-python -m pytest -q -n 4               # about 1000 offline tests (tables of cases run as one test), no network
-python -m pytest -m load -q -s         # a busy day against a real server: 200 candidates, a slow fake model, about 11 minutes
-python -m pytest -m live -q            # real-model checks; needs the key; fictional data; mind the free tier's limits
-python -m sazon.chat --list-models     # if the default model name returns 404 (override with LLM_MODEL in .env)
+python -m pip install -e ".[dev]"
+copy .env.example .env                 # add your own keys; see docs/RUNNING.md
+python -m sazon.demo.seed --reset      # 27 fictional candidates, recruiters, calls, notes
+python demo_launch.py                  # chat on :8501, dashboard on :8502
 ```
 
-The recruiters' database is `data/sazon.db` and the error log `data/sazon.log` (set `SAZON_DB` to use another file for the chat and the dashboard alike). Everything under `data/` is git-ignored.
+Demo logins and every other command (service, voice, reminders, tests): [docs/RUNNING.md](docs/RUNNING.md).
 
-## How the repo is organised
+## The assignment
 
-```
-screener/        the engine: screening rules (screening.py, directive.py), the save cycle (conversation.py), wording
-                 (phrasing.py, language.py), storage (store*.py), the HTTP service (service.py), recruiter rules and view, reminders,
-                 summary, funnel.
-                 Knows no company.
-sazon/           Grupo Sazón as a client of the engine
-  spec.py          its fields, validators, rules, persona and recruiter texts
-  pack.py          its fixed texts, Spanish and English
-  ui_pack.py       every word of the dashboard and chat app, Spanish and English
-  client.py        service areas, call calendar, reminder clock
-  chat.py, server.py, reminders.py, accounts.py     the commands above
-  demo/            scenarios.py (the fictional conversations) and runner.py
-demo_launch.py   starts the chat and the dashboard together
-apps/            the Streamlit apps: dashboard.py, chat_app.py and views/ (the dashboard's pages)
-docs/            the Phase 1 design, the decision log, the assignment, the task checklist, the hand-over list
-tests/           engine/ (rules, store, jobs, service), load/ (a busy day on a real server), client/ (Sazón texts, checks and golden snapshot),
-                 apps/ (dashboard and chat app), live/ (real model), support/ (fakes, a second client, helpers)
-data/            runtime files, git-ignored: sazon.db, sazon.log, demo/ (transcripts.md, cvs/)
-.claude/         the skills this repo's workflow uses; see CLAUDE.md
-```
+| Asked for | Where |
+| --- | --- |
+| Phase 1: process design, 1 to 2 pages | [docs/PHASE1_PROCESS_DESIGN.md](docs/PHASE1_PROCESS_DESIGN.md) |
+| Phase 2: a conversational agent in Python that validates, saves JSON and a summary | `screener/` (engine) and `sazon/` (Grupo Sazón) |
+| A tool for recruiters to track candidates | `apps/dashboard.py` |
+| Bonus: a browser voice agent running the same flow | "Talk to Sofía" in `apps/chat_app.py`; [Architecture, live voice](docs/ARCHITECTURE.md#live-voice-bonus) |
+| The brief itself | [docs/TASK.md](docs/TASK.md) |
 
-The engine never imports `sazon`; a test fails if it does or if it names a client. To serve a similar client, add a package beside `sazon/` with the same pieces: a `ScreeningSpec` (fields, how to read and check each, the rules that end a screening, a persona), a `Pack` (every fixed text, in each language) and a `Client` (service areas, an optional call calendar, the reminder clock). An incomplete spec or client fails when built and lists every problem. `tests/support/toy_spec.py` is a second client (warehouse pickers) that the tests run through the real engine.
+## Documentation
 
-## Why this LLM
+| Document | What it answers |
+| --- | --- |
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | How it is built: layers, repository map, one message step by step, booking, voice, data, tests. |
+| [docs/PHASE1_PROCESS_DESIGN.md](docs/PHASE1_PROCESS_DESIGN.md) | The process the agent follows: personality, stages, fields and rules, outcomes, edge cases. |
+| [docs/DECISIONS.md](docs/DECISIONS.md) | Every design and technology decision (D-numbers cited in the code), and the open items. |
+| [docs/RUNNING.md](docs/RUNNING.md) | Install, configuration, demo data, every command, tests, the model and its limits. |
+| [docs/HANDOVER.md](docs/HANDOVER.md) | What Grupo Sazón must decide or provide, and what its lawyers must approve. |
 
-**Gemini (`gemini-3.5-flash-lite` by default) through its OpenAI-compatible endpoint** (D2, D23, D33). It follows JSON instructions well enough for structured extraction in Spanish and English, it has a free tier with no card, and the OpenAI-style client keeps the model swappable behind one small interface (`screener/llm.py`). The code decides everything that matters (validation, qualified or disqualified, what to collect next, what is stored); the model reads a message into fields and words a short reply. Consent, stop requests, call-time picks and every closing message are read or written by plain code.
+## Compliance, in short
 
-- **The free tier is not enough for production.** It allows 15 requests a minute and the client expects about 1000 applications a week; a paid tier with a data-processing agreement is needed.
-- **Free-tier prompts may be used by Google to improve its products.** Use fictional candidates only until a paid or EU-compliant tier is chosen. The consent text names the external AI service; it still needs legal review.
+Hiring is high-risk under the EU AI Act (Annex III) and Mexico has its own data law. The agent tells the candidate it is an AI and asks consent first, keeps a human decision-maker, logs every decision with its actor, collects only the screening fields, infers nothing about emotions or personality, treats candidate text as untrusted, and erases a candidate's data on request. This is an engineering baseline, not legal advice; the open items are in [docs/HANDOVER.md](docs/HANDOVER.md).
 
-## Data and compliance notes
-
-Hiring is high-risk under the EU AI Act (Annex III) and Mexico has its own data law. The design tells the candidate it is an AI and asks for consent first, keeps a human decision-maker, logs every decision with its actor, collects only the screening fields, infers nothing about emotions or personality, and treats candidate text as untrusted. A candidate's data, including an uploaded CV, can be erased from the dashboard (it is overwritten, not just deleted); nothing is erased automatically. The login is a prototype measure: a real deployment needs the company's single sign-on. The browser chat has no login and is for your own computer only. This is an engineering baseline, not legal advice.
+`CLAUDE.md` and `.claude/` hold the working agreement and skills used to build this with Claude Code (test-first, architecture reviews).

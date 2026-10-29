@@ -4,11 +4,11 @@ Guidance for Claude Code in this repo. The assignment itself is in [docs/TASK.md
 
 ## What we're building
 
-A candidate screening agent for Grupo Sazón (fictional): a restaurant chain hiring delivery drivers across Spain and Mexico. The deliverables are:
+A candidate screening agent for Grupo Sazón (fictional): a restaurant chain hiring delivery drivers across Spain and Mexico. The assignment is in [docs/TASK.md](docs/TASK.md). **The product is built and reviewed**; remaining work is documentation and the presentation.
 
-1. **Phase 1:** a 1-2 page process design, [docs/PHASE1_PROCESS_DESIGN.md](docs/PHASE1_PROCESS_DESIGN.md), kept in line with the built agent. Its decisions are logged in [docs/DECISIONS.md](docs/DECISIONS.md).
-2. **Phase 2:** a Python conversational agent that screens candidates, plus a recruiter tool to track candidates and a browser chat to try the agent. Built and reviewed; open items are the last section of `docs/DECISIONS.md`.
-3. **Bonus:** a browser voice agent that runs the same flow.
+1. **Phase 1:** the process design, [docs/PHASE1_PROCESS_DESIGN.md](docs/PHASE1_PROCESS_DESIGN.md), kept in line with the built agent.
+2. **Phase 2:** a Python conversational agent, a recruiter dashboard and a browser chat. How it is built: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md). How to run it: [docs/RUNNING.md](docs/RUNNING.md).
+3. **Bonus:** a live voice agent (ElevenLabs) that runs the same flow.
 
 ## Workflow (always follow, in this order)
 
@@ -23,7 +23,6 @@ A candidate screening agent for Grupo Sazón (fictional): a restaurant chain hir
 - **Haiku 5.5 explores:** file and documentation search, reading the course material, checking skills. Use an Agent subagent with `model: "haiku"` (Explore type) for broad searches, and run independent searches in parallel.
 - **Opus 5.5 reviews:** the `advisor` tool, only at these points: before committing to a plan (after the grill), when an error recurs or the approach stops converging, and before declaring a piece of work done.
 - Opus is not used for routine edits or lookups.
-- The launch flags `claude --advisor opus --subagents haiku` come from a post. They are unverified here. If `claude --help` in your terminal confirms them, you can also start with them. The roles above work without the flags.
 
 **Last architecture review:** 2026-10-29 at commit `3c210f3` (the voice branch, seven candidates built on `feat/voice-agent`, D94). The one before was 2026-10-28 at `cee902a` (the booking and recruiter side, D87 and D88); before that 2026-10-27 at `b485dd5` (whole product, D70). Run `git rev-list --count 3c210f3..HEAD` for the commits since. Update this line each time a review happens.
 
@@ -39,10 +38,9 @@ All settled design and tech choices are logged in [docs/DECISIONS.md](docs/DECIS
 - **Storage:** SQLite (D3).
 - **Code layout (D63):** `screener/` is the engine and must never import or name a client; `sazon/` is Grupo Sazón as a
   client (spec, fixed texts, text packs, areas, the commands, `demo/`). `apps/` holds the Streamlit apps (`dashboard.py`,
-  `chat_app.py`, `views/`), `docs/` the documents, `data/` the git-ignored runtime files (`data/demo/` for everything the
-  demos write). Tests: `tests/engine`, `tests/client`, `tests/apps`, `tests/live`, helpers and a second client in
+  `chat_app.py`, `views/`), `docs/` the documents, `data/` the git-ignored runtime files. Tests: `tests/engine`, `tests/client`, `tests/apps`, `tests/live`, helpers and a second client in
   `tests/support`. `tests/engine/test_engine_boundary.py` fails if the engine leaks. Put anything reusable in the engine.
-- **Voice:** ElevenLabs is the suggested option (see the `agents` skill).
+- **Voice:** ElevenLabs, with our engine as the agent's brain (D93).
 - **Recruiter UI:** Streamlit dashboard (`streamlit run apps/dashboard.py`), run locally (D4). The course capstone uses Streamlit too, and the `developing-with-streamlit` skill covers it.
 
 ## Hard constraints (from the domain)

@@ -59,4 +59,5 @@ Messaging, not email: 1–2 short sentences and one question per message (D18); 
 
 - High-risk under the EU AI Act (Annex III); Mexico has its own data law. Built in: AI disclosure and consent first, a recruiter can overrule any status, every decision logged with its actor, erasure on request, a login per recruiter, no emotion or personality inference. Not legal advice.
 - **Volume:** about 1000 applications a week is roughly 0.3 messages a second at the busiest (a fifth in 2 hours, 10 messages each). A load test with a slow, failing fake model passed at about 25 times that (D75).
+- **Voice (bonus):** the same flow can be spoken (D93). The AI disclosure and consent are said first; a call time is chosen by saying a day and then a time; no CV by voice. The engine's fixed texts are what is spoken, and no audio is kept.
 - **Open for the client:** real service areas; legal review of the texts and of data retention; approved answers about pay; the 12-week rule; single sign-on; a paid model tier.
