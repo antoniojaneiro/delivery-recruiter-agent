@@ -12,6 +12,7 @@ import streamlit.components.v1 as components
 from dotenv import load_dotenv
 
 from screener import dialog, gemini, reminders, slot_flow, turn
+from screener.channel import BUTTON
 from screener.login import ensure_manager_takes_calls
 from screener.voice_agent import ElevenLabs, VoiceSetupError, load_state
 from screener.chat import log_error
@@ -54,7 +55,7 @@ llm = st.session_state["llm"]
 
 
 def new_candidate() -> None:
-    candidate_id, _ = dialog.new_candidate(active_store(), SAZON_CLIENT, datetime.now(), buttons=True)  # the disclosure, once per candidate
+    candidate_id, _ = dialog.new_candidate(active_store(), SAZON_CLIENT, datetime.now(), BUTTON)  # the disclosure, once per candidate
     st.session_state["chat_id"] = candidate_id
     st.session_state.pop("flash", None)
     st.session_state.pop("voice_call", None)  # a call belongs to the candidate it was started for

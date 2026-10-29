@@ -20,6 +20,7 @@ from fastapi import Body, FastAPI, Header, HTTPException, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 
 from screener import turn
+from screener.channel import VOICE
 from screener.chat import write_error
 from screener.client import Client
 from screener.llm import LLM
@@ -126,7 +127,7 @@ def create_voice_app(client: Client, store, llm: LLM, *, secret: str, clock=date
                 return apology(candidate_id), False
             time.sleep(0.05)
         try:
-            reply = turn.handle_message(llm, store, client, candidate_id, said, clock(), voice=True)
+            reply = turn.handle_message(llm, store, client, candidate_id, said, clock(), VOICE)
         except Exception as error:  # noqa: BLE001  nothing may reach the candidate's ears but the fixed apology
             try:
                 store.release_message(candidate_id, message_id)

@@ -3,6 +3,7 @@ from dataclasses import dataclass, replace
 from datetime import date
 
 from screener import validators
+from screener.channel import BUTTON, TEXT, Channel
 from screener.consent import ConsentReading, is_hesitation, is_resume_request, read_consent
 from screener.extraction import ControlFlags
 from screener.model import CONSENT, NO_CONSENT, AreaMatchStatus, EventType, Language, Outcome, Status
@@ -135,6 +136,11 @@ class Screening:
     @property
     def awaiting_slot_choice(self) -> bool:
         return bool(self._slot_offer or self._voice_booking) and not self._slots_done             and self.decide().outcome == Outcome.QUALIFIED
+
+    @property
+    def usual_channel(self) -> Channel:
+        """How this candidate is usually reached (saved when they started): what a reminder or a cancelled call is sent through."""
+        return BUTTON if self.buttons else TEXT
 
     @property
     def voice_booking(self) -> dict | None:

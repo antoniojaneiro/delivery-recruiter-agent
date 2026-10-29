@@ -4,6 +4,7 @@ from dataclasses import dataclass, replace
 from datetime import date, datetime, timedelta
 
 from screener import conversation
+from screener.channel import TEXT, Channel, effective
 from screener.conversation import RETRY_ONCE, SKIP, Turn
 from screener.client import Client
 from screener.consent import is_stop_request, read_consent
@@ -21,20 +22,20 @@ MAX_UNCLEAR_PICKS = 3  # re-offers of the same list before they are told to writ
 
 
 def after_close(store: Store, client: Client, screening: Screening, candidate_id: str, directive: Directive | None,
-                now: datetime, voice: bool = False) -> Directive | None:
+                now: datetime, channel: Channel = TEXT) -> Directive | None:
     """When the chat closes as QUALIFIED: confirm an existing booking, or offer the next free slots (by voice: ask which
-    day)."""
+    day). `channel` is the effective one for this client."""
     if directive is None or directive.kind != Kind.CLOSE or directive.outcome != Outcome.QUALIFIED:
         return directive
     if screening.spec.pack.slots is None:
         return directive  # this client does not book calls
     booking = store.booking_of(candidate_id)
     if booking:
-        return Directive(Kind.ALREADY_BOOKED, label=(spoken_label if voice else slot_label)(booking.starts_at, screening.language))
+        return Directive(Kind.ALREADY_BOOKED, label=channel.label(booking.starts_at, screening.language))
     record = store.get(candidate_id)
     if record is not None and closed_by_recruiter(record):
         return _closed_by_recruiter(screening)  # no offer: a recruiter has the case
-    if voice and can_speak(client):
+    if channel.offer == "spoken":
         return _ask_day(store, client, screening, now)
     # Someone who left without booking gets the free times again when they write: no time was ever promised
     return _offer(store, client, screening, now, "first") or _give_up(screening)
@@ -224,12 +225,6 @@ def _book(store: Store, client: Client, screening: Screening, candidate_id: str,
 
 # -- booking by voice (D93): which day, then which time ----------------------------------------------------------------
 
-def can_speak(client: Client) -> bool:
-    """A client that books calls and has the spoken texts."""
-    slots = client.spec.pack.slots
-    return bool(client.calendar and slots and slots.voice)
-
-
 def _say(reason: str, label: str | None = None) -> Directive:
     return Directive(Kind.VOICE_BOOKING, reason=reason, label=label)
 
@@ -397,7 +392,7 @@ def _offer(store: Store, client: Client, screening: Screening, now: datetime, re
         reason = "taken"  # some of the earlier options went in the meantime
     screening.offer_slots(ids)
     return Directive(Kind.OFFER_SLOTS, options=[slot_label(s.starts_at, screening.language) for s in free],
-                     reason=reason, buttons=screening.buttons)
+                     reason=reason, buttons=effective(screening.usual_channel, client).offer == "button")
 
 
 def _give_up(screening: Screening, later: bool = False) -> Directive:

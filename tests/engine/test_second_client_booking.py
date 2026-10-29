@@ -4,6 +4,7 @@ from datetime import datetime, timedelta, timezone
 import pytest
 
 from screener import turn
+from screener.channel import BUTTON, VOICE
 from screener.store import InputError, Store
 from tests.support.fakes import ScriptedLLM
 from tests.support.toy_spec import TOY, TOY_UK, UK_CALENDAR
@@ -133,7 +134,7 @@ def test_an_area_without_a_country_or_a_country_without_a_zone_is_refused():
 
 def test_a_client_with_no_button_texts_keeps_the_numbered_list_whatever_the_channel(store):
     store.add_slot("GB", datetime(2026, 10, 28, 10, 0), None, "Ana", NOW)
-    turn.start(store, TOY_UK, "c1", NOW, buttons=True)
+    turn.start(store, TOY_UK, "c1", NOW, BUTTON)
     llm = ScriptedLLM(extractions=[{"name": "Jo Smith"}, {"town": "Headingley"}, {"can_lift": True}])
     last = talk(store, llm, "yes", "Jo Smith", "Headingley", "yes")[-1]
     assert "1) Wed 28 Oct, 10:00" in last
@@ -143,5 +144,5 @@ def test_a_client_with_no_voice_texts_keeps_the_numbered_list_for_a_spoken_messa
     store.add_slot("GB", datetime(2026, 10, 28, 10, 0), None, "Ana", NOW)
     turn.start(store, TOY_UK, "c1", NOW)
     llm = ScriptedLLM(extractions=[{"name": "Jo Smith"}, {"town": "Headingley"}, {"can_lift": True}])
-    replies = [turn.handle_message(llm, store, TOY_UK, "c1", m, NOW, voice=True) for m in ("yes", "Jo Smith", "Headingley", "yes")]
+    replies = [turn.handle_message(llm, store, TOY_UK, "c1", m, NOW, channel=VOICE) for m in ("yes", "Jo Smith", "Headingley", "yes")]
     assert "1) Wed 28 Oct, 10:00" in replies[-1] and not store.get("c1").state.get("voice_booking")

@@ -4,6 +4,7 @@ import uuid
 from datetime import datetime
 
 from screener import turn
+from screener.channel import TEXT, Channel
 from screener.client import Client
 from screener.store import Store
 
@@ -12,13 +13,13 @@ def draw_id() -> str:
     return uuid.uuid4().hex[:12]
 
 
-def new_candidate(store: Store, client: Client, now: datetime, buttons: bool = False) -> tuple[str, str]:
-    """A new candidate and the disclosure they are shown first. The id is never one already in use. `buttons`: the
-    channel has a button to choose a time (D90)."""
+def new_candidate(store: Store, client: Client, now: datetime, channel: Channel = TEXT) -> tuple[str, str]:
+    """A new candidate and the disclosure they are shown first. The id is never one already in use. `channel` is their usual one
+    (BUTTON: the channel has a button to choose a time, D90)."""
     candidate_id = draw_id()
     while store.get(candidate_id) is not None:  # never merge two applicants into one record
         candidate_id = draw_id()
-    return candidate_id, turn.start(store, client, candidate_id, now, buttons=buttons)
+    return candidate_id, turn.start(store, client, candidate_id, now, channel)
 
 
 def deliver_queued(store: Store, candidate_id: str | None, now: datetime) -> list[str]:

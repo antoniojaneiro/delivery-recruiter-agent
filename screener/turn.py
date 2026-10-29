@@ -5,6 +5,7 @@ from dataclasses import replace
 from datetime import date, datetime
 
 from screener import conversation, session, slot_flow
+from screener.channel import TEXT, VOICE, Channel, effective
 from screener.conversation import RETRY_ONCE, Turn
 from screener.client import Client
 from screener.consent import ConsentReading, is_stop_request, read_consent
@@ -23,15 +24,15 @@ NOT_STORED = "[message not stored: no consent]"
 CV_MARK = "[CV uploaded]"  # what the transcript shows of an upload; the file itself is kept apart
 
 
-def start(store, client: Client, candidate_id: str, now: datetime, buttons: bool = False) -> str:
-    """A new candidate and the disclosure they are shown first. `buttons`: the channel has a button to choose a time, so
-    the offer of times names it instead of numbering them (D90); it is saved with the candidate."""
+def start(store, client: Client, candidate_id: str, now: datetime, channel: Channel = TEXT) -> str:
+    """A new candidate and the disclosure they are shown first. `channel` is their usual one, saved with them: with BUTTON
+    the offer of times names the button instead of numbering them (D90)."""
     if not store.accepting_applications():
         return closed_message(client.spec)
     text = consent_message(client.spec)
 
     def work(screening: Screening) -> Turn:
-        screening.buttons = buttons
+        screening.buttons = channel.offer == "button"
         return Turn(text, messages=[("agent", text)])
 
     try:
@@ -41,16 +42,17 @@ def start(store, client: Client, candidate_id: str, now: datetime, buttons: bool
 
 
 def handle_message(llm: LLM, store, client: Client, candidate_id: str, message: str,
-                   now: datetime, voice: bool = False) -> str:
-    """`voice`: the message was spoken and the reply will be spoken (D93): no CV upload, and a call is booked by saying a day
-    and then a time, with no list and no button. The channel is per message: the same candidate can write the next one."""
+                   now: datetime, channel: Channel | None = None) -> str:
+    """`channel`: the one this message came through; None is the candidate's usual one. VOICE (D93): the message was spoken
+    and the reply will be spoken, no CV upload, and a call is booked by saying a day and then a time, with no list and no
+    button. It is per message: the same candidate can write the next one."""
     if not store.accepting_applications():
         return closed_message(client.spec)  # nothing is read, stored or sent to the model while applications are closed
     if store.get(candidate_id) is None:  # never started, or erased: they see the disclosure before anything else
         return start(store, client, candidate_id, now)
     try:  # a lost race is retried once with a fresh copy; an erased candidate is never brought back
         return conversation.run(store, client, candidate_id, now,
-                                lambda screening: _handle(llm, store, client, candidate_id, message, now, screening, voice),
+                                lambda screening: _handle(llm, store, client, candidate_id, message, now, screening, channel),
                                 on_conflict=RETRY_ONCE)
     except ConflictError:
         return technical_error_message(client.spec, session.load(store, candidate_id, client).language)
@@ -86,7 +88,8 @@ def voice_opening(store, client: Client, candidate_id: str, now: datetime) -> tu
         if screening.needs_consent:
             return Turn((consent_message(client.spec), None), save=False)
         if screening.decide().outcome == Outcome.QUALIFIED:
-            directive = slot_flow.after_close(store, client, screening, candidate_id, screening.close_directive(), now, voice=True)
+            directive = slot_flow.after_close(store, client, screening, candidate_id, screening.close_directive(), now,
+                                              effective(VOICE, client))
             text = phrase(NO_MODEL, client.spec, directive, language)
         elif not screening.is_open:
             text = phrase(NO_MODEL, client.spec, replace(screening.close_directive(), repeat=True), language)
@@ -176,26 +179,26 @@ def handle_cv(llm: LLM, store, client: Client, candidate_id: str, data: bytes, n
 
 
 def _handle(llm: LLM, store, client: Client, candidate_id: str, message: str, now: datetime,
-            screening: Screening, voice: bool = False) -> Turn:
+            screening: Screening, channel: Channel | None = None) -> Turn:
     screening.resume()
+    channel = effective(channel or screening.usual_channel, client)
     consented_before = screening.consent is True  # the turn that answers the consent question shares nothing
     history = store.messages(candidate_id)
     last_question = history[-1].text if history and history[-1].role == "agent" else None
-    spoken = voice and slot_flow.can_speak(client)
-    if spoken and screening.awaiting_slot_choice:
+    if channel.offer == "spoken" and screening.awaiting_slot_choice:
         directive = slot_flow.handle_spoken(store, client, screening, candidate_id, message, now)
     elif screening.slot_offer and screening.awaiting_slot_choice:
         directive = slot_flow.handle_pick(store, client, screening, candidate_id, message, now)
     else:
         screening.end_voice_booking()  # a spoken booking left open when they write instead
         directive = _directive_for(llm, screening, message, now.date(), last_question)
-        if voice and directive is not None and directive.kind == Kind.CV_OFFER:  # a file cannot be sent by voice
+        if not channel.accepts_cv and directive is not None and directive.kind == Kind.CV_OFFER:
             screening.withhold_cv_offer()
             directive = Directive(Kind.ASK, field=screening.next_field())
-        directive = slot_flow.after_close(store, client, screening, candidate_id, directive, now, voice=spoken)
+        directive = slot_flow.after_close(store, client, screening, candidate_id, directive, now, channel)
     # what the model may see when it words a message: the saved conversation and this message, only after consent
     context = [(m.role, m.text) for m in history] + [("candidate", message)] if consented_before else []
-    wording = NO_MODEL if voice else llm  # speech has no time for a second model call: the fixed words (and the free model's rate)
+    wording = llm if channel.model_words else NO_MODEL  # speech has no time for a second model call: the fixed words (and the free model's rate)
     reply = (consent_message(client.spec) if directive is None
              else phrase(wording, client.spec, directive, screening.language, history=context))
     if directive is not None and directive.kind == Kind.CV_OFFER:  # the offer, then the first question

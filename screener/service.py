@@ -21,6 +21,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 from screener import dialog, slot_flow, turn
+from screener.channel import BUTTON
 from screener.chat import write_error
 from screener.client import Client
 from screener.cv import MAX_BYTES as MAX_CV_BYTES
@@ -190,7 +191,7 @@ def create_app(client: Client, store, llm: LLM, *, api_key: str | None = None, l
     def start(x_api_key: str | None = Header(None)):
         if api_key is not None and not is_adapter(x_api_key):
             raise HTTPException(401, "api key needed")
-        candidate_id, reply = dialog.new_candidate(store, client, clock(), buttons=True)
+        candidate_id, reply = dialog.new_candidate(store, client, clock(), BUTTON)
         if store.get(candidate_id) is None:  # applications are closed: nothing was created
             return JSONResponse({"reply": reply}, status_code=503)
         token = secrets.token_urlsafe(32)
