@@ -160,12 +160,3 @@ def test_the_call_page_closes_the_call_on_the_page_when_the_call_ends_by_itself(
     html = call_html("wss://x", "s", "es", "o", None)
     assert ".st-key-voice_end button" in html and 'reason === "agent"' in html and 'reason === "user"' in html
     assert 'reason === "error"' not in html  # an error stays on screen so its reason can be read
-
-
-def test_the_page_closes_a_finished_call_itself_after_a_short_grace_if_the_call_page_could_not():
-    from datetime import timedelta
-    from sazon.voice_component import call_should_close
-    started = datetime(2026, 10, 29, 12, 0, 0)
-    assert call_should_close(None, started) is False  # the conversation is not over
-    assert call_should_close(started, started + timedelta(seconds=10)) is False  # the farewell may still be being spoken
-    assert call_should_close(started, started + timedelta(seconds=31)) is True

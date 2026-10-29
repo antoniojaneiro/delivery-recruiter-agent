@@ -13,6 +13,7 @@ from dotenv import load_dotenv
 
 from screener import dialog, gemini, reminders, slot_offers, turn
 from screener.channel import BUTTON
+from screener.voice_call import DONE_AFTER_CALL, DONE_BY_TEXT, NOT_SET_UP, RUNNING, call_state, should_close
 from screener.login import ensure_manager_takes_calls
 from screener.voice_agent import ElevenLabs, VoiceSetupError, load_state
 from screener.chat import log_error
@@ -26,7 +27,7 @@ from screener.store import Store
 from sazon import config, ui
 from sazon.client import SAZON_CLIENT
 from sazon.ui import open_store, t
-from sazon.voice_component import call_html, call_should_close
+from sazon.voice_component import call_html
 from sazon.ui_pack import PACK
 
 load_dotenv()  # the hiring manager, who takes calls, is named there
@@ -107,15 +108,17 @@ with st.sidebar:
               width="stretch")
     st.button(t("chat.wait"), key="wait_24h", on_click=wait_a_day, icon=":material/schedule:", width="stretch",
               help=t("chat.wait_help"))
-    if st.session_state.get("voice_call"):
+    call = call_state(set_up=voice_ready(), running=bool(st.session_state.get("voice_call")),
+                      over=turn.conversation_is_over(store, SAZON_CLIENT, candidate_id), had_call=store.had_voice_call(candidate_id))
+    if call == RUNNING:
         st.button(t("chat.voice_end"), key="voice_end", on_click=end_voice, icon=":material/call_end:", width="stretch")
-    elif turn.conversation_is_over(store, SAZON_CLIENT, candidate_id):  # nothing is left to say: the button says why it is off
-        st.button(t("chat.voice_done" if store.had_voice_call(candidate_id) else "chat.voice_finished"), key="voice_start",
+    elif call in (DONE_AFTER_CALL, DONE_BY_TEXT):  # nothing is left to say: the button says why it is off
+        st.button(t("chat.voice_done" if call == DONE_AFTER_CALL else "chat.voice_finished"), key="voice_start",
                   icon=":material/mic_off:", width="stretch", disabled=True)
     else:
         st.button(t("chat.voice_start"), key="voice_start", on_click=start_voice, icon=":material/mic:", width="stretch",
-                  disabled=not voice_ready())
-        if not voice_ready():
+                  disabled=call == NOT_SET_UP)
+        if call == NOT_SET_UP:
             st.caption(t("chat.voice_off_help"))
     st.caption(t("chat.candidate", id=candidate_id))
     st.caption(t("chat.rate_hint"))
@@ -148,7 +151,7 @@ def transcript() -> None:
     When the conversation is over the call is closed on the page a little later (the farewell and the end of the call take a moment)."""
     if st.session_state.get("voice_call") and turn.conversation_is_over(store, SAZON_CLIENT, candidate_id):
         since = st.session_state.setdefault("voice_over_since", datetime.now())
-        if call_should_close(since, datetime.now()):
+        if should_close(since, datetime.now()):
             end_voice()
             st.rerun()
     for message in store.messages(candidate_id):

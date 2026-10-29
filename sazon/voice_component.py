@@ -5,7 +5,6 @@ speaking. The conversation itself is saved by the engine through the voice endpo
 The values put into the page (the address and the session) are written as JSON, so nothing in them can end the script. The
 ElevenLabs API key is never here: only the signed address, which is valid for one start within 15 minutes."""
 import json
-from datetime import datetime, timedelta
 
 # Floating on purpose while this is tried locally; pin or copy the SDK into the project before a real deployment.
 SDK = "https://esm.sh/@elevenlabs/client"
@@ -66,9 +65,3 @@ try {{
   status.textContent = (error && error.name === "NotAllowedError") ? words.mic : words.error;
 }}
 </script>"""
-
-
-def call_should_close(over_since: datetime | None, now: datetime, grace_seconds: int = 30) -> bool:
-    """The chat page closes a call itself when the conversation has been over for a little while (the farewell is spoken and the
-    call has ended), in case the call page could not close it."""
-    return over_since is not None and now - over_since > timedelta(seconds=grace_seconds)
