@@ -94,7 +94,7 @@ class Store:
         with self._connect() as db:
             db.execute("PRAGMA secure_delete = ON")
             existed = db.execute("SELECT 1 FROM candidates WHERE candidate_id = ?", (candidate_id,)).fetchone()
-            for table in ("candidates", "events", "messages", "notes", "recruiter", "outbox", "cvs", "tokens", "replies"):
+            for table in ("candidates", "events", "messages", "notes", "recruiter", "outbox", "cvs", "tokens", "replies", "voice_sessions"):
                 db.execute(f"DELETE FROM {table} WHERE candidate_id = ?", (candidate_id,))
             db.execute("UPDATE slots SET candidate_id = NULL, booked_at = NULL WHERE candidate_id = ?", (candidate_id,))
             if existed:

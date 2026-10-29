@@ -125,3 +125,12 @@ def test_voice_never_offers_the_cv_upload(store):
     turn.start(store, CLIENT, "c3", NOW)
     reply = say(store, "sí", {"consent": True}, cid="c3", voice=True)[0]
     assert "CV" not in reply and "PDF" not in reply and not store.get("c3").state.get("cv")
+
+
+def test_a_spoken_turn_makes_one_model_call_to_read_the_answer_and_none_to_word_the_reply(store):
+    turn.start(store, CLIENT, "c4", NOW)
+    say(store, "sí", {"consent": True}, cid="c4", voice=True)
+    _, spoken = say(store, "Me llamo Juan Pérez", {"name": "Juan Pérez"}, cid="c4", voice=True)
+    _, written = say(store, "Me llamo Juan Pérez", {"name": "Juan Pérez"}, cid="c4")
+    assert [c["json_mode"] for c in spoken.calls] == [True]  # the free model allows 15 calls a minute: speech needs fewer
+    assert [c["json_mode"] for c in written.calls] == [True, False]

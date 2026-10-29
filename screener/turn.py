@@ -10,7 +10,7 @@ from screener.client import Client
 from screener.consent import ConsentReading, is_stop_request, read_consent
 from screener.cv import CvProblem, extract_cv, read_pdf
 from screener.extraction import ControlFlags, extract
-from screener.llm import LLM, LLMError
+from screener.llm import LLM, NO_MODEL, LLMError
 from screener.model import Outcome
 from screener.directive import Directive, Kind
 from screener.phrasing import closed_message, consent_message, fixed, phrase, technical_error_message
@@ -146,13 +146,14 @@ def _handle(llm: LLM, store, client: Client, candidate_id: str, message: str, no
         directive = slot_flow.after_close(store, client, screening, candidate_id, directive, now, voice=spoken)
     # what the model may see when it words a message: the saved conversation and this message, only after consent
     context = [(m.role, m.text) for m in history] + [("candidate", message)] if consented_before else []
+    wording = NO_MODEL if voice else llm  # speech has no time for a second model call: the fixed words (and the free model's rate)
     reply = (consent_message(client.spec) if directive is None
-             else phrase(llm, client.spec, directive, screening.language, history=context))
+             else phrase(wording, client.spec, directive, screening.language, history=context))
     if directive is not None and directive.kind == Kind.CV_OFFER:  # the offer, then the first question
         ask = Directive(Kind.ASK, field=screening.next_field())
         reply = reply + " " + fixed(client.spec, ask, screening.language)  # nothing was said to acknowledge
     if directive is not None and directive.kind == Kind.CLOSE:
-        short = phrase(llm, client.spec, replace(directive, repeat=True), screening.language)
+        short = phrase(wording, client.spec, replace(directive, repeat=True), screening.language)
         if last_question in (reply, short):  # already said once: not the same close word for word
             reply = short
     kept = message if screening.consent else NOT_STORED
