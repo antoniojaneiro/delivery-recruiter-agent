@@ -36,9 +36,10 @@ class World:
         self.spawned, self.out, self.provisioned = [], [], []
         self.tunnel_lines = [f"INF |  {URL}  |\n"] if tunnel_lines is None else tunnel_lines
         self.refuse, self.ticks, self.interrupt_after = refuse, 0, interrupt_after
+        self.exe = r"C:	ools\cloudflared.exe"
 
     def spawn(self, command, **kwargs):
-        process = FakeProcess(self.tunnel_lines if "cloudflared" in command[0] else ())
+        process = FakeProcess(self.tunnel_lines if "cloudflared" in command[0] else ())  # the tunnel is the one whose program is cloudflared
         self.spawned.append((command, kwargs, process))
         return process
 
@@ -56,7 +57,8 @@ class World:
     def run(self, env=None):
         env = {"ELEVENLABS_API_KEY": "key-123", **(env or {})}
         return voice_launch.run(env=env, spawn=self.spawn, provision_fn=self.provision, sleep=self.sleep, out=self.out.append,
-                                api_factory=lambda key: object(), port_free=lambda port: True)
+                                api_factory=lambda key: object(), port_free=lambda port: True,
+                                find_exe=lambda env: self.exe)
 
 
 @pytest.mark.parametrize("line,expected", [
@@ -77,7 +79,7 @@ def test_it_starts_the_tunnel_points_the_agent_at_it_and_starts_the_endpoint_wit
     assert world.run({"ELEVENLABS_VOICE_ID": "voice_9"}) == 0  # Ctrl+C is a normal way to stop
     assert world.provisioned == [(URL, config.VOICE_STATE_PATH, "voice_9")]
     tunnel, server = (spawn[0] for spawn in world.spawned)
-    assert tunnel[0] == "cloudflared" and f"http://localhost:{config.voice_port()}" in tunnel
+    assert tunnel[0] == world.exe and f"http://localhost:{config.voice_port()}" in tunnel
     assert server[-2:] == ["-m", "sazon.voice_server"]
     assert world.spawned[1][1]["env"]["VOICE_LLM_SECRET"] == "the-shared-secret"
     assert "key-123" not in " ".join(world.out) and "the-shared-secret" not in " ".join(world.out)
@@ -109,3 +111,23 @@ def test_if_the_endpoint_stops_by_itself_the_tunnel_is_stopped_too():
 
     world.spawn = spawn
     assert world.run() == 1 and world.spawned[0][2].stopped  # the tunnel was still running, so it was stopped
+
+
+def test_without_cloudflared_nothing_is_started_and_the_user_is_told_where_to_get_it():
+    world = World()
+    world.exe = None
+    assert world.run() == 2
+    assert world.spawned == [] and "cloudflared" in " ".join(world.out) and "github.com/cloudflare/cloudflared" in " ".join(world.out)
+
+
+def test_cloudflared_is_found_on_the_path_or_in_the_users_bin_folder_or_where_the_environment_says(tmp_path):
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    (bin_dir / "cloudflared.exe").write_bytes(b"x")
+    custom = tmp_path / "elsewhere.exe"
+    custom.write_bytes(b"x")
+    nowhere = lambda name: None
+    assert voice_launch.find_cloudflared({}, which=lambda name: "/on/the/path/cloudflared", home=tmp_path) == "/on/the/path/cloudflared"
+    assert voice_launch.find_cloudflared({}, which=nowhere, home=tmp_path) == str(bin_dir / "cloudflared.exe")  # PowerShell does not see that folder
+    assert voice_launch.find_cloudflared({"CLOUDFLARED": str(custom)}, which=nowhere, home=tmp_path) == str(custom)
+    assert voice_launch.find_cloudflared({"CLOUDFLARED": str(tmp_path / "missing.exe")}, which=nowhere, home=tmp_path / "empty") is None

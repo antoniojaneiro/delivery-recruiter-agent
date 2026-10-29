@@ -4,8 +4,10 @@ ElevenLabs does the listening and the speaking, but its servers must reach our e
 (Cloudflare's `cloudflared`, no account) to the voice endpoint only, points the ElevenLabs agent at the tunnel's address
 (it is new every time), and starts the endpoint with the shared secret. Press Ctrl+C to stop both. The chat page's
 "Talk to Sofía" button works while this runs."""
+import os
 import queue
 import re
+import shutil
 import socket
 import subprocess
 import sys
@@ -53,6 +55,19 @@ def _read_url(process, timeout: float) -> str | None:
     return None
 
 
+def find_cloudflared(env, which=shutil.which, home: Path | None = None) -> str | None:
+    """Where the tunnel program is: the CLOUDFLARED setting, the PATH, or the user's own `bin` folder (which a Windows terminal
+    may not have on its PATH even though a download was saved there). None when it is nowhere."""
+    home = home if home is not None else Path.home()
+    configured = env.get("CLOUDFLARED")
+    if configured and Path(configured).is_file():
+        return configured
+    if on_path := which("cloudflared"):
+        return on_path
+    own = home / "bin" / "cloudflared.exe"
+    return str(own) if own.is_file() else None
+
+
 def _stop(processes) -> None:
     for process in processes:
         if process.poll() is None:
@@ -70,9 +85,8 @@ def _port_is_free(port: int) -> bool:
 
 
 def run(env=None, spawn=subprocess.Popen, provision_fn=provision, sleep=time.sleep, out=print, api_factory=ElevenLabs,
-        port_free=_port_is_free, wait_for_url=_read_url) -> int:
+        port_free=_port_is_free, wait_for_url=_read_url, find_exe=None) -> int:
     """0 after Ctrl+C, 1 when something failed or stopped by itself, 2 when it cannot start (no key, port in use)."""
-    import os
     env = dict(os.environ if env is None else env)
     key, port = env.get("ELEVENLABS_API_KEY", "").strip(), config.voice_port()
     if not key:
@@ -81,9 +95,15 @@ def run(env=None, spawn=subprocess.Popen, provision_fn=provision, sleep=time.sle
     if not port_free(port):
         out(f"Port {port} is already in use: stop what is running there and try again.")
         return 2
+    exe = (find_exe or find_cloudflared)(env)
+    if exe is None:
+        out("cloudflared (the tunnel program) was not found. Download cloudflared-windows-amd64.exe from "
+            "github.com/cloudflare/cloudflared/releases, save it as cloudflared.exe in your user bin folder (or set CLOUDFLARED to its path), "
+            "then run this again.")
+        return 2
     started = []
     try:
-        tunnel = spawn(["cloudflared", "tunnel", "--url", f"http://localhost:{port}", "--no-autoupdate"],
+        tunnel = spawn([exe, "tunnel", "--url", f"http://localhost:{port}", "--no-autoupdate"],
                        stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
         started.append(tunnel)
         out("Opening the tunnel (a few seconds)...")
