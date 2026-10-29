@@ -24,6 +24,7 @@ from screener.channel import VOICE
 from screener.chat import write_error
 from screener.client import Client
 from screener.llm import LLM
+from screener.run_once import run_once
 
 BUSY_WAIT_SECONDS = 8  # how long a repeated call waits for the first copy of the same turn
 _SESSION_IN_PROMPT = re.compile(r"voice_session=([A-Za-z0-9_-]+)")
@@ -116,31 +117,14 @@ def create_voice_app(client: Client, store, llm: LLM, *, secret: str, clock=date
         if not said:
             return "", False
         message_id = f"voice:{hashlib.sha256(session.encode()).hexdigest()[:16]}:{index}"
-        deadline = time.monotonic() + BUSY_WAIT_SECONDS
-        while True:
-            claim = store.claim_message(candidate_id, message_id, clock())
-            if claim.state == "done":
-                return claim.reply, turn.conversation_is_over(store, client, candidate_id)
-            if claim.state == "new":
-                break
-            if time.monotonic() > deadline:
-                return apology(candidate_id), False
-            time.sleep(0.05)
-        try:
-            reply = turn.handle_message(llm, store, client, candidate_id, said, clock(), VOICE)
-        except Exception as error:  # noqa: BLE001  nothing may reach the candidate's ears but the fixed apology
-            try:
-                store.release_message(candidate_id, message_id)
-            except sqlite3.OperationalError:
-                pass
-            if not isinstance(error, sqlite3.OperationalError):
-                write_error(error, clock(), log_path)
+        ran = run_once(store, candidate_id, message_id,
+                       lambda: turn.handle_message(llm, store, client, candidate_id, said, clock(), VOICE),
+                       clock=clock, wait=BUSY_WAIT_SECONDS)  # the turn is saved even if its reply is not: a repeat waits for the claim to go stale
+        if ran.status in ("busy", "failed"):  # nothing may reach the candidate's ears but the fixed apology
+            if ran.error is not None and not isinstance(ran.error, sqlite3.OperationalError):
+                write_error(ran.error, clock(), log_path)
             return apology(candidate_id), False
-        try:
-            store.finish_message(candidate_id, message_id, reply)
-        except sqlite3.OperationalError:
-            pass  # the turn is saved; a repeat of this call waits for the claim to go stale rather than run it again
-        return reply, turn.conversation_is_over(store, client, candidate_id)
+        return ran.reply, turn.conversation_is_over(store, client, candidate_id)
 
     @app.get("/health")
     def health():

@@ -26,6 +26,7 @@ from screener.chat import write_error
 from screener.client import Client
 from screener.cv import MAX_BYTES as MAX_CV_BYTES
 from screener.llm import LLM
+from screener.run_once import run_once
 
 MAX_TEXT = 4000  # characters in one message
 BUSY_WAIT_SECONDS = 20  # how long a resend waits for the first copy of the same message to finish
@@ -146,42 +147,25 @@ def create_app(client: Client, store, llm: LLM, *, api_key: str | None = None, l
 
     def once(candidate_id: str, message_id: str, work) -> JSONResponse:
         """Runs `work` for a message id exactly once; a resend gets the stored reply."""
-        deadline = time.monotonic() + busy_wait
-        while True:
-            claim = store.claim_message(candidate_id, message_id, clock())
-            if claim.state == "done":
-                return JSONResponse({"reply": claim.reply})
-            if claim.state == "new":
-                break
-            if time.monotonic() > deadline:
-                return JSONResponse({"error": "busy"}, status_code=409)
-            time.sleep(0.05)
-        now = clock()
-        recent, total = store.candidate_message_counts(candidate_id, now - timedelta(minutes=1))
-        if recent >= limits.per_minute or total >= limits.total:
-            store.release_message(candidate_id, message_id)
-            headers = {"Retry-After": "60"} if recent >= limits.per_minute else {}
-            return JSONResponse({"error": "too many messages"}, status_code=429, headers=headers)
-        try:
-            reply = work()
-        except Exception as error:  # nothing was saved for this message: the same id may be tried again
-            try:
-                store.release_message(candidate_id, message_id)
-            except sqlite3.OperationalError:
-                pass  # a claim nobody finishes is taken over after five minutes
-            if isinstance(error, sqlite3.OperationalError):
-                raise
-            error_id, _ = write_error(error, clock(), log_path)
+        def limited():
+            recent, total = store.candidate_message_counts(candidate_id, clock() - timedelta(minutes=1))
+            if recent >= limits.per_minute or total >= limits.total:
+                return {"Retry-After": "60"} if recent >= limits.per_minute else {}
+
+        ran = run_once(store, candidate_id, message_id, work, clock=clock, wait=busy_wait, before=limited,
+                       finish_attempts=FINISH_ATTEMPTS)
+        if ran.status == "busy":
+            return JSONResponse({"error": "busy"}, status_code=409)
+        if ran.status == "refused":
+            return JSONResponse({"error": "too many messages"}, status_code=429, headers=ran.refusal)
+        if ran.status == "failed":
+            if isinstance(ran.error, sqlite3.OperationalError):
+                raise ran.error
+            error_id, _ = write_error(ran.error, clock(), log_path)
             return JSONResponse({"error": "internal", "error_id": error_id}, status_code=500)
-        for attempt in range(FINISH_ATTEMPTS):  # the turn is saved: recording its reply must not be given up lightly
-            try:
-                store.finish_message(candidate_id, message_id, reply)
-                break
-            except sqlite3.OperationalError:
-                if attempt == FINISH_ATTEMPTS - 1:
-                    raise  # answered "busy"; the claim stays, so a resend waits and the message is not run again
-                time.sleep(0.2)
-        return JSONResponse({"reply": reply})
+        if ran.status == "unrecorded":
+            raise ran.error  # answered "busy"; the claim stays, so a resend waits and the message is not run again
+        return JSONResponse({"reply": ran.reply})
 
     @app.get("/health")
     def health():
