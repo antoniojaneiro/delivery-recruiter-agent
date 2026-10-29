@@ -91,12 +91,12 @@ def test_a_refusal_from_elevenlabs_is_explained_and_no_call_starts(chat, monkeyp
 def test_the_call_page_holds_the_address_and_the_session_safely_and_no_api_key():
     html = call_html("wss://signed.example/a?sig=1", "sess_1", "es", "Hola, sigamos", "es")
     assert "wss://signed.example/a?sig=1" in html and "sess_1" in html and "key-123" not in html
-    assert "Hola, sigamos" in html and 'language: "es"' in html  # what is said first, and the language to say it in
+    assert "Hola, sigamos" in html and '"language": "es"' in html  # what is said first, and the language to say it in
     assert "customLlmExtraBody" not in html  # ElevenLabs refuses a call that sends it: the agent does not allow that override
     assert "voice_session: session" in html  # the session goes as a dynamic variable, which the prompt carries to our endpoint
     assert "onError: (message)" in html and "onDisconnect: (details)" in html  # the reason a call ended is shown, not hidden
     hostile = call_html('wss://x"</script><script>alert(1)</script>', "s'\"<", "en", "x</script><b>", None)
-    assert "</script><script>alert(1)" not in hostile and hostile.count("</script>") == 1 and "overrides" not in hostile
+    assert "</script><script>alert(1)" not in hostile and hostile.count("</script>") == 1 and '"language": null' in hostile
     assert "Listening" in call_html("wss://x", "s", "en", "o", None) and "Escuchando" in call_html("wss://x", "s", "es", "o", None)
 
 

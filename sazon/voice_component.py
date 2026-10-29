@@ -5,8 +5,10 @@ speaking. The conversation itself is saved by the engine through the voice endpo
 The values put into the page (the address and the session) are written as JSON, so nothing in them can end the script. The
 ElevenLabs API key is never here: only the signed address, which is valid for one start within 15 minutes."""
 import json
+from pathlib import Path
 
 # Floating on purpose while this is tried locally; pin or copy the SDK into the project before a real deployment.
+SCRIPT = (Path(__file__).parent / "voice_call.js").read_text(encoding="utf-8")  # the browser side; run in Node by the tests
 SDK = "https://esm.sh/@elevenlabs/client"
 
 _WORDS = {
@@ -28,40 +30,10 @@ def call_html(signed_url: str, session: str, language: str, opening: str, agent_
     """`language`: the one of the screen. `opening`: the first words of the call (the engine's). `agent_language`: the language
     the candidate writes in, so the call starts in it (None: the agent's own)."""
     words = _WORDS.get(language, _WORDS["es"])
-    overrides = f"overrides: {{ agent: {{ language: {_json(agent_language)} }} }}," if agent_language else ""
+    call = {"words": words, "session": session, "signedUrl": signed_url, "opening": opening, "language": agent_language}
     return f"""<div id="status" style="font-family:sans-serif;font-size:15px;padding:8px 0">{words['connecting']}</div>
 <script type="module">
 import {{ Conversation }} from {_json(SDK)};
-const words = {_json(words)};
-const status = document.getElementById("status");
-const session = {_json(session)};
-// What ElevenLabs says when a call ends or fails, shown so a refusal is not mistaken for a hang-up.
-const reason = (info) => {{
-  const text = typeof info === "string" ? info : (info && (info.reason || info.message)) || "";
-  return text ? " (" + String(text).slice(0, 200) + ")" : "";
-}};
-// A call that ended by itself (or by the candidate) is closed on the page too: its button and note go. An error is left on screen.
-const closeOnPage = () => {{
-  try {{
-    const button = window.parent.document.querySelector(".st-key-voice_end button");
-    if (button) button.click();
-  }} catch (error) {{ /* the page cannot be reached from here: the chat page closes the call itself a little later */ }}
-}};
-try {{
-  await navigator.mediaDevices.getUserMedia({{ audio: true }});
-  await Conversation.startSession({{
-    signedUrl: {_json(signed_url)},
-    dynamicVariables: {{ voice_session: session, opening: {_json(opening)} }},
-    {overrides}
-    onModeChange: (change) => {{ status.textContent = change.mode === "speaking" ? words.speaking : words.listening; }},
-    onDisconnect: (details) => {{
-      status.textContent = words.ended + reason(details);
-      if (details && (details.reason === "agent" || details.reason === "user")) closeOnPage();
-    }},
-    onError: (message) => {{ status.textContent = words.error + reason(message); }},
-  }});
-  status.textContent = words.listening;
-}} catch (error) {{
-  status.textContent = (error && error.name === "NotAllowedError") ? words.mic : words.error;
-}}
+{SCRIPT}
+startCall({_json(call)}, {{ Conversation, status: document.getElementById("status"), mic: navigator.mediaDevices, parent: window.parent }});
 </script>"""
