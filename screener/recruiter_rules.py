@@ -44,8 +44,37 @@ def closed_by_recruiter(record) -> bool:
     return record.status in CLOSED_BY_RECRUITER
 
 
+@dataclass(frozen=True)
+class Verdict:
+    """An answer with its reason: why not, when not (D94)."""
+    allowed: bool
+    reason: str | None = None  # "unknown" (no such candidate), "not_qualified", "closed", "no_calendar" or "already_booked"
+
+
+def may_schedule(record) -> Verdict:
+    """May a recruiter organise, book or move a call for this candidate? Yes when their Estado is Qualified or Interview scheduled
+    (D92): the agent qualified them, or a recruiter did, and nobody has hired or rejected them. A candidate who already holds a
+    call can be moved, and a qualified one who ignored the offer is the one who most needs it. Pure over the record, so a page
+    can ask it of thousands of records."""
+    if record is None:
+        return Verdict(False, "unknown")
+    if record.stage in (RecruiterStatus.QUALIFIED, RecruiterStatus.INTERVIEW_SCHEDULED):
+        return Verdict(True)
+    return Verdict(False, "closed" if record.stage in (RecruiterStatus.HIRED, RecruiterStatus.REJECTED,
+                                                       RecruiterStatus.UNREACHABLE) else "not_qualified")
+
+
+def may_choose(record, *, books_calls: bool, holds_call: bool) -> Verdict:
+    """May this candidate choose a time now (the picker, the typed number, the reminder)? Only when the client books calls, a
+    recruiter could organise a call for them (`may_schedule`) and they hold none yet. A closed case wins over everything."""
+    if record is None:
+        return Verdict(False, "unknown")
+    if not books_calls:
+        return Verdict(False, "no_calendar")
+    if not (verdict := may_schedule(record)).allowed:
+        return verdict
+    return Verdict(False, "already_booked") if holds_call else Verdict(True)
+
+
 def can_schedule(record) -> bool:
-    """A call can be organised, booked or moved for a candidate whose Estado is Qualified or Interview scheduled (D92): the
-    agent qualified them, or a recruiter did, and nobody has hired or rejected them. A qualified candidate who ignored the
-    offer is the one who most needs it; one with a call can be moved. The page, the calendar and the chat ask this."""
-    return record.stage in (RecruiterStatus.QUALIFIED, RecruiterStatus.INTERVIEW_SCHEDULED)
+    return may_schedule(record).allowed

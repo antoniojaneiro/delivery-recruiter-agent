@@ -8,7 +8,7 @@ from screener.conversation import RETRY_ONCE, SKIP, Turn
 from screener.client import Client
 from screener.consent import is_stop_request, read_consent
 from screener.model import Outcome
-from screener.recruiter_rules import can_schedule, closed_by_recruiter
+from screener.recruiter_rules import Verdict, can_schedule, closed_by_recruiter, may_choose
 from screener.directive import LATER, Directive, Kind
 from screener.phrasing import (fixed, slot_cancelled_message, slot_label, slot_scheduled_message, spoken_day, spoken_label,
                                spoken_time)
@@ -165,12 +165,15 @@ def set_day_off(store: Store, client: Client, email: str, day: date, off: bool, 
     return resolve_calls(store, client, store.set_day_off(email, day, off, by, now), by, now)
 
 
+def choice_verdict(store: Store, client: Client, candidate_id: str) -> Verdict:
+    """May this candidate choose a time now, and if not, why (D94)."""
+    return may_choose(store.get(candidate_id), books_calls=bool(client.calendar and client.spec.pack.slots),
+                      holds_call=store.booking_of(candidate_id) is not None)
+
+
 def may_choose_time(store: Store, client: Client, candidate_id: str) -> bool:
-    """The one question every way of choosing a time asks (the chat's picker, the service's list of times, the reminder
-    job): a candidate the agent qualified and no recruiter has closed, with no call yet, at a client that books calls."""
-    record = store.get(candidate_id)
-    return bool(record and client.calendar and client.spec.pack.slots and can_schedule(record)
-                and store.booking_of(candidate_id) is None)
+    """The one question every way of choosing a time asks (the chat's picker, the service's list of times, the reminder job)."""
+    return choice_verdict(store, client, candidate_id).allowed
 
 
 def country_of(store: Store, client: Client, candidate_id: str) -> str | None:
