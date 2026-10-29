@@ -11,6 +11,8 @@ from screener.llm import LLM
 from screener.store import Store
 from screener.voice_service import create_voice_app
 
+VOICE_MODEL_SECONDS = 5  # ElevenLabs gives up on a slow turn (it did at about 13 s): reading one answer must be well inside that
+
 
 def build_app(llm: LLM):
     secret = os.environ.get("VOICE_LLM_SECRET")
@@ -25,7 +27,7 @@ def main() -> None:
     import uvicorn
 
     load_dotenv()
-    uvicorn.run(build_app(gemini.from_env(load_dotenv_file=False)), host="127.0.0.1", port=config.voice_port())
+    uvicorn.run(build_app(gemini.from_env(load_dotenv_file=False).quick(VOICE_MODEL_SECONDS)), host="127.0.0.1", port=config.voice_port())
 
 
 if __name__ == "__main__":

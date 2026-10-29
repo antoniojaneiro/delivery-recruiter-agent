@@ -16,6 +16,11 @@ class GeminiClient:
         self.model = model
         self._sdk = sdk
 
+    def quick(self, seconds: float) -> "GeminiClient":
+        """The same model with a short wait and no retries, for a live call: the caller on the line will not wait the 20 seconds
+        (and two retries) a chat does, and a failed reading is answered by asking again."""
+        return GeminiClient(self.model, self._sdk.with_options(timeout=seconds, max_retries=0))
+
     def complete(self, system: str, user: str, json_mode: bool = False) -> str:
         kwargs = {
             "model": self.model,
