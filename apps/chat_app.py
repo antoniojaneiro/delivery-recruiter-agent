@@ -8,10 +8,12 @@ import calendar
 from datetime import date, datetime, timedelta
 
 import streamlit as st
+import streamlit.components.v1 as components
 from dotenv import load_dotenv
 
 from screener import dialog, gemini, reminders, slot_flow, turn
 from screener.login import ensure_manager_takes_calls
+from screener.voice_agent import ElevenLabs, VoiceSetupError, load_state
 from screener.chat import log_error
 from screener.inspector import inspect
 from screener.language import language_of
@@ -23,6 +25,7 @@ from screener.store import Store
 from sazon import config, ui
 from sazon.client import SAZON_CLIENT
 from sazon.ui import open_store, t
+from sazon.voice_component import call_html
 from sazon.ui_pack import PACK
 
 load_dotenv()  # the hiring manager, who takes calls, is named there
@@ -54,6 +57,30 @@ def new_candidate() -> None:
     candidate_id, _ = dialog.new_candidate(active_store(), SAZON_CLIENT, datetime.now(), buttons=True)  # the disclosure, once per candidate
     st.session_state["chat_id"] = candidate_id
     st.session_state.pop("flash", None)
+    st.session_state.pop("voice_call", None)  # a call belongs to the candidate it was started for
+
+
+def voice_ready() -> bool:
+    """The live voice agent has been set up here: a key, and the agent made by `python -m sazon.voice_launch`."""
+    return bool(config.elevenlabs_key()) and load_state(config.VOICE_STATE_PATH) is not None
+
+
+def start_voice() -> None:
+    """A voice session for this candidate and a signed address to start the call with; the call page is drawn from them."""
+    try:
+        state = load_state(config.VOICE_STATE_PATH)
+        address = ElevenLabs(config.elevenlabs_key()).signed_url(state.agent_id)
+    except (VoiceSetupError, AttributeError):
+        st.session_state["flash"] = "chat.voice_failed"
+        return
+    chosen = st.session_state["chat_id"]
+    st.session_state["voice_call"] = {"session": active_store().new_voice_session(chosen, datetime.now()), "url": address}
+    st.session_state["voice_seen"] = len(active_store().messages(chosen))
+    st.session_state.pop("flash", None)
+
+
+def end_voice() -> None:
+    st.session_state.pop("voice_call", None)  # the page of the call is no longer drawn, so the call ends
 
 
 def wait_a_day() -> None:
@@ -75,6 +102,13 @@ with st.sidebar:
               width="stretch")
     st.button(t("chat.wait"), key="wait_24h", on_click=wait_a_day, icon=":material/schedule:", width="stretch",
               help=t("chat.wait_help"))
+    if st.session_state.get("voice_call"):
+        st.button(t("chat.voice_end"), key="voice_end", on_click=end_voice, icon=":material/call_end:", width="stretch")
+    else:
+        st.button(t("chat.voice_start"), key="voice_start", on_click=start_voice, icon=":material/mic:", width="stretch",
+                  disabled=not voice_ready())
+        if not voice_ready():
+            st.caption(t("chat.voice_off_help"))
     st.caption(t("chat.candidate", id=candidate_id))
     st.caption(t("chat.rate_hint"))
     st.link_button(t("link.dashboard"), config.dashboard_url(), icon=":material/open_in_new:", width="stretch")
@@ -92,6 +126,20 @@ def tc(key: str, **values) -> str:
     """A text for the candidate's side of the screen: it follows the language the candidate writes in."""
     return PACK.get(key, chat_language, **values)
 
+
+if call := st.session_state.get("voice_call"):
+    st.info(t("chat.voice_note"))
+    components.html(call_html(call["url"], call["session"], chat_language.value), height=60)
+
+    @st.fragment(run_every=3)
+    def follow_the_call() -> None:
+        """What is said by voice is saved by the voice endpoint; when it grows the page redraws to show it."""
+        count = len(store.messages(candidate_id))
+        if st.session_state.get("voice_seen") != count:
+            st.session_state["voice_seen"] = count
+            st.rerun()
+
+    follow_the_call()
 
 chat_side, inspector_side = st.columns([3, 2], gap="medium")
 

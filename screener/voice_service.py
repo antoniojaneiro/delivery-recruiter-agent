@@ -61,7 +61,7 @@ def last_said(body: dict) -> tuple[str, int]:
 
 def _chunk(content: str | None, finish: str | None, completion_id: str) -> str:
     delta = {} if content is None else {"role": "assistant", "content": content}
-    event = {"id": completion_id, "object": "chat.completion.chunk", "created": int(time.time()), "model": "sazon-engine",
+    event = {"id": completion_id, "object": "chat.completion.chunk", "created": int(time.time()), "model": "screening-engine",
              "choices": [{"index": 0, "delta": delta, "finish_reason": finish}]}
     return f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
 
@@ -128,7 +128,7 @@ def create_voice_app(client: Client, store, llm: LLM, *, secret: str, clock=date
         completion_id = "chatcmpl-" + hashlib.sha256(f"{time.time()}{reply}".encode()).hexdigest()[:16]
         if body.get("stream", True) is False:
             return JSONResponse({"id": completion_id, "object": "chat.completion", "created": int(time.time()),
-                                 "model": "sazon-engine",
+                                 "model": "screening-engine",
                                  "choices": [{"index": 0, "message": {"role": "assistant", "content": reply},
                                               "finish_reason": "stop"}]})
 

@@ -20,13 +20,13 @@ def test_the_agent_speaks_the_exact_disclosure_first_and_cannot_be_interrupted_w
     made = agent_config(CLIENT, URL, "secret_1")
     agent = made["conversation_config"]["agent"]
     assert agent["first_message"] == consent_message(CLIENT.spec) and agent["disable_first_message_interruptions"] is True
-    assert made["name"].startswith("Sofía")
+    assert made["name"] == f"{CLIENT.spec.pack.company} voice agent"
 
 
 def test_its_brain_is_our_endpoint_with_a_secret_and_the_session_comes_as_a_dynamic_variable():
     prompt = agent_config(CLIENT, URL, "secret_1")["conversation_config"]["agent"]["prompt"]
     assert prompt["llm"] == "custom-llm" and prompt["prompt"] == "voice_session={{voice_session}}"
-    assert prompt["custom_llm"] == {"url": URL + "/v1/chat/completions", "model_id": "sazon-engine",
+    assert prompt["custom_llm"] == {"url": URL + "/v1/chat/completions", "model_id": "screening-engine",
                                     "api_key": {"secret_id": "secret_1"}, "api_type": "chat_completions"}
     placeholders = agent_config(CLIENT, URL, "secret_1")["conversation_config"]["agent"]["dynamic_variables"]
     assert "voice_session" in placeholders["dynamic_variable_placeholders"]
@@ -73,7 +73,7 @@ def test_provisioning_makes_a_secret_and_an_agent_once_and_later_only_moves_the_
     assert first.agent_id == "agent_55" and first.secret == "the-shared-secret"
     assert [(m, p) for m, p, *_ in fake.calls] == [("POST", "/v1/convai/secrets"), ("POST", "/v1/convai/agents/create")]
     assert all(call[3] == "key-123" for call in fake.calls)  # the key goes in the header, never in the address
-    assert fake.calls[0][4] == {"type": "new", "name": "sazon-voice", "value": "the-shared-secret"}
+    assert fake.calls[0][4] == {"type": "new", "name": "screening-voice", "value": "the-shared-secret"}
     fake.calls.clear()
     again = provision(fake.api, CLIENT, "https://new-example.trycloudflare.com", state, make_secret=lambda: "other")
     assert again.agent_id == "agent_55" and again.secret == "the-shared-secret"  # the same agent and the same secret

@@ -23,6 +23,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 DB_PATH = PROJECT_ROOT / "data" / "sazon.db"
 
 LOG_PATH = PROJECT_ROOT / "data" / "sazon.log"
+VOICE_STATE_PATH = PROJECT_ROOT / "data" / "voice.json"  # the ElevenLabs agent and its shared secret (git-ignored, no API key)
 DEMO_DIR = PROJECT_ROOT / "data" / "demo"  # what the demos write: the transcripts and the sample CVs
 
 
@@ -43,6 +44,16 @@ def manager_country() -> str:
     one of Grupo Sazón's countries."""
     value = os.environ.get("HIRING_MANAGER_COUNTRY", "").strip().upper()
     return value if value in COUNTRY_OF.values() else "ES"
+
+
+def elevenlabs_key() -> str:
+    """The ElevenLabs key for live voice (D93), from .env; empty when it is not set."""
+    return os.environ.get("ELEVENLABS_API_KEY", "").strip()
+
+
+def voice_port() -> int:
+    """Where the voice endpoint listens (only this is opened to ElevenLabs)."""
+    return int(os.environ.get("SAZON_VOICE_PORT", "8010"))
 
 
 def chat_url() -> str:

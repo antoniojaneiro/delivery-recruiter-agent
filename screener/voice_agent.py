@@ -70,7 +70,7 @@ def agent_config(client: Client, public_url: str, secret_id: str, voice_id: str 
     if voice_id:
         tts["voice_id"] = voice_id
     return {
-        "name": f"Sofía ({client.spec.pack.company})",
+        "name": f"{client.spec.pack.company} voice agent",
         "conversation_config": {
             "agent": {
                 "first_message": consent_message(client.spec),  # the disclosure and the consent question, word for word
@@ -80,7 +80,7 @@ def agent_config(client: Client, public_url: str, secret_id: str, voice_id: str 
                 "prompt": {
                     "prompt": "voice_session={{voice_session}}",  # our endpoint reads the session from here (or from extra body)
                     "llm": "custom-llm",
-                    "custom_llm": {"url": public_url.rstrip("/") + "/v1/chat/completions", "model_id": "sazon-engine",
+                    "custom_llm": {"url": public_url.rstrip("/") + "/v1/chat/completions", "model_id": "screening-engine",
                                    "api_key": {"secret_id": secret_id}, "api_type": "chat_completions"},
                 },
             },
@@ -95,7 +95,8 @@ def agent_config(client: Client, public_url: str, secret_id: str, voice_id: str 
     }
 
 
-def _load(path: Path) -> VoiceState | None:
+def load_state(path: Path) -> VoiceState | None:
+    """The agent and the secret saved by `provision`, or None when the voice agent has not been set up."""
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
         return VoiceState(data["agent_id"], data["secret_id"], data["secret"])
@@ -107,10 +108,10 @@ def provision(api: ElevenLabs, client: Client, public_url: str, state_path: Path
               make_secret=lambda: secrets.token_urlsafe(32)) -> VoiceState:
     """Makes the secret and the agent the first time; afterwards only moves the agent to the new public address (a quick
     tunnel has a new one every time). What is kept (the agent, the secret) is in `state_path`, which is git-ignored."""
-    state = _load(state_path)
+    state = load_state(state_path)
     if state is None:
         secret = make_secret()
-        secret_id = api.create_secret("sazon-voice", secret)
+        secret_id = api.create_secret("screening-voice", secret)
         agent_id = api.create_agent(agent_config(client, public_url, secret_id, voice_id))
         state = VoiceState(agent_id, secret_id, secret)
         state_path.parent.mkdir(parents=True, exist_ok=True)

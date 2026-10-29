@@ -58,8 +58,8 @@ Everything [TASK.md](TASK.md) asks for, whether we do it, and how, in plain word
 
 | Requirement | Done? | How |
 | --- | --- | --- |
-| Browser voice agent (e.g. ElevenLabs) | No | Not built yet. It comes after the service, and it would reuse the same flow. |
-| Same flow by voice | No | Same as above. |
+| Browser voice agent (e.g. ElevenLabs) | Partially | Built with ElevenLabs: a "Talk to Sofía" button in the chat starts a live call; ElevenLabs listens and speaks and our engine is the brain, so Sofía says the same fixed texts. Tested with fakes. Not yet tried live: it needs your ElevenLabs key (`python -m sazon.voice_launch`). |
+| Same flow by voice | Partially | The same screening, rules and consent, spoken. A call time is chosen by saying a day and then a time (no list or button); a day or time that is taken gets the closest one offered. No CV by voice. |
 | Other bonus features | Yes | Optional CV upload (PDF), funnel analytics, a 24-hour reminder job, a funnel from application to hire with each candidate's path, a call calendar where recruiters book calls for candidates, a browser chat to try the agent, and an HTTP service with a load test. |
 
 ## Deliverables

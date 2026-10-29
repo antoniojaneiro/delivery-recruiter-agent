@@ -44,7 +44,7 @@ def call(http, session, said, *, history=(), stream=True, secret=SECRET, where="
     """What ElevenLabs sends: the system prompt, every message so far, and the new thing the candidate said."""
     system = {"role": "system", "content": "You are Sofía. " + (f"voice_session={session}" if where == "prompt" else "")}
     messages = [system, {"role": "assistant", "content": "Hola, soy Sofía"}, *history, {"role": "user", "content": said}]
-    body = {"model": "sazon-engine", "messages": messages, "stream": stream, "temperature": 0.5}
+    body = {"model": "screening-engine", "messages": messages, "stream": stream, "temperature": 0.5}
     if where == "extra":
         body["elevenlabs_extra_body"] = {"voice_session": session}
     return http.post("/v1/chat/completions", json=body, headers={"Authorization": f"Bearer {secret}"})
