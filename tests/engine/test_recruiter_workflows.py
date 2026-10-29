@@ -5,7 +5,7 @@ from datetime import date, datetime
 
 import pytest
 
-from sazon import config
+from sazon.areas import AREAS
 from sazon.client import SAZON_CALENDAR
 from screener import recruiter_calls
 from screener.store import InputError, Store
@@ -13,7 +13,7 @@ from screener.model import RecruiterStatus as S
 from tests.support.booking import NOW, NOW_AWARE, hire, qualify
 from tests.support.clients import client_for
 
-CLIENT = client_for(config.AREAS)
+CLIENT = client_for(AREAS)
 MONDAY = date(2026, 10, 26)
 BOSS = "boss@sazon.test"
 ANA = "ana@sazon.test"

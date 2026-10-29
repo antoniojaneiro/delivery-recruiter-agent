@@ -6,15 +6,15 @@ from datetime import datetime, timedelta
 
 import pytest
 
+from sazon.areas import AREAS
 from sazon.pack import SLOTS
 from screener import recruiter_calls, reminders, turn
 from screener.phrasing import slot_label
 from screener.store import InputError, Store
 from tests.support.booking import ES_SLOTS, MX_SLOT, NOW, NOW_AWARE, add_slots, qualify, say
 from tests.support.clients import client_for
-from sazon import config
 
-CLIENT = client_for(config.AREAS)
+CLIENT = client_for(AREAS)
 
 
 @pytest.fixture

@@ -3,10 +3,10 @@ from datetime import datetime, timezone
 
 import pytest
 
+from sazon.areas import AREAS
 from tests.support.tables import table
 
 from sazon.client import SAZON_CALENDAR
-from sazon import config
 from screener.call_times import CallTimes
 from screener.store import Store
 
@@ -30,7 +30,7 @@ def starts(slots):
 
 def test_every_service_area_belongs_to_a_country_with_a_known_time_zone():
     from zoneinfo import ZoneInfo
-    for city in config.AREAS:
+    for city in AREAS:
         assert SAZON_CALENDAR.country_of[city] in SAZON_CALENDAR.timezones
     for zone in SAZON_CALENDAR.timezones.values():
         ZoneInfo(zone)

@@ -6,7 +6,7 @@ from datetime import datetime
 
 import pytest
 
-from sazon import config
+from sazon.areas import AREAS
 from sazon.client import SAZON_CALENDAR
 from screener import reminders, turn
 from screener.channel import BUTTON, TEXT, VOICE, effective
@@ -16,7 +16,7 @@ from tests.support.clients import client_for
 from tests.support.tables import table
 from tests.support.toy_spec import TOY_UK
 
-SAZON = client_for(config.AREAS)  # has spoken texts and button texts
+SAZON = client_for(AREAS)  # has spoken texts and button texts
 
 
 def test_each_channel_says_how_it_offers_times_who_words_the_reply_and_whether_a_file_can_be_sent():

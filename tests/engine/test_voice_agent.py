@@ -7,12 +7,12 @@ import json
 import httpx
 import pytest
 
-from sazon import config
+from sazon.areas import AREAS
 from screener.phrasing import consent_message
 from screener.voice_agent import ElevenLabs, VoiceSetupError, agent_config, provision
 from tests.support.clients import client_for
 
-CLIENT = client_for(config.AREAS)
+CLIENT = client_for(AREAS)
 URL = "https://quiet-example.trycloudflare.com"
 
 

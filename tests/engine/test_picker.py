@@ -5,14 +5,14 @@ from datetime import date, datetime
 
 import pytest
 
-from sazon import config
+from sazon.areas import AREAS
 from sazon.client import SAZON_CALENDAR
 from screener import reminders, slot_offers, turn
 from screener.store import Store
 from tests.support.booking import NOW, NOW_AWARE, qualify, say
 from tests.support.clients import client_for
 
-CLIENT = client_for(config.AREAS)
+CLIENT = client_for(AREAS)
 
 
 @pytest.fixture

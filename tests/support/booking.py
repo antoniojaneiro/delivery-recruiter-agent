@@ -1,13 +1,13 @@
 """Helpers for the tests that take a candidate through the screening to a call offer (D48)."""
 from datetime import datetime
 
-from sazon import config
+from sazon.areas import AREAS
 from screener import turn
 from screener.channel import BUTTON, TEXT, VOICE
 from tests.support.clients import client_for
 from tests.support.fakes import ScriptedLLM
 
-AREAS = config.AREAS
+AREAS = AREAS
 NOW = datetime(2026, 10, 25, 10, 0)
 NOW_AWARE = NOW.astimezone()  # the same instant, for the store-level calls
 

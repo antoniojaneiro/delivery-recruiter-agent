@@ -5,14 +5,14 @@ from datetime import datetime
 
 import pytest
 
-from sazon import config
+from sazon.areas import AREAS
 from sazon.client import SAZON_CALENDAR
 from screener import turn
 from screener.store import Store
 from tests.support.booking import NOW, hire, qualify, say
 from tests.support.clients import client_for
 
-CLIENT = client_for(config.AREAS)  # NOW is Sunday 25 Oct 2026: the first day a candidate can book is Monday the 26th
+CLIENT = client_for(AREAS)  # NOW is Sunday 25 Oct 2026: the first day a candidate can book is Monday the 26th
 
 
 @pytest.fixture

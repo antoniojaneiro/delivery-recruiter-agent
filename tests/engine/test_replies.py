@@ -3,11 +3,11 @@ from datetime import date, datetime
 
 import pytest
 
+from sazon.areas import AREAS
 from tests.support.tables import table
 
 from sazon.client import SAZON_CLIENT
 from screener import turn
-from sazon import config
 from screener.consent import read_consent
 from sazon.spec import SAZON, Extraction
 from sazon.fields import Field
@@ -45,7 +45,7 @@ def test_a_greeting_alone_or_with_something_else_is_unclear(text):
 
 @table("filler", ["mmm", "no sé", "jaja", "ok", "pues", "eh", "bueno", "ni idea", "hmm", "idk", "lol"])
 def test_hesitation_flagged_as_off_topic_by_the_model_does_not_count_as_off_topic(filler):
-    s = Screening(config.AREAS, SAZON)
+    s = Screening(AREAS, SAZON)
     s.record_consent(True)
     for _ in range(4):
         s.apply(Extraction(off_topic=True), filler, TODAY)
@@ -55,7 +55,7 @@ def test_hesitation_flagged_as_off_topic_by_the_model_does_not_count_as_off_topi
 
 
 def test_real_off_topic_messages_still_count_and_still_end_the_chat():
-    s = Screening(config.AREAS, SAZON)
+    s = Screening(AREAS, SAZON)
     s.record_consent(True)
     s.apply(Extraction(off_topic=True), "¿cuál es la capital de Francia?", TODAY)
     s.apply(Extraction(off_topic=True), "cuéntame un chiste", TODAY)
@@ -64,7 +64,7 @@ def test_real_off_topic_messages_still_count_and_still_end_the_chat():
 
 
 def test_unclear_answers_now_reach_the_block_instead_of_ending_the_chat_early():
-    s = Screening(config.AREAS, SAZON)
+    s = Screening(AREAS, SAZON)
     s.record_consent(True)
     for filler in ["mmm", "no sé", "jaja", "ok", "pues", "eh", "bueno"]:
         s.apply(Extraction(off_topic=True), filler, TODAY)
@@ -111,7 +111,7 @@ def test_the_phrasing_prompt_forbids_greeting_again():
 # --- asking for a person or about pay gets an answer ---------------------------------------------
 
 def test_asking_for_a_person_is_acknowledged_before_the_next_question():
-    s = Screening(config.AREAS, SAZON)
+    s = Screening(AREAS, SAZON)
     s.record_consent(True)
     directive = s.apply(Extraction(wants_human=True), "¿puedo hablar con una persona?", TODAY)
     out = phrase(FakeLLM("¿Cómo te llamas?"), SAZON, directive, "es")
@@ -119,7 +119,7 @@ def test_asking_for_a_person_is_acknowledged_before_the_next_question():
 
 
 def test_asking_about_pay_says_a_recruiter_will_answer():
-    s = Screening(config.AREAS, SAZON)
+    s = Screening(AREAS, SAZON)
     s.record_consent(True)
     directive = s.apply(Extraction(asks_pay=True), "¿cuánto pagan?", TODAY)
     out = phrase(FakeLLM("¿Cómo te llamas?"), SAZON, directive, "es")
@@ -128,7 +128,7 @@ def test_asking_about_pay_says_a_recruiter_will_answer():
 
 
 def test_both_questions_in_one_message_get_both_answers_once():
-    s = Screening(config.AREAS, SAZON)
+    s = Screening(AREAS, SAZON)
     s.record_consent(True)
     directive = s.apply(Extraction(wants_human=True, asks_pay=True), "¿hablo con alguien y cuánto pagan?", TODAY)
     out = phrase(FakeLLM("¿Cómo te llamas?"), SAZON, directive, "es")
@@ -136,7 +136,7 @@ def test_both_questions_in_one_message_get_both_answers_once():
 
 
 def test_the_english_notices():
-    s = Screening(config.AREAS, SAZON)
+    s = Screening(AREAS, SAZON)
     s.record_consent(True)
     s.language = "en"
     directive = s.apply(Extraction(wants_human=True, asks_pay=True), "can I talk to someone? what is the pay?", TODAY)
@@ -145,7 +145,7 @@ def test_the_english_notices():
 
 
 def test_a_notice_is_not_repeated_on_the_next_turn():
-    s = Screening(config.AREAS, SAZON)
+    s = Screening(AREAS, SAZON)
     s.record_consent(True)
     s.apply(Extraction(asks_pay=True), "¿cuánto pagan?", TODAY)
     again = s.apply(Extraction(name="Juan"), "Juan", TODAY)

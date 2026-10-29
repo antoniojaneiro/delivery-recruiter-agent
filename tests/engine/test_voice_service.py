@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 import pytest
 from fastapi.testclient import TestClient
 
-from sazon import config
+from sazon.areas import AREAS
 from sazon.client import SAZON_CALENDAR
 from screener import turn
 from screener.store import Store
@@ -17,7 +17,7 @@ from tests.support.booking import NOW, hire
 from tests.support.clients import client_for
 from tests.support.fakes import ScriptedLLM
 
-CLIENT = client_for(config.AREAS)
+CLIENT = client_for(AREAS)
 SECRET = "voice-secret-for-the-tests"
 FIRST = turn.start  # the opening disclosure is spoken by the agent itself, so it is the first assistant message
 
