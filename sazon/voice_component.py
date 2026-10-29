@@ -35,16 +35,20 @@ import {{ Conversation }} from {_json(SDK)};
 const words = {_json(words)};
 const status = document.getElementById("status");
 const session = {_json(session)};
+// What ElevenLabs says when a call ends or fails, shown so a refusal is not mistaken for a hang-up.
+const reason = (info) => {{
+  const text = typeof info === "string" ? info : (info && (info.reason || info.message)) || "";
+  return text ? " (" + String(text).slice(0, 200) + ")" : "";
+}};
 try {{
   await navigator.mediaDevices.getUserMedia({{ audio: true }});
   await Conversation.startSession({{
     signedUrl: {_json(signed_url)},
     dynamicVariables: {{ voice_session: session, opening: {_json(opening)} }},
     {overrides}
-    customLlmExtraBody: {{ voice_session: session }},
     onModeChange: (change) => {{ status.textContent = change.mode === "speaking" ? words.speaking : words.listening; }},
-    onDisconnect: () => {{ status.textContent = words.ended; }},
-    onError: () => {{ status.textContent = words.error; }},
+    onDisconnect: (details) => {{ status.textContent = words.ended + reason(details); }},
+    onError: (message) => {{ status.textContent = words.error + reason(message); }},
   }});
   status.textContent = words.listening;
 }} catch (error) {{
