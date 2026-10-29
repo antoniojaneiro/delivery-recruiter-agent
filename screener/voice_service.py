@@ -70,8 +70,21 @@ def request_shape(body: dict) -> dict:
             "roles": roles, "user_turns": roles.count("user"), "session_from": where}
 
 
-def _chunk(content: str | None, finish: str | None, completion_id: str) -> str:
-    delta = {} if content is None else {"role": "assistant", "content": content}
+# The call is ended by answering with this tool call, which ElevenLabs offers an agent that has the end_call system tool.
+END_CALL = {"id": "call_end", "type": "function",
+            "function": {"name": "end_call", "arguments": json.dumps({"reason": "The conversation is finished."})}}
+
+
+def offers_end_call(body: dict) -> bool:
+    """The request lists the end_call tool: only then is the call ended (never a tool the agent does not have)."""
+    tools = body.get("tools") if isinstance(body, dict) else None
+    return isinstance(tools, list) and any(
+        isinstance(tool, dict) and isinstance(tool.get("function"), dict) and tool["function"].get("name") == "end_call"
+        for tool in tools)
+
+
+def _chunk(content: str | None, finish: str | None, completion_id: str, tool_calls: list | None = None) -> str:
+    delta = {"tool_calls": tool_calls} if tool_calls else ({} if content is None else {"role": "assistant", "content": content})
     event = {"id": completion_id, "object": "chat.completion.chunk", "created": int(time.time()), "model": "screening-engine",
              "choices": [{"index": 0, "delta": delta, "finish_reason": finish}]}
     return f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
@@ -92,24 +105,25 @@ def create_voice_app(client: Client, store, llm: LLM, *, secret: str, clock=date
         language = (record.state or {}).get("language") if record else None
         return turn.technical_error_message(client.spec, language or default_language)
 
-    def reply_to(body: dict) -> str:
+    def reply_to(body: dict) -> tuple[str, bool]:
+        """What to say, and whether the conversation is over once it is said (then the call is ended)."""
         session = session_of(body)
         said, index = last_said(body)
         candidate_id = store.voice_session_candidate(session, clock()) if session else None
         if candidate_id is None:
-            return apology(None)  # nobody we know: say sorry, run nothing
+            return apology(None), False  # nobody we know: say sorry, run nothing
         if not said:
-            return ""
+            return "", False
         message_id = f"voice:{hashlib.sha256(session.encode()).hexdigest()[:16]}:{index}"
         deadline = time.monotonic() + BUSY_WAIT_SECONDS
         while True:
             claim = store.claim_message(candidate_id, message_id, clock())
             if claim.state == "done":
-                return claim.reply
+                return claim.reply, turn.conversation_is_over(store, client, candidate_id)
             if claim.state == "new":
                 break
             if time.monotonic() > deadline:
-                return apology(candidate_id)
+                return apology(candidate_id), False
             time.sleep(0.05)
         try:
             reply = turn.handle_message(llm, store, client, candidate_id, said, clock(), voice=True)
@@ -120,12 +134,12 @@ def create_voice_app(client: Client, store, llm: LLM, *, secret: str, clock=date
                 pass
             if not isinstance(error, sqlite3.OperationalError):
                 write_error(error, clock(), log_path)
-            return apology(candidate_id)
+            return apology(candidate_id), False
         try:
             store.finish_message(candidate_id, message_id, reply)
         except sqlite3.OperationalError:
             pass  # the turn is saved; a repeat of this call waits for the claim to go stale rather than run it again
-        return reply
+        return reply, turn.conversation_is_over(store, client, candidate_id)
 
     @app.get("/health")
     def health():
@@ -142,18 +156,24 @@ def create_voice_app(client: Client, store, llm: LLM, *, secret: str, clock=date
                 handle.write(json.dumps({**request_shape(body), "path": request.url.path}) + "\n")
         completion_id = "chatcmpl-" + hashlib.sha256(f"{time.time()}".encode()).hexdigest()[:16]
         if body.get("stream", True) is False:
-            reply = reply_to(body)
+            reply, over = reply_to(body)
+            ends = over and offers_end_call(body)
+            message = {"role": "assistant", "content": reply, **({"tool_calls": [END_CALL]} if ends else {})}
             return JSONResponse({"id": completion_id, "object": "chat.completion", "created": int(time.time()),
                                  "model": "screening-engine",
-                                 "choices": [{"index": 0, "message": {"role": "assistant", "content": reply},
-                                              "finish_reason": "stop"}]})
+                                 "choices": [{"index": 0, "message": message,
+                                              "finish_reason": "tool_calls" if ends else "stop"}]})
 
         def events():
             yield _chunk("", None, completion_id)  # the answer starts at once; the turn runs while this chunk is on its way
-            reply = reply_to(body)
+            reply, over = reply_to(body)
             if reply:
                 yield _chunk(reply, None, completion_id)
-            yield _chunk(None, "stop", completion_id)
+            if over and offers_end_call(body):  # the farewell is said first, then the call is ended
+                yield _chunk(None, None, completion_id, tool_calls=[{**END_CALL, "index": 0}])
+                yield _chunk(None, "tool_calls", completion_id)
+            else:
+                yield _chunk(None, "stop", completion_id)
             yield "data: [DONE]\n\n"
 
         return StreamingResponse(events(), media_type="text/event-stream")

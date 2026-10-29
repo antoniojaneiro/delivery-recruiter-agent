@@ -86,6 +86,8 @@ def agent_config(client: Client, public_url: str, secret_id: str, voice_id: str 
                 "prompt": {
                     "prompt": "voice_session={{voice_session}}",  # our endpoint reads the session from here (or from extra body)
                     "llm": "custom-llm",
+                    "built_in_tools": {"end_call": {"type": "system", "name": "end_call", "description": "",
+                                                    "params": {"system_tool_type": "end_call"}}},  # our endpoint ends the call with it
                     "custom_llm": {"url": public_url.rstrip("/") + "/v1/chat/completions", "model_id": "screening-engine",
                                    "api_key": {"secret_id": secret_id}, "api_type": "chat_completions"},
                 },

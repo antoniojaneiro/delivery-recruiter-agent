@@ -56,6 +56,19 @@ def handle_message(llm: LLM, store, client: Client, candidate_id: str, message: 
         return technical_error_message(client.spec, session.load(store, candidate_id, client).language)
 
 
+def conversation_is_over(store, client: Client, candidate_id: str) -> bool:
+    """There is nothing more to say (D93): the call is booked or a qualified candidate took none of the times, or the agent
+    ended it (turned down, withdrawn, off-topic, consent declined). Read from what is saved, so a repeated call gets the same
+    answer. A spoken call ends when this is true."""
+    if store.get(candidate_id) is None:
+        return False
+    screening = session.load(store, candidate_id, client)
+    outcome = screening.decide().outcome
+    if outcome == Outcome.QUALIFIED:
+        return store.booking_of(candidate_id) is not None or screening.slots_resolved
+    return outcome in (Outcome.DISQUALIFIED, Outcome.ENDED_OFF_TOPIC, Outcome.WITHDRAWN)
+
+
 def voice_opening(store, client: Client, candidate_id: str, now: datetime) -> tuple[str, str | None]:
     """The first words of a call, and the language to speak them in (None when it is not known yet) (D93). It is what the engine
     would say now on the voice channel: the disclosure for someone who has not answered the consent question (already shown in

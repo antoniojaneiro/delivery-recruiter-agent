@@ -40,13 +40,15 @@ def started(store, cid="c1"):
     return store.new_voice_session(cid, NOW)
 
 
-def call(http, session, said, *, history=(), stream=True, secret=SECRET, where="extra"):
+def call(http, session, said, *, history=(), stream=True, secret=SECRET, where="extra", tools=None):
     """What ElevenLabs sends: the system prompt, every message so far, and the new thing the candidate said."""
     system = {"role": "system", "content": "You are Sofía. " + (f"voice_session={session}" if where == "prompt" else "")}
     messages = [system, {"role": "assistant", "content": "Hola, soy Sofía"}, *history, {"role": "user", "content": said}]
     body = {"model": "screening-engine", "messages": messages, "stream": stream, "temperature": 0.5}
     if where == "extra":
         body["elevenlabs_extra_body"] = {"voice_session": session}
+    if tools is not None:
+        body["tools"] = tools
     return http.post("/v1/chat/completions", json=body, headers={"Authorization": f"Bearer {secret}"})
 
 
@@ -209,3 +211,63 @@ def test_other_paths_are_not_found_and_the_path_asked_is_in_the_shape_log_never_
     assert http.post("/v1/other", json={}, headers={"Authorization": f"Bearer {SECRET}"}).status_code == 404
     call(http, session, "mi nombre es Juan")
     assert json.loads(log.read_text(encoding="utf-8").splitlines()[0])["path"] == "/v1/chat/completions"
+
+
+END_CALL = [{"type": "function", "function": {"name": "end_call", "description": "ends the call", "parameters": {"type": "object"}}}]
+
+
+def events(response):
+    return [json.loads(line[6:]) for line in response.text.splitlines() if line.startswith("data: {")]
+
+
+def rejected_by_voice(store, tools):
+    """A candidate who says they have no licence and confirms: the agent turns them down, so the call is over."""
+    http, _ = make(store, ScriptedLLM([{"has_license": False}, {"confirms_rejection": True}]))
+    turn.start(store, CLIENT, "c1", NOW)
+    from tests.support.booking import say
+    say(store, "sí", {"consent": True}, voice=True)
+    session = store.new_voice_session("c1", NOW)
+    first = call(http, session, "no tengo licencia", tools=tools)
+    history = [{"role": "user", "content": "no tengo licencia"}, {"role": "assistant", "content": spoken(first)}]
+    return http, session, history
+
+
+def test_when_the_conversation_is_over_the_farewell_is_spoken_and_the_call_is_ended_with_the_end_call_tool(store):
+    http, session, history = rejected_by_voice(store, END_CALL)
+    last = call(http, session, "correcto", history=history, tools=END_CALL)
+    parts = events(last)
+    said = "".join(e["choices"][0]["delta"].get("content", "") for e in parts)
+    ending = [c for e in parts for c in e["choices"][0]["delta"].get("tool_calls", [])]
+    assert said and [c["function"]["name"] for c in ending] == ["end_call"]
+    assert json.loads(ending[0]["function"]["arguments"])["reason"]  # the tool needs a reason
+    assert parts[-1]["choices"][0]["finish_reason"] == "tool_calls" and spoken(last) == said  # the words come first, then the end
+
+
+def test_a_turn_that_is_not_the_last_never_ends_the_call(store):
+    http, session, _ = rejected_by_voice(store, END_CALL)
+    assert not [c for e in events(call(http, started(store, "c2"), "hola", tools=END_CALL))
+                for c in e["choices"][0]["delta"].get("tool_calls", [])]
+    assert store.get("c1").outcome == "IN_PROGRESS"  # the first turn only asked for the confirmation
+
+
+def test_without_the_end_call_tool_in_the_request_the_call_is_left_open(store):
+    http, session, history = rejected_by_voice(store, None)
+    for tools in (None, [], [{"type": "function", "function": {"name": "something_else"}}]):
+        last = call(http, session, "correcto", history=history, tools=tools)
+        assert not [c for e in events(last) for c in e["choices"][0]["delta"].get("tool_calls", [])]
+        assert events(last)[-1]["choices"][0]["finish_reason"] == "stop"
+
+
+def test_a_repeated_final_call_ends_the_call_again(store):
+    http, session, history = rejected_by_voice(store, END_CALL)
+    first = call(http, session, "correcto", history=history, tools=END_CALL)
+    again = call(http, session, "correcto", history=history, tools=END_CALL)
+    names = lambda r: [c["function"]["name"] for e in events(r) for c in e["choices"][0]["delta"].get("tool_calls", [])]
+    assert names(first) == names(again) == ["end_call"] and spoken(first) == spoken(again)
+
+
+def test_a_reply_that_is_not_streamed_carries_the_end_call_too(store):
+    http, session, history = rejected_by_voice(store, END_CALL)
+    body = call(http, session, "correcto", history=history, stream=False, tools=END_CALL).json()["choices"][0]
+    assert body["finish_reason"] == "tool_calls" and body["message"]["tool_calls"][0]["function"]["name"] == "end_call"
+    assert body["message"]["content"]

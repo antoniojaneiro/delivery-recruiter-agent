@@ -110,3 +110,9 @@ def test_a_refusal_is_reported_without_the_key_in_the_message(tmp_path):
     with pytest.raises(VoiceSetupError) as error:
         provision(fake.api, CLIENT, URL, tmp_path / "voice.json", make_secret=lambda: "s")
     assert "401" in str(error.value) and "key-123" not in str(error.value)
+
+
+def test_the_agent_has_the_end_call_tool_so_our_endpoint_can_finish_a_call():
+    tools = agent_config(CLIENT, URL, "secret_1")["conversation_config"]["agent"]["prompt"]["built_in_tools"]
+    assert tools == {"end_call": {"type": "system", "name": "end_call", "description": "",
+                                  "params": {"system_tool_type": "end_call"}}}
