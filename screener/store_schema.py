@@ -78,6 +78,11 @@ CREATE TABLE IF NOT EXISTS tokens (
     candidate_id TEXT PRIMARY KEY,
     token_hash TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS voice_sessions (
+    session_hash TEXT PRIMARY KEY,
+    candidate_id TEXT NOT NULL,
+    expires_at TEXT NOT NULL
+);
 CREATE TABLE IF NOT EXISTS replies (
     candidate_id TEXT NOT NULL,
     message_id TEXT NOT NULL,

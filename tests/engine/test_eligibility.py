@@ -6,9 +6,9 @@ from datetime import datetime
 import pytest
 from fastapi.testclient import TestClient
 
-from sazon import config
+from sazon.areas import AREAS
 from sazon.client import SAZON_CALENDAR
-from screener import reminders, slot_flow, turn
+from screener import recruiter_calls, reminders, slot_offers, turn
 from screener.model import RecruiterStatus as S
 from screener.service import create_app
 from screener.store import InputError, Store
@@ -16,7 +16,7 @@ from tests.support.booking import NOW, NOW_AWARE, add_slots, qualify, say
 from tests.support.clients import client_for
 from tests.support.fakes import ScriptedLLM
 
-CLIENT = client_for(config.AREAS)
+CLIENT = client_for(AREAS)
 CLOSED = (S.HIRED, S.REJECTED, S.UNREACHABLE)
 
 
@@ -49,37 +49,37 @@ def test_a_recruiter_who_qualifies_someone_the_agent_turned_down_can_organise_th
     turn.start(store, CLIENT, "c9", NOW)
     store.commit_turn("c9", NOW, {}, {"name": "Ana Gil", "city": "Madrid"}, "DISQUALIFIED", [], [], reasons=["NO_LICENSE"])
     with pytest.raises(InputError):
-        slot_flow.schedule_by_recruiter(store, CLIENT, "c9", slots[0], "Ana", NOW_AWARE)
+        recruiter_calls.schedule_by_recruiter(store, CLIENT, "c9", slots[0], "Ana", NOW_AWARE)
     store.set_stage("c9", S.QUALIFIED, "Ana", NOW)
-    assert slot_flow.schedule_by_recruiter(store, CLIENT, "c9", slots[0], "Ana", NOW_AWARE).booking.slot_id == slots[0]
+    assert recruiter_calls.schedule_by_recruiter(store, CLIENT, "c9", slots[0], "Ana", NOW_AWARE).booking.slot_id == slots[0]
     assert store.get("c9").stage is S.INTERVIEW_SCHEDULED
 
 
 def test_only_a_qualified_candidate_nobody_closed_and_with_no_call_may_choose_a_time(store, slots):
     qualify(store, "c1")
-    assert slot_flow.may_choose_time(store, CLIENT, "c1")
+    assert slot_offers.may_choose_time(store, CLIENT, "c1")
     for status in CLOSED:
         qualify(store, "c2")
         close(store, status, "c2")
-        assert not slot_flow.may_choose_time(store, CLIENT, "c2"), status
+        assert not slot_offers.may_choose_time(store, CLIENT, "c2"), status
         store.erase_candidate("c2", "Ana", NOW, "test")
     say(store, "1")
-    assert not slot_flow.may_choose_time(store, CLIENT, "c1")  # now holds a call
-    assert not slot_flow.may_choose_time(store, CLIENT, "nobody")
+    assert not slot_offers.may_choose_time(store, CLIENT, "c1")  # now holds a call
+    assert not slot_offers.may_choose_time(store, CLIENT, "nobody")
     turn.start(store, CLIENT, "c3", NOW)
-    assert not slot_flow.may_choose_time(store, CLIENT, "c3")  # still answering questions
+    assert not slot_offers.may_choose_time(store, CLIENT, "c3")  # still answering questions
 
 
 def test_a_recruiter_cannot_book_a_call_for_a_candidate_who_is_not_qualified_or_is_closed(store, slots):
     turn.start(store, CLIENT, "c0", NOW)  # in progress
     with pytest.raises(InputError) as refused:
-        slot_flow.schedule_by_recruiter(store, CLIENT, "c0", slots[0], "Ana", NOW_AWARE)
+        recruiter_calls.schedule_by_recruiter(store, CLIENT, "c0", slots[0], "Ana", NOW_AWARE)
     assert refused.value.code == "not_schedulable"
     for status in CLOSED:
         qualify(store, "c1")
         close(store, status)
         with pytest.raises(InputError) as refused:
-            slot_flow.schedule_by_recruiter(store, CLIENT, "c1", slots[0], "Ana", NOW_AWARE)
+            recruiter_calls.schedule_by_recruiter(store, CLIENT, "c1", slots[0], "Ana", NOW_AWARE)
         assert refused.value.code == "not_schedulable" and store.booking_of("c1") is None, status
         store.erase_candidate("c1", "Ana", NOW, "test")
 

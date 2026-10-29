@@ -3,6 +3,7 @@ from dataclasses import dataclass, replace
 from datetime import date
 
 from screener import validators
+from screener.channel import BUTTON, TEXT, Channel
 from screener.consent import ConsentReading, is_hesitation, is_resume_request, read_consent
 from screener.extraction import ControlFlags
 from screener.model import CONSENT, NO_CONSENT, AreaMatchStatus, EventType, Language, Outcome, Status
@@ -134,9 +135,27 @@ class Screening:
 
     @property
     def awaiting_slot_choice(self) -> bool:
-        return bool(self._slot_offer) and not self._slots_done and self.decide().outcome == Outcome.QUALIFIED
+        return bool(self._slot_offer or self._voice_booking) and not self._slots_done             and self.decide().outcome == Outcome.QUALIFIED
+
+    @property
+    def usual_channel(self) -> Channel:
+        """How this candidate is usually reached (saved when they started): what a reminder or a cancelled call is sent through."""
+        return BUTTON if self.buttons else TEXT
+
+    @property
+    def voice_booking(self) -> dict | None:
+        """The spoken booking under way (D93): its stage ("day", "confirm_day", "time", "confirm_time") and what it holds."""
+        return dict(self._voice_booking) if self._voice_booking else None
+
+    def set_voice_booking(self, **state) -> None:
+        self._voice_booking = {"unclear": 0, **state}
+        self._slot_offer = []  # a spoken booking replaces a written offer of times
+
+    def end_voice_booking(self) -> None:
+        self._voice_booking = None
 
     def offer_slots(self, slot_ids: list[int]) -> None:
+        self._voice_booking = None  # writing again ends a spoken booking
         self._slot_offer = list(slot_ids)
         self.events.append((EventType.SLOTS_OFFERED, ",".join(str(i) for i in slot_ids)))
 
@@ -149,12 +168,14 @@ class Screening:
         """A booked call was taken away: the candidate may be offered times again."""
         self._slots_done = False
         self._slot_offer = []
+        self._voice_booking = None
         self._unclear_picks = 0
         self.reminder_sent = False
 
     def resolve_slots(self) -> None:
         """The offer is over: booked, declined, or nothing to offer."""
         self._slot_offer = []
+        self._voice_booking = None
         self._slots_done = True
 
     def previous_answer(self, field: str | None) -> str | None:
@@ -201,6 +222,15 @@ class Screening:
     @property
     def cv_offered(self) -> bool:
         return self._cv == "offered"
+
+    def current_directive(self) -> Directive:
+        """What the agent would say now, with no new message from the candidate (the open question, a confirmation...)."""
+        return self._directive_now(None)
+
+    def withhold_cv_offer(self) -> None:
+        """The channel cannot take a file (voice): the offer is not made, and nothing is recorded about it."""
+        if self.cv_offered:
+            self._cv = None
 
     def skip_cv(self) -> None:
         """Whatever the candidate typed instead of uploading is the end of the offer."""

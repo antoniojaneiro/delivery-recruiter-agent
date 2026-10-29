@@ -1,28 +1,14 @@
 import os
 from pathlib import Path
 
-# Sample service areas (D13). Replace with the client's real list before any pilot.
-# Nearby towns and districts are samples too: they let "Zapopan" or "Chamberí" count as their service area.
-AREAS_BY_COUNTRY = {
-    "ES": {
-        "Madrid": ["Chamberí", "Getafe", "Alcalá de Henares", "Leganés", "Alcorcón"],
-        "Barcelona": ["L'Hospitalet de Llobregat", "Hospitalet", "Badalona"],
-        "Valencia": ["Paterna", "Torrent"],
-    },
-    "MX": {
-        "Ciudad de México": ["CDMX", "DF", "Mexico City", "Coyoacán", "Iztapalapa", "Tlalpan"],
-        "Guadalajara": ["Zapopan", "Tlaquepaque", "Tonalá"],
-        "Monterrey": ["San Pedro Garza García", "San Nicolás de los Garza", "Apodaca"],
-    },
-}
-# The same list the engine and the calendar read: each area with its nearby towns, and each area's country.
-AREAS = {area: nearby for areas in AREAS_BY_COUNTRY.values() for area, nearby in areas.items()}
-COUNTRY_OF = {area: country for country, areas in AREAS_BY_COUNTRY.items() for area in areas}
+from sazon.areas import COUNTRY_OF
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 DB_PATH = PROJECT_ROOT / "data" / "sazon.db"
 
 LOG_PATH = PROJECT_ROOT / "data" / "sazon.log"
+VOICE_SHAPES_PATH = PROJECT_ROOT / "data" / "voice_requests.log"  # with VOICE_LOG_SHAPES=1: the shape of each call, never its words
+VOICE_STATE_PATH = PROJECT_ROOT / "data" / "voice.json"  # the ElevenLabs agent and its shared secret (git-ignored, no API key)
 DEMO_DIR = PROJECT_ROOT / "data" / "demo"  # what the demos write: the transcripts and the sample CVs
 
 
@@ -43,6 +29,16 @@ def manager_country() -> str:
     one of Grupo Sazón's countries."""
     value = os.environ.get("HIRING_MANAGER_COUNTRY", "").strip().upper()
     return value if value in COUNTRY_OF.values() else "ES"
+
+
+def elevenlabs_key() -> str:
+    """The ElevenLabs key for live voice (D93), from .env; empty when it is not set."""
+    return os.environ.get("ELEVENLABS_API_KEY", "").strip()
+
+
+def voice_port() -> int:
+    """Where the voice endpoint listens (only this is opened to ElevenLabs)."""
+    return int(os.environ.get("SAZON_VOICE_PORT", "8010"))
 
 
 def chat_url() -> str:

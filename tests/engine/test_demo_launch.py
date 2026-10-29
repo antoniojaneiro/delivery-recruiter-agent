@@ -3,6 +3,7 @@ import importlib.util
 import sys
 
 from tests.support.paths import ROOT
+from tests.support.processes import FakeProcess
 
 
 def load():
@@ -10,29 +11,6 @@ def load():
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
-
-
-class FakeProcess:
-    def __init__(self, command, cwd=None, finishes_after=None):
-        self.command, self.cwd = command, cwd
-        self.finishes_after = finishes_after
-        self.polls, self.terminated, self.killed = 0, False, False
-        self.code = None
-
-    def poll(self):
-        self.polls += 1
-        if self.finishes_after is not None and self.polls > self.finishes_after:
-            self.code = 1
-        return self.code
-
-    def terminate(self):
-        self.terminated, self.code = True, 0
-
-    def wait(self, timeout=None):
-        return self.code
-
-    def kill(self):
-        self.killed, self.code = True, -9
 
 
 def test_it_starts_the_chat_and_the_dashboard_on_two_different_ports():

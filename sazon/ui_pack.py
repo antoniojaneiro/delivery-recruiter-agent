@@ -300,6 +300,18 @@ PACK = UiPack((ES, EN), {
         "Escribe como lo haría un candidato, en español o en inglés, y bórralas desde el panel cuando termines.",
         "Demo: conversations are saved in the recruiters' dashboard and recruiters can see them. Write as a "
         "candidate would, in Spanish or English, and erase them from the dashboard when you are done."),
+    "chat.voice_start": bi("Hablar con Sofía", "Talk to Sofía"),
+    "chat.voice_done": bi("Llamada ya realizada", "Call already made"),
+    "chat.voice_finished": bi("Conversación terminada", "Conversation finished"),
+    "chat.voice_end": bi("Terminar la llamada", "End call"),
+    "chat.voice_off_help": bi(
+        "La voz necesita tu clave de ElevenLabs (ELEVENLABS_API_KEY en .env) y el agente de voz: ejecuta python -m sazon.voice_launch.",
+        "Voice needs your ElevenLabs key (ELEVENLABS_API_KEY in .env) and the voice agent: run python -m sazon.voice_launch."),
+    "chat.voice_failed": bi("No se pudo iniciar la llamada de voz. Revisa que python -m sazon.voice_launch esté en marcha.",
+                            "The voice call could not start. Check that python -m sazon.voice_launch is running."),
+    "chat.voice_note": bi(
+        "Llamada de voz activa. El audio lo procesa ElevenLabs y no se guarda; lo que se dice se guarda como texto en la conversación.",
+        "Voice call on. ElevenLabs processes the audio and keeps none; what is said is saved as text in the conversation."),
     "filter.choose": bi("Elegir opciones", "Choose options"),
     "cand.updates": bi("Hay cambios nuevos: actualizar la lista", "There are new changes: refresh the list"),
     "link.dashboard": bi("Abrir el panel de reclutadores", "Open the recruiters' dashboard"),

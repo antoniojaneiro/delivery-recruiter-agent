@@ -27,7 +27,7 @@ import httpx
 import pytest
 import uvicorn
 
-from sazon import config
+from sazon.areas import AREAS
 from sazon.spec import SAZON
 from screener.llm import LLMError
 from screener.phrasing import technical_error_message
@@ -123,7 +123,7 @@ def run_day(tmp_path, spread, think, candidates=CANDIDATES, scale=DELAY_SCALE):
     """Candidates arrive over `spread` seconds and wait `think` seconds (a range) between messages; `scale` shrinks
     every wait, the model's included."""
     now = datetime.now()
-    client = client_for(config.AREAS)
+    client = client_for(AREAS)
     store = Store(tmp_path / "load.db", calendar=client.calendar)
     hire_recruiters(store, now, *((9, 4) if candidates >= 100 else (2, 1)))  # 13 recruiters on a big day
     model = SlowModel(scale)

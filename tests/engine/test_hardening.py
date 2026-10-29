@@ -5,11 +5,11 @@ from datetime import date, datetime
 
 import pytest
 
+from sazon.areas import AREAS
 from tests.support.tables import table
 
 from sazon.client import SAZON_CALENDAR, SAZON_CLIENT
 from screener import turn
-from sazon import config
 from screener.extraction import StartDate
 from sazon.spec import SAZON, Extraction
 from screener.llm import LLMError
@@ -85,13 +85,13 @@ def test_stray_dots_are_still_refused(name):
     ("San Pedro Garza García", "Monterrey"),
 ])
 def test_places_with_a_country_or_state_and_nearby_towns_map_to_the_service_area(text, city):
-    result = match_area(text, config.AREAS, SAZON.place_qualifiers)
+    result = match_area(text, AREAS, SAZON.place_qualifiers)
     assert result.status == "match" and result.city == city
 
 
 @table("text", ["Sevilla, España", "Bilbao", "Cancún, Quintana Roo", "Madrid, Texas"])
 def test_places_that_really_are_outside_are_still_outside(text):
-    assert match_area(text, config.AREAS, SAZON.place_qualifiers).status == "out_of_area"
+    assert match_area(text, AREAS, SAZON.place_qualifiers).status == "out_of_area"
 
 
 # --- model-phrased text must not promise anything -------------------------------------------------
@@ -116,7 +116,7 @@ def test_an_ordinary_question_with_a_number_in_it_is_kept():
 # --- consent evidence and failure traces ---------------------------------------------------------
 
 def test_the_consent_event_records_which_wording_was_accepted():
-    s = Screening(config.AREAS, SAZON)
+    s = Screening(AREAS, SAZON)
     s.record_consent(True)
     kind, detail = s.events[0]
     assert kind == "consent_given"
@@ -124,7 +124,7 @@ def test_the_consent_event_records_which_wording_was_accepted():
 
 
 def test_declining_also_records_the_wording_that_was_shown():
-    s = Screening(config.AREAS, SAZON)
+    s = Screening(AREAS, SAZON)
     s.record_consent(False)
     assert s.events[0][1].startswith("text_sha256=")
 
@@ -190,12 +190,12 @@ def test_the_database_uses_wal_and_has_indexes_for_the_dashboard_queries(tmp_pat
 
 def test_a_state_saved_by_an_older_version_still_loads_with_safe_defaults():
     old = {"consent": True, "values": {"name": "Juan Pérez"}}
-    s = Screening.from_state(config.AREAS, old, SAZON)
+    s = Screening.from_state(AREAS, old, SAZON)
     assert s.consent is True and s.values["name"] == "Juan Pérez"
     assert s.decide().outcome == "IN_PROGRESS" and s.next_field() == "experience"
-    assert Screening.from_state(config.AREAS, {}, SAZON).consent is None
+    assert Screening.from_state(AREAS, {}, SAZON).consent is None
 
 
 def test_a_state_with_unknown_extra_keys_from_a_newer_version_is_tolerated():
-    s = Screening.from_state(config.AREAS, {"consent": True, "values": {}, "something_new": [1, 2, 3]}, SAZON)
+    s = Screening.from_state(AREAS, {"consent": True, "values": {}, "something_new": [1, 2, 3]}, SAZON)
     assert s.consent is True

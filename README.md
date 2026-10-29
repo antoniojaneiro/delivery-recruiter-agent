@@ -19,6 +19,7 @@ copy .env.example .env                 # Windows (cp on macOS/Linux); add your G
 python -m sazon.chat                   # terminal chat: /new, /resume <id>, /cv <pdf path>, /state, /inbox, /wait24h, /help, /quit
 streamlit run apps/chat_app.py         # the chat in the browser (always saves to the recruiters' database, so its candidates appear in the dashboard; erase test candidates there)
 streamlit run apps/dashboard.py        # recruiter dashboard, local only; sign in with email and password; the hiring manager (HIRING_MANAGER_EMAIL and HIRING_MANAGER_PASSWORD in .env) creates the recruiters on the Recruiters page
+python -m sazon.voice_launch            # live voice: a tunnel, the ElevenLabs agent and the voice endpoint (needs ELEVENLABS_API_KEY in .env); then press "Talk to Sofía" in the chat (VOICE_LOG_SHAPES=1 logs how ElevenLabs sends each turn, without the words)
 python demo_launch.py                  # the chat (port 8501) and the dashboard (port 8502) together, each with a button to the other; Ctrl+C stops both
 python -m sazon.server                 # the HTTP service for a real channel (needs SAZON_API_KEY in .env; port 8000); see docs for the calls
 python -m sazon.reminders --every 600  # the 24-hour reminder job (queues messages for a real channel; see /inbox)

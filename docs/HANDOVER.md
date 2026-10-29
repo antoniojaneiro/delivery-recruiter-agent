@@ -17,10 +17,11 @@ Keep the dashboard and the chat on your own computer until the login is replaced
 
 | Item | Why it matters | Where it goes |
 | --- | --- | --- |
-| The real service areas (cities and nearby towns, per country) | The list in the code is a sample; candidates are accepted or rejected by it. | `sazon/config.py` |
+| The real service areas (cities and nearby towns, per country) | The list in the code is a sample; candidates are accepted or rejected by it. | `sazon/areas.py` |
 | Recruiters, their country and their hours | Call times come from recruiters' availability: the hiring manager creates them (Recruiters page); by default each works Monday to Friday, 9:00 to 17:00 in their country, and changes it in the Calendar page. The hiring manager takes calls too (`HIRING_MANAGER_COUNTRY` in `.env`, Spain if empty; D89). | Dashboard (D80, D82) |
 | A paid model plan with a data-processing agreement | The free tier allows 15 requests a minute, may train on prompts, and cannot serve about 1000 applications a week. | `.env` (`GEMINI_API_KEY`, `LLM_MODEL`) |
 | Single sign-on for recruiters | The built-in login (email and password, recruiters created by the hiring manager from `.env`) is a prototype; keep the dashboard local until it is replaced. | Dashboard login (D80) |
+| An ElevenLabs account for live voice, with a data-processing agreement | Audio is heard and transcribed by ElevenLabs. Locally it is tried with your own key; a deployment needs the client's account, a stable HTTPS address for the voice endpoint and their approval. | `.env` (`ELEVENLABS_API_KEY`), `python -m sazon.voice_launch` (D93) |
 | A messaging channel (WhatsApp or similar) | Today candidates use the terminal or the test chat. The service is ready for an adapter. | `screener/service.py` (D75) |
 
 ## The client's lawyers must approve
@@ -34,11 +35,13 @@ The list below says *what* needs approval. A separate document with each text wo
 5. The messages a candidate gets when a recruiter books or moves their call, and when their call is no longer available and they can pick again (`scheduled`, `moved`, `cancelled`, `later` in `sazon/pack.py`), and the four "use the button" offers for the browser chat (`offer_button`, D90).
 6. Approved answers about pay.
 7. A sample of real conversations. The model's wording varies, so the fixed texts are not the whole picture.
+8. Live voice (D93): the nine spoken question texts (`voice` in `sazon/pack.py`, Spanish and English), that the call opens with the same AI disclosure and consent question, and that the audio is heard and transcribed by ElevenLabs as a processor (the agent keeps no recording and one day of history; no analysis, no emotion inference).
 
 `python -m sazon.demo --list` shows the fictional conversations; `python -m sazon.demo` (or `--only NAME`) plays them on the real model.
 
 ## Known limits
 
+- Live voice was tested with fakes and through a real tunnel, not yet in a call with ElevenLabs: it needs the key (D93, DECISIONS section 9).
 - The real model was not load-tested (free tier). The service and database were, with a fake model, at about 25 times the expected peak (D75).
 - A rejected candidate cannot reopen the chat; a recruiter can set a status.
 - One database file on one machine: no backup or failover.

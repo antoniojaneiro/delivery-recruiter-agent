@@ -5,14 +5,14 @@ from datetime import date, datetime
 
 import pytest
 
-from sazon import config
+from sazon.areas import AREAS
 from sazon.client import SAZON_CALENDAR
-from screener import reminders, slot_flow, turn
+from screener import reminders, slot_offers, turn
 from screener.store import Store
 from tests.support.booking import NOW, NOW_AWARE, qualify, say
 from tests.support.clients import client_for
 
-CLIENT = client_for(config.AREAS)
+CLIENT = client_for(AREAS)
 
 
 @pytest.fixture
@@ -101,5 +101,5 @@ def test_a_time_in_another_country_cannot_be_chosen(store):
 def test_the_candidates_country_comes_from_their_place(store):
     qualify(store, "c1")
     qualify(store, "c2", city="Guadalajara")
-    assert slot_flow.country_of(store, CLIENT, "c1") == "ES" and slot_flow.country_of(store, CLIENT, "c2") == "MX"
-    assert slot_flow.country_of(store, CLIENT, "nobody") is None
+    assert slot_offers.country_of(store, CLIENT, "c1") == "ES" and slot_offers.country_of(store, CLIENT, "c2") == "MX"
+    assert slot_offers.country_of(store, CLIENT, "nobody") is None

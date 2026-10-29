@@ -108,7 +108,7 @@ _STOP_EXACT = {
     "cancel my application", "i quit",
 }
 _STOP_STARTS = (
-    "me retiro", "me doy de baja", "no quiero continuar", "ya no quiero continuar", "no quiero seguir", "ya no quiero seguir",
+    "me retiro", "quiero parar", "me doy de baja", "no quiero continuar", "ya no quiero continuar", "no quiero seguir", "ya no quiero seguir",
     "ya no me interesa", "please stop", "i want to stop", "i want to withdraw", "cancel my application",
 )
 MAX_WORDS_AFTER_STOP = 3

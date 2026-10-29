@@ -3,7 +3,7 @@ from datetime import datetime
 
 import streamlit as st
 
-from screener import slot_flow
+from screener import recruiter_calls
 
 from sazon import config, ui
 from sazon.client import SAZON_CLIENT
@@ -82,7 +82,7 @@ if others:
             if not sure:
                 st.error(t("recruiters.delete_need_check"))
             else:  # each future call goes to another recruiter free then, or the candidate is told and can pick again
-                done = slot_flow.remove_recruiter(store, SAZON_CLIENT, gone, actor, datetime.now())
+                done = recruiter_calls.remove_recruiter(store, SAZON_CLIENT, gone, actor, datetime.now())
                 st.session_state["_recruiter_flash"] = t("recruiters.deleted") + (
                     " " + t("avail.effect", moved=done.moved, released=done.released) if calls else "")
                 st.rerun()

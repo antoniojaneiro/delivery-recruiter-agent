@@ -8,7 +8,7 @@ import pytest
 
 from sazon.spec import SAZON
 from sazon.client import SAZON_CALENDAR, SAZON_CLIENT
-from screener import reminders, session, slot_flow, turn
+from screener import recruiter_calls, reminders, session, turn
 from screener.phrasing import consent_message
 from screener.store import ConflictError, Store
 from tests.support.fakes import ScriptedLLM
@@ -212,7 +212,7 @@ def test_a_cancelled_booking_queues_a_message_for_the_candidate_in_their_languag
     turn.handle_message(ScriptedLLM(), store, SAZON_CLIENT, "c1", "1", NOW)
     slot = store.booking_of("c1").slot_id
     candidate = store.cancel_slot(slot, "Ana", NOW.astimezone())
-    assert slot_flow.notify_cancelled(store, SAZON_CLIENT, candidate, NOW) is True
+    assert recruiter_calls.notify_cancelled(store, SAZON_CLIENT, candidate, NOW) is True
     [entry] = store.outbox_pending("c1")
     assert "ya no está disponible" in entry.text and "1)" in entry.text and "48" not in entry.text  # and the times to pick again
     assert store.messages("c1")[-1].text == entry.text
@@ -221,5 +221,5 @@ def test_a_cancelled_booking_queues_a_message_for_the_candidate_in_their_languag
 def test_notifying_a_candidate_who_was_erased_does_nothing(store):
     started(store)
     store.erase_candidate("c1", "recruiter:Ana", NOW, "request")
-    assert slot_flow.notify_cancelled(store, SAZON_CLIENT, "c1", NOW) is False
+    assert recruiter_calls.notify_cancelled(store, SAZON_CLIENT, "c1", NOW) is False
     assert store.outbox_pending() == []

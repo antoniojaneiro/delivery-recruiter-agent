@@ -227,7 +227,7 @@ def test_a_new_time_that_is_too_soon_is_refused_and_nothing_is_left_behind(db):
 
 
 def test_when_the_candidate_cannot_be_told_the_booking_stands_and_the_recruiter_is_warned(db, monkeypatch):
-    from screener import slot_flow
+    from screener import recruiter_calls
     from screener.store import ConflictError
     add(db, "c1", "Madrid")
     chosen = slot(db, "ES", TUESDAY)
@@ -238,7 +238,7 @@ def test_when_the_candidate_cannot_be_told_the_booking_stands_and_the_recruiter_
     def lost(*args, **kwargs):
         raise ConflictError("c1")
 
-    monkeypatch.setattr(slot_flow.conversation, "run", lost)
+    monkeypatch.setattr(recruiter_calls.conversation, "run", lost)
     at.button(key="sched_submit").click().run()
     assert not at.exception, at.exception
     assert db.booking_of("c1").slot_id == chosen and at.success

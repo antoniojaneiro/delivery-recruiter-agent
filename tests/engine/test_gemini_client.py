@@ -83,3 +83,15 @@ def test_the_default_model_is_the_lite_one_that_fits_the_free_tier(monkeypatch):
     monkeypatch.setenv("GEMINI_API_KEY", "test-key-not-real")
     monkeypatch.delenv("LLM_MODEL", raising=False)
     assert from_env(load_dotenv_file=False).model == "gemini-3.5-flash-lite"
+
+
+def test_a_quick_client_gives_the_model_a_short_wait_and_no_retries_for_a_live_call():
+    class Optioned(FakeSDK):
+        def with_options(self, **options):
+            self.options = options
+            return self
+
+    sdk = Optioned()
+    quick = client(sdk).quick(seconds=5)
+    assert sdk.options == {"timeout": 5, "max_retries": 0}
+    assert quick.model == "test-model" and quick.complete("s", "u") == "hola"

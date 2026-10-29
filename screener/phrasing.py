@@ -4,6 +4,7 @@ import hashlib
 import re
 from typing import TYPE_CHECKING
 
+from screener.dates import minutes_of_day
 from screener.directive import LATER, Directive, Kind
 from screener.extraction import clean_text
 from screener.language import fold, promises_pay_or_time
@@ -54,6 +55,41 @@ def slot_label(starts_at, language: Language) -> str:
     return f"{weekday} {starts_at.day} {month}, {starts_at:%H:%M}"
 
 
+_LONG_WEEKDAYS = {
+    Language.ES: ("lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo"),
+    Language.EN: ("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"),
+}
+_LONG_MONTHS = {
+    Language.ES: ("enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre",
+                  "noviembre", "diciembre"),
+    Language.EN: ("January", "February", "March", "April", "May", "June", "July", "August", "September", "October",
+                  "November", "December"),
+}
+
+
+def spoken_day(day, language: Language) -> str:
+    """"el jueves 29 de octubre", "Thursday, October 29": a day as it is said aloud."""
+    weekday, month = _LONG_WEEKDAYS[language][day.weekday()], _LONG_MONTHS[language][day.month - 1]
+    return f"el {weekday} {day.day} de {month}" if language == Language.ES else f"{weekday}, {month} {day.day}"
+
+
+def spoken_time(minutes: int, language: Language) -> str:
+    """"a las 9:15", "9:15 AM": a time as it is said aloud (the hour alone on the hour)."""
+    hour, minute = divmod(minutes, 60)
+    if language == Language.ES:
+        words = f"{hour}" if minute == 0 else f"{hour}:{minute:02d}"
+        return f"a la {words}" if hour == 1 else f"a las {words}"
+    clock = f"{hour % 12 or 12}" if minute == 0 else f"{hour % 12 or 12}:{minute:02d}"
+    return f"{clock} {'AM' if hour < 12 else 'PM'}"
+
+
+def spoken_label(starts_at, language: Language) -> str:
+    """The day and the time said aloud: "el jueves 29 de octubre a las 9:15", "Thursday, October 29 at 9:15 AM"."""
+    minutes = minutes_of_day(starts_at)
+    joiner = " " if language == Language.ES else " at "
+    return spoken_day(starts_at, language) + joiner + spoken_time(minutes, language)
+
+
 def _both(text: dict) -> str:
     """Before the candidate has written anything the language is not known: every language, one after the other."""
     return "\n".join(text.values())
@@ -77,7 +113,11 @@ def cv_notice_hash(spec: "ScreeningSpec") -> str:
     return hashlib.sha256(_both(spec.pack.cv.notice).encode("utf-8")).hexdigest()[:12]
 
 
-def technical_error_message(spec: "ScreeningSpec", language: str) -> str:
+def technical_error_message(spec: "ScreeningSpec", language: str, voice: bool = False) -> str:
+    """What is said when something failed. On a call, a client with spoken texts says what the caller can act on (repeat)."""
+    slots = spec.pack.slots
+    if voice and slots and "error" in slots.voice:
+        return spec.pack.pick(slots.voice["error"], language)
     return spec.pack.pick(spec.pack.error, language)
 
 
@@ -130,6 +170,8 @@ def _template(spec: "ScreeningSpec", directive: Directive, language: str) -> str
                 return pick(slots.offer_button[directive.reason], language)
             options = "\n".join(f"{i}) {label}" for i, label in enumerate(directive.options, start=1))
             return f"{pick(slots.offer[directive.reason], language)}\n{options}\n{pick(slots.offer_end, language)}"
+        case Kind.VOICE_BOOKING:
+            return pick(pack.slots.voice[directive.reason], language).format(label=directive.label or "")
         case Kind.SLOT_BOOKED:
             return pick(pack.slots.booked, language).format(label=directive.label)
         case Kind.ALREADY_BOOKED:
@@ -192,7 +234,7 @@ def _usable(text: str, directive: Directive, language: Language) -> bool:
 
 
 # Kinds whose wording is exact and never the model's: promises, offers, reminders sent without a model, errors.
-_FIXED = (Kind.CV_OFFER, Kind.CV_READ, Kind.CLOSE, Kind.TECHNICAL_ERROR, Kind.REMINDER, Kind.OFFER_SLOTS, Kind.SLOT_BOOKED, Kind.ALREADY_BOOKED)
+_FIXED = (Kind.CV_OFFER, Kind.CV_READ, Kind.CLOSE, Kind.TECHNICAL_ERROR, Kind.REMINDER, Kind.OFFER_SLOTS, Kind.VOICE_BOOKING, Kind.SLOT_BOOKED, Kind.ALREADY_BOOKED)
 MAX_CONTEXT_MESSAGES = 6
 MAX_CONTEXT_CHARS = 300
 

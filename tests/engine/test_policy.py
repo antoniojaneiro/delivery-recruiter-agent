@@ -3,11 +3,11 @@ from datetime import date, datetime
 
 import pytest
 
+from sazon.areas import AREAS
 from tests.support.tables import table
 
 from sazon.client import SAZON_CLIENT
 from screener import turn
-from sazon import config
 from sazon.spec import SAZON, Extraction
 from screener.model import Outcome
 from sazon.fields import Reason
@@ -72,7 +72,7 @@ def test_the_off_topic_farewell_is_factual_and_points_to_a_human():
 
 @pytest.fixture
 def consented():
-    s = Screening(config.AREAS, SAZON)
+    s = Screening(AREAS, SAZON)
     s.record_consent(True)
     return s
 
@@ -124,7 +124,7 @@ def test_the_strike_count_survives_a_save_and_reload(consented):
     import json
     strike(consented)
     strike(consented)
-    restored = Screening.from_state(config.AREAS, json.loads(json.dumps(consented.to_state())), SAZON)
+    restored = Screening.from_state(AREAS, json.loads(json.dumps(consented.to_state())), SAZON)
     strike(restored)
     assert restored.decide().outcome == "ENDED_OFF_TOPIC"
 

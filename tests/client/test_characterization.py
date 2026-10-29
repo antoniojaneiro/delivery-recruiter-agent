@@ -47,6 +47,8 @@ def _fixed_texts() -> dict:
         for step in ("first", "taken", "unclear", "reminder"):
             out[f"offer/{step}/{lang}"] = _say(Directive(Kind.OFFER_SLOTS, reason=step, options=["x", "y"]), lang)
             out[f"offer_button/{step}/{lang}"] = _say(Directive(Kind.OFFER_SLOTS, reason=step, options=["x", "y"], buttons=True), lang)
+        for reason in ("ask_day", "ask_day_again", "propose_day", "other_day", "ask_time", "ask_time_again", "propose_time", "other_time"):
+            out[f"voice/{reason}/{lang}"] = _say(Directive(Kind.VOICE_BOOKING, reason=reason, label="el jueves 29 de octubre"), lang)
         out[f"booked/{lang}"] = _say(Directive(Kind.SLOT_BOOKED, label="mar 3 nov, 10:00"), lang)
         out[f"already_booked/{lang}"] = _say(Directive(Kind.ALREADY_BOOKED, label="mar 3 nov, 10:00"), lang)
         out[f"reminder/{lang}"] = _say(Directive(Kind.REMINDER), lang)

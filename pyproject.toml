@@ -16,6 +16,9 @@ build-backend = "setuptools.build_meta"
 [tool.setuptools]
 packages = ["sazon", "sazon.demo", "screener"]
 
+[tool.setuptools.package-data]
+sazon = ["voice_call.js"]
+
 [tool.pytest.ini_options]
 pythonpath = ["."]
 testpaths = ["tests"]

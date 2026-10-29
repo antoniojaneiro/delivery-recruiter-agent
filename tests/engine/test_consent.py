@@ -71,7 +71,7 @@ from screener.consent import is_stop_request
 @table("text", [
     "para", "Para.", "stop", "STOP!", "basta", "me retiro", "me retiro, gracias", "me doy de baja", "cancelar",
     "no quiero continuar", "ya no quiero continuar", "no quiero seguir", "ya no me interesa", "please stop",
-    "I want to stop", "I want to withdraw", "I quit", "unsubscribe", "cancel my application",
+    "I want to stop", "I want to withdraw", "I quit", "unsubscribe", "cancel my application", "quiero parar", "quiero parar ya",
 ])
 def test_clear_stop_requests_are_recognised_without_the_model(text):
     assert is_stop_request(text) is True
@@ -81,6 +81,7 @@ def test_clear_stop_requests_are_recognised_without_the_model(text):
     "", "para ser sincero tengo 2 años de experiencia", "para trabajar de mañanas", "no quiero continuar sin saber el sueldo",
     "no sé", "stop by tomorrow", "mi nombre es Pablo Stop Gil", "¿puedo parar un momento?", "cancelar la cita de ayer",
     "sí", "Madrid", "I can start stopping by", "me retiro del trabajo anterior hace dos años",
+    "para el martes", "para las diez", "para mañana", "para la semana que viene", "para la tarde",  # said when booking by voice
 ])
 def test_ordinary_messages_that_contain_stop_words_are_not_stop_requests(text):
     assert is_stop_request(text) is False

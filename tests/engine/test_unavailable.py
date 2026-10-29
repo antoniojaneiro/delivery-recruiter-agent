@@ -5,14 +5,14 @@ from datetime import date, datetime
 
 import pytest
 
-from sazon import config
+from sazon.areas import AREAS
 from sazon.client import SAZON_CALENDAR
-from screener import reminders, slot_flow
+from screener import recruiter_calls, reminders
 from screener.store import Store
 from tests.support.booking import NOW, NOW_AWARE, hire, qualify, say
 from tests.support.clients import client_for
 
-CLIENT = client_for(config.AREAS)
+CLIENT = client_for(AREAS)
 MONDAY = date(2026, 10, 26)
 BOSS = "boss@sazon.test"
 
@@ -37,7 +37,7 @@ def test_a_call_goes_to_another_recruiter_free_at_the_same_time_and_the_candidat
     held = book_nine(store)
     leaving = owner(store, "c1")
     conflicts = store.set_day_off(leaving, MONDAY, True, BOSS, NOW)
-    result = slot_flow.resolve_calls(store, CLIENT, conflicts, BOSS, NOW)
+    result = recruiter_calls.resolve_calls(store, CLIENT, conflicts, BOSS, NOW)
     assert (result.moved, result.released) == (1, 0)
     assert store.booking_of("c1").starts_at == held.starts_at and owner(store, "c1") != leaving
     assert store.outbox_pending("c1") == []
@@ -47,7 +47,7 @@ def test_with_nobody_else_free_the_call_is_released_the_candidate_is_told_and_th
     hire(store, "Ana")
     book_nine(store)
     conflicts = store.set_day_off("ana@sazon.test", MONDAY, True, BOSS, NOW)
-    result = slot_flow.resolve_calls(store, CLIENT, conflicts, BOSS, NOW)
+    result = recruiter_calls.resolve_calls(store, CLIENT, conflicts, BOSS, NOW)
     assert (result.moved, result.released) == (0, 1) and store.booking_of("c1") is None
     told = store.outbox_pending("c1")[0].text
     assert "ya no está disponible" in told and "1) mar 27 oct, 09:00" in told and "48" not in told
@@ -60,7 +60,7 @@ def test_with_no_other_time_at_all_they_are_told_to_write_again_to_book(store):
     book_nine(store)
     store.set_weekly("ana@sazon.test", [(0, 9 * 60, 9 * 60 + 15)], BOSS, NOW)  # one slot a week, then nothing
     conflicts = store.set_weekly("ana@sazon.test", [], BOSS, NOW)
-    slot_flow.resolve_calls(store, CLIENT, conflicts, BOSS, NOW)
+    recruiter_calls.resolve_calls(store, CLIENT, conflicts, BOSS, NOW)
     told = store.outbox_pending("c1")[-1].text
     assert "ya no está disponible" in told and "1)" not in told and "escríbenos" in told
 
@@ -72,7 +72,7 @@ def test_a_recruiter_who_leaves_has_each_future_call_moved_or_released(store):
     leaving = owner(store, "c1")
     calls = store.future_calls(leaving, NOW_AWARE)
     store.remove_recruiter(leaving, BOSS, NOW)
-    result = slot_flow.resolve_calls(store, CLIENT, calls, BOSS, NOW)
+    result = recruiter_calls.resolve_calls(store, CLIENT, calls, BOSS, NOW)
     assert result.moved + result.released == 1
     assert store.booking_of("c1") is None or owner(store, "c1") != leaving
 
@@ -82,12 +82,12 @@ def test_a_call_whose_candidate_was_erased_meanwhile_is_just_released(store):
     book_nine(store)
     conflicts = store.set_day_off("ana@sazon.test", MONDAY, True, BOSS, NOW)
     store.erase_candidate("c1", "recruiter:x", NOW, "request")
-    result = slot_flow.resolve_calls(store, CLIENT, conflicts, BOSS, NOW)
+    result = recruiter_calls.resolve_calls(store, CLIENT, conflicts, BOSS, NOW)
     assert result.released == 1 and store.outbox_pending("c1") == []
 
 
 def test_the_reminder_job_does_not_nag_a_candidate_whose_call_was_moved(store):
     hire(store, "Ana", "Luis")
     book_nine(store)
-    slot_flow.resolve_calls(store, CLIENT, store.set_day_off(owner(store, "c1"), MONDAY, True, BOSS, NOW), BOSS, NOW)
+    recruiter_calls.resolve_calls(store, CLIENT, store.set_day_off(owner(store, "c1"), MONDAY, True, BOSS, NOW), BOSS, NOW)
     assert reminders.run_once(store, CLIENT, datetime(2026, 10, 27, 12, 0)) == []

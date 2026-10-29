@@ -6,15 +6,15 @@ from datetime import datetime, timedelta
 
 import pytest
 
+from sazon.areas import AREAS
 from sazon.pack import SLOTS
-from screener import reminders, slot_flow, turn
+from screener import recruiter_calls, reminders, turn
 from screener.phrasing import slot_label
 from screener.store import InputError, Store
 from tests.support.booking import ES_SLOTS, MX_SLOT, NOW, NOW_AWARE, add_slots, qualify, say
 from tests.support.clients import client_for
-from sazon import config
 
-CLIENT = client_for(config.AREAS)
+CLIENT = client_for(AREAS)
 
 
 @pytest.fixture
@@ -121,7 +121,7 @@ def test_two_recruiters_booking_the_same_time_for_two_candidates_at_once_give_it
 def test_the_candidate_is_told_in_a_fixed_text_in_their_chat_language(store):
     slots = add_slots(store)
     qualify(store)
-    done = slot_flow.schedule_by_recruiter(store, CLIENT, "c1", slots[1], "Ana", NOW)
+    done = recruiter_calls.schedule_by_recruiter(store, CLIENT, "c1", slots[1], "Ana", NOW)
     booking = done.booking
     label = slot_label(booking.starts_at, "es")
     queued = [e.text for e in store.outbox_pending("c1")]
@@ -131,15 +131,15 @@ def test_the_candidate_is_told_in_a_fixed_text_in_their_chat_language(store):
 def test_an_english_speaking_candidate_is_told_in_english(store):
     slots = add_slots(store)
     qualify(store, english=True)
-    booking = slot_flow.schedule_by_recruiter(store, CLIENT, "c1", slots[1], "Ana", NOW).booking
+    booking = recruiter_calls.schedule_by_recruiter(store, CLIENT, "c1", slots[1], "Ana", NOW).booking
     assert store.outbox_pending("c1")[0].text == SLOTS.scheduled["en"].format(label=slot_label(booking.starts_at, "en"))
 
 
 def test_a_moved_call_is_told_as_moved(store):
     slots = add_slots(store)
     qualify(store)
-    slot_flow.schedule_by_recruiter(store, CLIENT, "c1", slots[0], "Ana", NOW)
-    moved = slot_flow.schedule_by_recruiter(store, CLIENT, "c1", slots[2], "Ana", NOW)
+    recruiter_calls.schedule_by_recruiter(store, CLIENT, "c1", slots[0], "Ana", NOW)
+    moved = recruiter_calls.schedule_by_recruiter(store, CLIENT, "c1", slots[2], "Ana", NOW)
     booking = moved.booking
     assert moved.before is not None
     assert store.outbox_pending("c1")[-1].text == SLOTS.moved["es"].format(label=slot_label(booking.starts_at, "es"))
@@ -149,9 +149,9 @@ def test_a_time_that_is_gone_tells_the_candidate_nothing(store):
     slots = add_slots(store)
     qualify(store, "c1")
     qualify(store, "c2")
-    slot_flow.schedule_by_recruiter(store, CLIENT, "c2", slots[0], "Ana", NOW)
+    recruiter_calls.schedule_by_recruiter(store, CLIENT, "c2", slots[0], "Ana", NOW)
     with pytest.raises(InputError):
-        slot_flow.schedule_by_recruiter(store, CLIENT, "c1", slots[0], "Ana", NOW)
+        recruiter_calls.schedule_by_recruiter(store, CLIENT, "c1", slots[0], "Ana", NOW)
     assert store.outbox_pending("c1") == []
 
 
@@ -159,7 +159,7 @@ def test_the_candidates_open_offer_is_closed_so_a_late_reply_gets_the_booked_tim
     slots = add_slots(store)
     qualify(store)  # the chat has offered three times and waits for a number
     assert store.get("c1").state.get("slot_offer")
-    slot_flow.schedule_by_recruiter(store, CLIENT, "c1", slots[2], "Ana", NOW)
+    recruiter_calls.schedule_by_recruiter(store, CLIENT, "c1", slots[2], "Ana", NOW)
     reply, _ = say(store, "2")
     assert slot_label(ES_SLOTS[2], "es") in reply and store.booking_of("c1").slot_id == slots[2]
 
@@ -167,7 +167,7 @@ def test_the_candidates_open_offer_is_closed_so_a_late_reply_gets_the_booked_tim
 def test_the_reminder_job_does_not_ask_a_booked_candidate_to_pick_a_time(store):
     slots = add_slots(store)
     qualify(store)
-    slot_flow.schedule_by_recruiter(store, CLIENT, "c1", slots[2], "Ana", NOW)
+    recruiter_calls.schedule_by_recruiter(store, CLIENT, "c1", slots[2], "Ana", NOW)
     sent_before = len(store.outbox_pending("c1"))
     reminders.run_once(store, CLIENT, NOW + timedelta(hours=26))
     assert len(store.outbox_pending("c1")) == sent_before
@@ -181,15 +181,15 @@ def test_a_booking_that_cannot_be_told_to_the_candidate_is_kept_and_says_so(stor
     def lost(*args, **kwargs):
         raise ConflictError("c1")
 
-    monkeypatch.setattr(slot_flow.conversation, "run", lost)
-    done = slot_flow.schedule_by_recruiter(store, CLIENT, "c1", slots[0], "Ana", NOW)  # no crash
+    monkeypatch.setattr(recruiter_calls.conversation, "run", lost)
+    done = recruiter_calls.schedule_by_recruiter(store, CLIENT, "c1", slots[0], "Ana", NOW)  # no crash
     assert done.told is False and store.booking_of("c1").slot_id == slots[0] and store.outbox_pending("c1") == []
 
 
 def test_a_told_booking_says_so(store):
     slots = add_slots(store)
     qualify(store)
-    assert slot_flow.schedule_by_recruiter(store, CLIENT, "c1", slots[0], "Ana", NOW).told is True
+    assert recruiter_calls.schedule_by_recruiter(store, CLIENT, "c1", slots[0], "Ana", NOW).told is True
 
 
 def test_a_client_that_books_no_calls_refuses_cleanly(tmp_path):
@@ -200,5 +200,5 @@ def test_a_client_that_books_no_calls_refuses_cleanly(tmp_path):
         toy_store.move_booking("t1", 1, "Ana", NOW_AWARE)
     assert refused.value.code == "no_calendar"
     with pytest.raises(InputError) as refused:
-        slot_flow.schedule_by_recruiter(toy_store, TOY_CLIENT, "t1", 1, "Ana", NOW)
+        recruiter_calls.schedule_by_recruiter(toy_store, TOY_CLIENT, "t1", 1, "Ana", NOW)
     assert refused.value.code == "no_calendar"

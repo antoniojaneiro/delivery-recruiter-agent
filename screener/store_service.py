@@ -1,6 +1,8 @@
 """D75: what the service keeps in the store: each candidate's token hash and the reply to each message id (D88: a part of
 the store with its own tables)."""
+import hashlib
 import hmac
+import secrets
 from datetime import datetime, timedelta
 
 from screener.store_db import Part
@@ -18,7 +20,32 @@ def _judge(row, now: datetime) -> Claim | None:
     return Claim("busy") if now - datetime.fromisoformat(row[0]) <= CLAIM_STALE_AFTER else None
 
 
+VOICE_SESSION_MINUTES = 30  # a spoken conversation is short; after this the id opens nothing
+
+
 class ServiceState(Part):
+    def new_voice_session(self, candidate_id: str, now: datetime) -> str:
+        """A secret id for one spoken conversation of this candidate (D93). Only its hash is kept; ElevenLabs sends it back with
+        every turn, and it opens nothing else and nothing after it expires."""
+        session = secrets.token_urlsafe(24)
+        with self._connect() as db:
+            db.execute("INSERT INTO voice_sessions (session_hash, candidate_id, expires_at) VALUES (?, ?, ?)",
+                       (hashlib.sha256(session.encode()).hexdigest(), candidate_id,
+                        stamp(now + timedelta(minutes=VOICE_SESSION_MINUTES))))
+        return session
+
+    def had_voice_call(self, candidate_id: str) -> bool:
+        """A voice session was made for this candidate (they had, or started, a spoken call)."""
+        with self._connect() as db:
+            return db.execute("SELECT 1 FROM voice_sessions WHERE candidate_id = ?", (candidate_id,)).fetchone() is not None
+
+    def voice_session_candidate(self, session: str, now: datetime) -> str | None:
+        """The candidate a live voice session belongs to, or None (unknown, expired or erased)."""
+        with self._connect() as db:
+            row = db.execute("SELECT candidate_id, expires_at FROM voice_sessions WHERE session_hash = ?",
+                             (hashlib.sha256((session or "").encode()).hexdigest(),)).fetchone()
+        return row[0] if row and row[1] > stamp(now) else None
+
     def set_token(self, candidate_id: str, token_hash: str) -> None:
         with self._connect() as db:
             db.execute("INSERT OR REPLACE INTO tokens (candidate_id, token_hash) VALUES (?, ?)",

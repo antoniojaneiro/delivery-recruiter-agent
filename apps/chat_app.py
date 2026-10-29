@@ -8,10 +8,14 @@ import calendar
 from datetime import date, datetime, timedelta
 
 import streamlit as st
+import streamlit.components.v1 as components
 from dotenv import load_dotenv
 
-from screener import dialog, gemini, reminders, slot_flow, turn
+from screener import dialog, gemini, reminders, slot_offers, turn
+from screener.channel import BUTTON
+from screener.voice_call import DONE_AFTER_CALL, DONE_BY_TEXT, NOT_SET_UP, RUNNING, call_state, should_close
 from screener.login import ensure_manager_takes_calls
+from screener.voice_agent import ElevenLabs, VoiceSetupError, load_state
 from screener.chat import log_error
 from screener.inspector import inspect
 from screener.language import language_of
@@ -23,6 +27,7 @@ from screener.store import Store
 from sazon import config, ui
 from sazon.client import SAZON_CLIENT
 from sazon.ui import open_store, t
+from sazon.voice_component import call_html
 from sazon.ui_pack import PACK
 
 load_dotenv()  # the hiring manager, who takes calls, is named there
@@ -51,9 +56,37 @@ llm = st.session_state["llm"]
 
 
 def new_candidate() -> None:
-    candidate_id, _ = dialog.new_candidate(active_store(), SAZON_CLIENT, datetime.now(), buttons=True)  # the disclosure, once per candidate
+    candidate_id, _ = dialog.new_candidate(active_store(), SAZON_CLIENT, datetime.now(), BUTTON)  # the disclosure, once per candidate
     st.session_state["chat_id"] = candidate_id
     st.session_state.pop("flash", None)
+    st.session_state.pop("voice_call", None)  # a call belongs to the candidate it was started for
+
+
+def voice_ready() -> bool:
+    """The live voice agent has been set up here: a key, and the agent made by `python -m sazon.voice_launch`."""
+    return bool(config.elevenlabs_key()) and load_state(config.VOICE_STATE_PATH) is not None
+
+
+def start_voice() -> None:
+    """A voice session for this candidate and a signed address to start the call with; the call page is drawn from them."""
+    if turn.conversation_is_over(active_store(), SAZON_CLIENT, st.session_state["chat_id"]):
+        return  # nothing is left to say: a call would only open and close
+    try:
+        state = load_state(config.VOICE_STATE_PATH)
+        address = ElevenLabs(config.elevenlabs_key()).signed_url(state.agent_id)
+    except (VoiceSetupError, AttributeError):
+        st.session_state["flash"] = "chat.voice_failed"
+        return
+    chosen, now = st.session_state["chat_id"], datetime.now()
+    opening, spoken_language = turn.voice_opening(active_store(), SAZON_CLIENT, chosen, now)  # what is heard first, saved as said
+    st.session_state["voice_call"] = {"session": active_store().new_voice_session(chosen, now), "url": address,
+                                      "opening": opening, "language": spoken_language}
+    st.session_state.pop("flash", None)
+
+
+def end_voice() -> None:
+    st.session_state.pop("voice_call", None)  # the page of the call is no longer drawn, so the call ends
+    st.session_state.pop("voice_over_since", None)
 
 
 def wait_a_day() -> None:
@@ -75,12 +108,25 @@ with st.sidebar:
               width="stretch")
     st.button(t("chat.wait"), key="wait_24h", on_click=wait_a_day, icon=":material/schedule:", width="stretch",
               help=t("chat.wait_help"))
+    call = call_state(set_up=voice_ready(), running=bool(st.session_state.get("voice_call")),
+                      over=turn.conversation_is_over(store, SAZON_CLIENT, candidate_id), had_call=store.had_voice_call(candidate_id))
+    if call == RUNNING:
+        st.button(t("chat.voice_end"), key="voice_end", on_click=end_voice, icon=":material/call_end:", width="stretch")
+    elif call in (DONE_AFTER_CALL, DONE_BY_TEXT):  # nothing is left to say: the button says why it is off
+        st.button(t("chat.voice_done" if call == DONE_AFTER_CALL else "chat.voice_finished"), key="voice_start",
+                  icon=":material/mic_off:", width="stretch", disabled=True)
+    else:
+        st.button(t("chat.voice_start"), key="voice_start", on_click=start_voice, icon=":material/mic:", width="stretch",
+                  disabled=call == NOT_SET_UP)
+        if call == NOT_SET_UP:
+            st.caption(t("chat.voice_off_help"))
     st.caption(t("chat.candidate", id=candidate_id))
     st.caption(t("chat.rate_hint"))
     st.link_button(t("link.dashboard"), config.dashboard_url(), icon=":material/open_in_new:", width="stretch")
 
 st.title(t("chat.title"))
 st.caption(t("chat.notice"))
+call_slot = st.container()  # a call has a place of its own, above anything that comes and goes, so redrawing never remounts it
 if st.session_state.get("flash"):
     st.warning(t(st.session_state["flash"]))
 
@@ -93,13 +139,31 @@ def tc(key: str, **values) -> str:
     return PACK.get(key, chat_language, **values)
 
 
+if call := st.session_state.get("voice_call"):
+    with call_slot:
+        st.info(t("chat.voice_note"))
+        components.html(call_html(call["url"], call["session"], language.value, call["opening"], call["language"]), height=60)
+
+
+@st.fragment(run_every=3 if st.session_state.get("voice_call") else None)
+def transcript() -> None:
+    """The messages. During a call they redraw on their own as the voice endpoint saves what is said; the call is not touched.
+    When the conversation is over the call is closed on the page a little later (the farewell and the end of the call take a moment)."""
+    if st.session_state.get("voice_call") and turn.conversation_is_over(store, SAZON_CLIENT, candidate_id):
+        since = st.session_state.setdefault("voice_over_since", datetime.now())
+        if should_close(since, datetime.now()):
+            end_voice()
+            st.rerun()
+    for message in store.messages(candidate_id):
+        with st.chat_message("assistant" if message.role == "agent" else "user"):
+            st.text(message.text)  # candidate and model text is never rendered as Markdown or HTML
+
+
 chat_side, inspector_side = st.columns([3, 2], gap="medium")
 
 with chat_side:
     with st.container(border=True):
-        for message in store.messages(candidate_id):
-            with st.chat_message("assistant" if message.role == "agent" else "user"):
-                st.text(message.text)  # candidate and model text is never rendered as Markdown or HTML
+        transcript()
         prompt = st.chat_input(tc("chat.input"), key="chat_message", submit_mode="disable")
     offered = record is not None and (record.state or {}).get("cv") == "offered"
     if offered:
@@ -120,8 +184,8 @@ with chat_side:
             if len(store.messages(candidate_id)) == saved_before:  # refused: the reply is not part of the chat
                 st.session_state["_cv_refused"] = reply
             st.rerun()
-    if slot_flow.may_choose_time(store, SAZON_CLIENT, candidate_id):  # the button, then a month of days that have free times, then that day's 15-minute times
-        country = slot_flow.country_of(store, SAZON_CLIENT, candidate_id)
+    if slot_offers.may_choose_time(store, SAZON_CLIENT, candidate_id):  # the button, then a month of days that have free times, then that day's 15-minute times
+        country = slot_offers.country_of(store, SAZON_CLIENT, candidate_id)
 
         def open_picker() -> None:
             st.session_state.update(picker_open=True, picker_month=(date.today() + timedelta(days=1)).replace(day=1), picker_day=None)
