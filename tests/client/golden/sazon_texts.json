@@ -393,6 +393,7 @@
    "schedule": "morning",
    "start_date": "2027-03-01"
   },
+  "voice_booking": null,
   "withdrawn": false
  },
  "texts": {
@@ -557,6 +558,22 @@
   "slot_scheduled/en": "A recruiter has booked your call: mar 3 nov, 10:00. They will call you then.",
   "slot_scheduled/es": "Un reclutador ha reservado tu llamada: mar 3 nov, 10:00. Te llamará a esa hora.",
   "tech/en": "I had a technical problem. Could you repeat your last message?",
-  "tech/es": "Tuve un problema técnico. ¿Puedes repetir tu último mensaje?"
+  "tech/es": "Tuve un problema técnico. ¿Puedes repetir tu último mensaje?",
+  "voice/ask_day/en": "Great, your profile fits! Please book a call to talk with a recruiter. Which day suits you?",
+  "voice/ask_day/es": "¡Genial, tu perfil encaja! Por favor, reserva una llamada para hablar con un reclutador. ¿Qué día te vendría bien?",
+  "voice/ask_day_again/en": "I didn't catch that. Which day suits you? For example, Thursday or November 5.",
+  "voice/ask_day_again/es": "No te he entendido. ¿Qué día te viene bien? Por ejemplo, el jueves o el 5 de noviembre.",
+  "voice/ask_time/en": "I have free times on el jueves 29 de octubre. What time suits you?",
+  "voice/ask_time/es": "Para el jueves 29 de octubre tengo horarios libres. ¿A qué hora te viene bien?",
+  "voice/ask_time_again/en": "I didn't catch that. What time suits you? For example, 10 o'clock or in the afternoon.",
+  "voice/ask_time_again/es": "No te he entendido. ¿A qué hora te viene bien? Por ejemplo, a las 10 o por la tarde.",
+  "voice/other_day/en": "All right. Which other day would you prefer?",
+  "voice/other_day/es": "De acuerdo. ¿Qué otro día prefieres?",
+  "voice/other_time/en": "All right. What other time would you prefer?",
+  "voice/other_time/es": "De acuerdo. ¿Qué otra hora prefieres?",
+  "voice/propose_day/en": "I have no free times that day. The closest day is el jueves 29 de octubre. Does that work for you?",
+  "voice/propose_day/es": "Ese día no tengo horarios libres. El día más cercano es el jueves 29 de octubre. ¿Te viene bien?",
+  "voice/propose_time/en": "I have nothing at that time. The closest is el jueves 29 de octubre. Does that work for you?",
+  "voice/propose_time/es": "A esa hora no tengo. La más cercana es el jueves 29 de octubre. ¿Te viene bien?"
  }
 }

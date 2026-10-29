@@ -18,6 +18,7 @@ class Kind(StrEnum):
     OFFER_SLOTS = "offer_slots"
     SLOT_BOOKED = "slot_booked"
     ALREADY_BOOKED = "already_booked"
+    VOICE_BOOKING = "voice_booking"  # a question or proposal in the spoken day-then-time booking (D93); `reason` names which
     REMINDER = "reminder"
     CLOSE = "close"
     TECHNICAL_ERROR = "technical_error"

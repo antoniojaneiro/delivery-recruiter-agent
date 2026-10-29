@@ -41,14 +41,16 @@ def start(store, client: Client, candidate_id: str, now: datetime, buttons: bool
 
 
 def handle_message(llm: LLM, store, client: Client, candidate_id: str, message: str,
-                   now: datetime) -> str:
+                   now: datetime, voice: bool = False) -> str:
+    """`voice`: the message was spoken and the reply will be spoken (D93): no CV upload, and a call is booked by saying a day
+    and then a time, with no list and no button. The channel is per message: the same candidate can write the next one."""
     if not store.accepting_applications():
         return closed_message(client.spec)  # nothing is read, stored or sent to the model while applications are closed
     if store.get(candidate_id) is None:  # never started, or erased: they see the disclosure before anything else
         return start(store, client, candidate_id, now)
     try:  # a lost race is retried once with a fresh copy; an erased candidate is never brought back
         return conversation.run(store, client, candidate_id, now,
-                                lambda screening: _handle(llm, store, client, candidate_id, message, now, screening),
+                                lambda screening: _handle(llm, store, client, candidate_id, message, now, screening, voice),
                                 on_conflict=RETRY_ONCE)
     except ConflictError:
         return technical_error_message(client.spec, session.load(store, candidate_id, client).language)
@@ -125,16 +127,23 @@ def handle_cv(llm: LLM, store, client: Client, candidate_id: str, data: bytes, n
 
 
 def _handle(llm: LLM, store, client: Client, candidate_id: str, message: str, now: datetime,
-            screening: Screening) -> Turn:
+            screening: Screening, voice: bool = False) -> Turn:
     screening.resume()
     consented_before = screening.consent is True  # the turn that answers the consent question shares nothing
     history = store.messages(candidate_id)
     last_question = history[-1].text if history and history[-1].role == "agent" else None
-    if screening.awaiting_slot_choice:
+    spoken = voice and slot_flow.can_speak(client)
+    if spoken and screening.awaiting_slot_choice:
+        directive = slot_flow.handle_spoken(store, client, screening, candidate_id, message, now)
+    elif screening.slot_offer and screening.awaiting_slot_choice:
         directive = slot_flow.handle_pick(store, client, screening, candidate_id, message, now)
     else:
+        screening.end_voice_booking()  # a spoken booking left open when they write instead
         directive = _directive_for(llm, screening, message, now.date(), last_question)
-        directive = slot_flow.after_close(store, client, screening, candidate_id, directive, now)
+        if voice and directive is not None and directive.kind == Kind.CV_OFFER:  # a file cannot be sent by voice
+            screening.withhold_cv_offer()
+            directive = Directive(Kind.ASK, field=screening.next_field())
+        directive = slot_flow.after_close(store, client, screening, candidate_id, directive, now, voice=spoken)
     # what the model may see when it words a message: the saved conversation and this message, only after consent
     context = [(m.role, m.text) for m in history] + [("candidate", message)] if consented_before else []
     reply = (consent_message(client.spec) if directive is None

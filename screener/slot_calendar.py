@@ -2,7 +2,7 @@
 candidate in that country sees exactly the time the recruiter typed and no conversion is needed.
 The only conversions are the two rules about when a slot may be booked (D87)."""
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
 
@@ -25,6 +25,10 @@ class SlotCalendar:
         """False for a time skipped when the clocks spring forward (a time inside the spring-forward gap)."""
         aware = wall.replace(tzinfo=self.zone(country))
         return aware.astimezone(timezone.utc).astimezone(self.zone(country)).replace(tzinfo=None) == wall
+
+    def today(self, country: str, now: datetime) -> date:
+        """The calendar day it is in `country`."""
+        return self._now(now).astimezone(self.zone(country)).date()
 
     def candidate_may_book(self, country: str, wall: datetime, now: datetime) -> bool:
         """A candidate books from tomorrow up to `horizon_days` ahead, counted by the country's own calendar day."""

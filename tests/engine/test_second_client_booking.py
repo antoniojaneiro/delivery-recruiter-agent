@@ -137,3 +137,11 @@ def test_a_client_with_no_button_texts_keeps_the_numbered_list_whatever_the_chan
     llm = ScriptedLLM(extractions=[{"name": "Jo Smith"}, {"town": "Headingley"}, {"can_lift": True}])
     last = talk(store, llm, "yes", "Jo Smith", "Headingley", "yes")[-1]
     assert "1) Wed 28 Oct, 10:00" in last
+
+
+def test_a_client_with_no_voice_texts_keeps_the_numbered_list_for_a_spoken_message_too(store):
+    store.add_slot("GB", datetime(2026, 10, 28, 10, 0), None, "Ana", NOW)
+    turn.start(store, TOY_UK, "c1", NOW)
+    llm = ScriptedLLM(extractions=[{"name": "Jo Smith"}, {"town": "Headingley"}, {"can_lift": True}])
+    replies = [turn.handle_message(llm, store, TOY_UK, "c1", m, NOW, voice=True) for m in ("yes", "Jo Smith", "Headingley", "yes")]
+    assert "1) Wed 28 Oct, 10:00" in replies[-1] and not store.get("c1").state.get("voice_booking")

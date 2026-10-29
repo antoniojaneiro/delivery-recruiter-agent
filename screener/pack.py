@@ -25,6 +25,7 @@ class SlotTexts:
     moved: Text  # {label}: a recruiter moved the booked call
     later: Text  # they chose none of the times, or went quiet: write again whenever they want to book
     offer_button: dict[str, Text] = field(default_factory=dict)  # the same four, for a channel with a button: no list; empty = keep the list
+    voice: dict[str, Text] = field(default_factory=dict)  # the spoken day-then-time booking (D93), {label}; empty = no voice booking
 
 
 @dataclass(frozen=True)
