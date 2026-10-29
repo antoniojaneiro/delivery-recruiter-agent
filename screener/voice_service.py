@@ -105,7 +105,7 @@ def create_voice_app(client: Client, store, llm: LLM, *, secret: str, clock=date
     def apology(candidate_id: str | None) -> str:
         record = store.get(candidate_id) if candidate_id else None
         language = (record.state or {}).get("language") if record else None
-        return turn.technical_error_message(client.spec, language or default_language)
+        return turn.technical_error_message(client.spec, language or default_language, voice=True)
 
     def reply_to(body: dict) -> tuple[str, bool]:
         """What to say, and whether the conversation is over once it is said (then the call is ended)."""

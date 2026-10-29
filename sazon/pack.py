@@ -25,6 +25,7 @@ SLOTS = SlotTexts(
     },
     voice={
         "resume": bi("Sigamos con tu solicitud.", "Let's continue with your application."),
+        "error": bi("No te he oído bien. ¿Puedes repetirlo, por favor?", "I couldn't hear you. Could you repeat please?"),
         "ask_day": bi("¡Genial, tu perfil encaja! Por favor, reserva una llamada para hablar con un reclutador. ¿Qué día te vendría bien?",
                       "Great, your profile fits! Please book a call to talk with a recruiter. Which day suits you?"),
         "ask_day_again": bi("No te he entendido. ¿Qué día te viene bien? Por ejemplo, el jueves o el 5 de noviembre.",

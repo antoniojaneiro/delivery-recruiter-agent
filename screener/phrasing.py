@@ -113,7 +113,11 @@ def cv_notice_hash(spec: "ScreeningSpec") -> str:
     return hashlib.sha256(_both(spec.pack.cv.notice).encode("utf-8")).hexdigest()[:12]
 
 
-def technical_error_message(spec: "ScreeningSpec", language: str) -> str:
+def technical_error_message(spec: "ScreeningSpec", language: str, voice: bool = False) -> str:
+    """What is said when something failed. On a call, a client with spoken texts says what the caller can act on (repeat)."""
+    slots = spec.pack.slots
+    if voice and slots and "error" in slots.voice:
+        return spec.pack.pick(slots.voice["error"], language)
     return spec.pack.pick(spec.pack.error, language)
 
 

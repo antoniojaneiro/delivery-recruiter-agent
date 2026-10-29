@@ -92,7 +92,7 @@ def test_the_session_can_arrive_in_the_prompt_instead(store):
 def test_an_unknown_or_expired_session_is_answered_with_the_fixed_apology_and_runs_nothing(store):
     http, llm = make(store)
     session = started(store)
-    apology = turn.technical_error_message(CLIENT.spec, CLIENT.spec.pack.default_language)
+    apology = turn.technical_error_message(CLIENT.spec, CLIENT.spec.pack.default_language, voice=True)
     assert spoken(call(http, "no-such-session", "sí")) == apology
     late = TestClient(create_voice_app(CLIENT, store, llm, secret=SECRET, clock=lambda: NOW + timedelta(hours=2)))
     assert spoken(call(late, session, "sí")) == apology
@@ -142,7 +142,7 @@ def test_whatever_goes_wrong_inside_is_spoken_as_the_fixed_apology_never_a_serve
     monkeypatch.setattr(turn, "handle_message", boom)
     response = call(http, session, "sí")
     assert response.status_code == 200
-    assert spoken(response) == turn.technical_error_message(CLIENT.spec, CLIENT.spec.pack.default_language)
+    assert spoken(response) == turn.technical_error_message(CLIENT.spec, CLIENT.spec.pack.default_language, voice=True)
 
 
 def test_a_qualified_candidate_books_a_call_through_the_endpoint_by_saying_a_day_and_a_time(store):

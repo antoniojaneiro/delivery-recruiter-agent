@@ -202,6 +202,8 @@ def _handle(llm: LLM, store, client: Client, candidate_id: str, message: str, no
     wording = llm if channel.model_words else NO_MODEL  # speech has no time for a second model call: the fixed words (and the free model's rate)
     reply = (consent_message(client.spec) if directive is None
              else phrase(wording, client.spec, directive, screening.language, history=context))
+    if directive is not None and directive.kind == Kind.TECHNICAL_ERROR and channel is VOICE:
+        reply = technical_error_message(client.spec, screening.language, voice=True)
     if directive is not None and directive.kind == Kind.CV_OFFER:  # the offer, then the first question
         ask = Directive(Kind.ASK, field=screening.next_field())
         reply = reply + " " + fixed(client.spec, ask, screening.language)  # nothing was said to acknowledge
