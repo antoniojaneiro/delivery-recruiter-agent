@@ -8,7 +8,6 @@ import os
 import queue
 import re
 import shutil
-import socket
 import subprocess
 import sys
 import threading
@@ -19,11 +18,11 @@ from dotenv import load_dotenv
 
 from sazon import config
 from sazon.client import SAZON_CLIENT
+from screener.launching import port_is_free, stop
 from screener.voice_agent import ElevenLabs, VoiceSetupError, provision
 
 ROOT = Path(__file__).resolve().parent.parent
 TUNNEL_WAIT_SECONDS = 45
-STOP_WAIT_SECONDS = 5
 _TUNNEL_URL = re.compile(r"https://[a-z0-9-]+\.trycloudflare\.com")
 
 
@@ -68,24 +67,8 @@ def find_cloudflared(env, which=shutil.which, home: Path | None = None) -> str |
     return str(own) if own.is_file() else None
 
 
-def _stop(processes) -> None:
-    for process in processes:
-        if process.poll() is None:
-            process.terminate()
-    for process in processes:
-        try:
-            process.wait(timeout=STOP_WAIT_SECONDS)
-        except subprocess.TimeoutExpired:
-            process.kill()
-
-
-def _port_is_free(port: int) -> bool:
-    with socket.socket() as probe:
-        return probe.connect_ex(("127.0.0.1", port)) != 0
-
-
 def run(env=None, spawn=subprocess.Popen, provision_fn=provision, sleep=time.sleep, out=print, api_factory=ElevenLabs,
-        port_free=_port_is_free, wait_for_url=_read_url, find_exe=None) -> int:
+        port_free=port_is_free, wait_for_url=_read_url, find_exe=None) -> int:
     """0 after Ctrl+C, 1 when something failed or stopped by itself, 2 when it cannot start (no key, port in use)."""
     env = dict(os.environ if env is None else env)
     key, port = env.get("ELEVENLABS_API_KEY", "").strip(), config.voice_port()
@@ -128,7 +111,7 @@ def run(env=None, spawn=subprocess.Popen, provision_fn=provision, sleep=time.sle
         out("Stopping...")
         return 0
     finally:
-        _stop(started)
+        stop(started)
 
 
 if __name__ == "__main__":
