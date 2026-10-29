@@ -4,14 +4,7 @@ What is built, what is still needed from the client, and how to start each part.
 
 ## Start it
 
-| What | Command | Notes |
-| --- | --- | --- |
-| Both apps | `python demo_launch.py` | Chat on port 8501, dashboard on 8502. Create the first recruiter account on the dashboard's login page. |
-| Candidate service for a channel | `python -m sazon.server` | Needs `SAZON_API_KEY` in `.env`. Port 8000. Put it behind HTTPS. |
-| 24-hour reminders | `python -m sazon.reminders --every 600` | Someone must keep it running. Its messages wait in the outbox until a channel sends them. |
-| Tests | `python -m pytest -q -n 4` | `-m load` runs the busy-day test, `-m live` the real-model checks (needs the key). |
-
-Keep the dashboard and the chat on your own computer until the login is replaced (below).
+Every command, the demo data and the configuration are in [RUNNING.md](RUNNING.md). Keep the dashboard and the chat on your own computer until the login is replaced (below).
 
 ## The client must provide
 
@@ -37,11 +30,11 @@ The list below says *what* needs approval. A separate document with each text wo
 7. A sample of real conversations. The model's wording varies, so the fixed texts are not the whole picture.
 8. Live voice (D93): the nine spoken question texts (`voice` in `sazon/pack.py`, Spanish and English), that the call opens with the same AI disclosure and consent question, and that the audio is heard and transcribed by ElevenLabs as a processor (the agent keeps no recording and one day of history; no analysis, no emotion inference).
 
-`python -m sazon.demo --list` shows the fictional conversations; `python -m sazon.demo` (or `--only NAME`) plays them on the real model.
+`python -m sazon.demo.seed` fills a database with fictional candidates to look at; `python -m sazon.demo --list` shows the scripted conversations that can be played on the real model.
 
 ## Known limits
 
-- Live voice was tested with fakes and through a real tunnel, not yet in a call with ElevenLabs: it needs the key (D93, DECISIONS section 9).
+- Live voice was tried in real calls with ElevenLabs on a free account and a quick tunnel; a deployment needs a stable HTTPS address, the client's ElevenLabs account and agreement, and pinning the browser SDK (D93, DECISIONS section 9).
 - The real model was not load-tested (free tier). The service and database were, with a fake model, at about 25 times the expected peak (D75).
 - A rejected candidate cannot reopen the chat; a recruiter can set a status.
 - One database file on one machine: no backup or failover.
