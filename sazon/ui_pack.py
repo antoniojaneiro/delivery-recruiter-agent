@@ -301,6 +301,8 @@ PACK = UiPack((ES, EN), {
         "Demo: conversations are saved in the recruiters' dashboard and recruiters can see them. Write as a "
         "candidate would, in Spanish or English, and erase them from the dashboard when you are done."),
     "chat.voice_start": bi("Hablar con Sofía", "Talk to Sofía"),
+    "chat.voice_done": bi("Llamada ya realizada", "Call already made"),
+    "chat.voice_finished": bi("Conversación terminada", "Conversation finished"),
     "chat.voice_end": bi("Terminar la llamada", "End call"),
     "chat.voice_off_help": bi(
         "La voz necesita tu clave de ElevenLabs (ELEVENLABS_API_KEY en .env) y el agente de voz: ejecuta python -m sazon.voice_launch.",

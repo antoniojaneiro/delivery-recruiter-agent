@@ -25,7 +25,7 @@ from screener.store import Store
 from sazon import config, ui
 from sazon.client import SAZON_CLIENT
 from sazon.ui import open_store, t
-from sazon.voice_component import call_html
+from sazon.voice_component import call_html, call_should_close
 from sazon.ui_pack import PACK
 
 load_dotenv()  # the hiring manager, who takes calls, is named there
@@ -67,6 +67,8 @@ def voice_ready() -> bool:
 
 def start_voice() -> None:
     """A voice session for this candidate and a signed address to start the call with; the call page is drawn from them."""
+    if turn.conversation_is_over(active_store(), SAZON_CLIENT, st.session_state["chat_id"]):
+        return  # nothing is left to say: a call would only open and close
     try:
         state = load_state(config.VOICE_STATE_PATH)
         address = ElevenLabs(config.elevenlabs_key()).signed_url(state.agent_id)
@@ -82,6 +84,7 @@ def start_voice() -> None:
 
 def end_voice() -> None:
     st.session_state.pop("voice_call", None)  # the page of the call is no longer drawn, so the call ends
+    st.session_state.pop("voice_over_since", None)
 
 
 def wait_a_day() -> None:
@@ -105,6 +108,9 @@ with st.sidebar:
               help=t("chat.wait_help"))
     if st.session_state.get("voice_call"):
         st.button(t("chat.voice_end"), key="voice_end", on_click=end_voice, icon=":material/call_end:", width="stretch")
+    elif turn.conversation_is_over(store, SAZON_CLIENT, candidate_id):  # nothing is left to say: the button says why it is off
+        st.button(t("chat.voice_done" if store.had_voice_call(candidate_id) else "chat.voice_finished"), key="voice_start",
+                  icon=":material/mic_off:", width="stretch", disabled=True)
     else:
         st.button(t("chat.voice_start"), key="voice_start", on_click=start_voice, icon=":material/mic:", width="stretch",
                   disabled=not voice_ready())
@@ -137,7 +143,13 @@ if call := st.session_state.get("voice_call"):
 
 @st.fragment(run_every=3 if st.session_state.get("voice_call") else None)
 def transcript() -> None:
-    """The messages. During a call they redraw on their own as the voice endpoint saves what is said; the call is not touched."""
+    """The messages. During a call they redraw on their own as the voice endpoint saves what is said; the call is not touched.
+    When the conversation is over the call is closed on the page a little later (the farewell and the end of the call take a moment)."""
+    if st.session_state.get("voice_call") and turn.conversation_is_over(store, SAZON_CLIENT, candidate_id):
+        since = st.session_state.setdefault("voice_over_since", datetime.now())
+        if call_should_close(since, datetime.now()):
+            end_voice()
+            st.rerun()
     for message in store.messages(candidate_id):
         with st.chat_message("assistant" if message.role == "agent" else "user"):
             st.text(message.text)  # candidate and model text is never rendered as Markdown or HTML

@@ -34,6 +34,11 @@ class ServiceState(Part):
                         stamp(now + timedelta(minutes=VOICE_SESSION_MINUTES))))
         return session
 
+    def had_voice_call(self, candidate_id: str) -> bool:
+        """A voice session was made for this candidate (they had, or started, a spoken call)."""
+        with self._connect() as db:
+            return db.execute("SELECT 1 FROM voice_sessions WHERE candidate_id = ?", (candidate_id,)).fetchone() is not None
+
     def voice_session_candidate(self, session: str, now: datetime) -> str | None:
         """The candidate a live voice session belongs to, or None (unknown, expired or erased)."""
         with self._connect() as db:

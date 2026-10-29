@@ -113,3 +113,59 @@ def test_a_call_started_midway_opens_with_where_they_were_not_with_the_consent_q
     call = at.session_state["voice_call"]
     assert call["opening"].startswith("Sigamos con tu solicitud.") and call["language"] == "es"
     assert [m.text for m in store.messages(cid)][-1] == call["opening"]  # saved: the transcript shows what was heard
+
+
+def test_when_the_conversation_is_over_the_button_is_off_and_says_so(chat):
+    from tests.support.booking import say
+    store, tmp_path = chat
+    set_up(tmp_path)
+    at = opened()
+    cid = at.session_state["chat_id"]
+    say(store, "sí", {"consent": True}, cid=cid)
+    say(store, "no tengo licencia", {"has_license": False}, cid=cid)
+    say(store, "correcto", {"confirms_rejection": True}, cid=cid)  # turned down by text: nothing left to say
+    at.run()
+    button = at.sidebar.button(key="voice_start")
+    assert button.disabled and button.label == "Conversación terminada"
+
+
+def test_after_a_voice_call_that_finished_the_button_says_the_call_was_already_made(chat):
+    from tests.support.booking import say
+    store, tmp_path = chat
+    set_up(tmp_path)
+    at = opened()
+    cid = at.session_state["chat_id"]
+    store.new_voice_session(cid, datetime.now())  # a call was held
+    say(store, "sí", {"consent": True}, cid=cid)
+    say(store, "me retiro", {}, cid=cid)
+    at.run()
+    button = at.sidebar.button(key="voice_start")
+    assert button.disabled and button.label == "Llamada ya realizada"
+    assert "voice_call" not in at.session_state
+
+
+def test_a_conversation_that_is_over_cannot_start_a_call_even_if_the_button_is_pressed_late(chat):
+    from tests.support.booking import say
+    store, tmp_path = chat
+    set_up(tmp_path)
+    at = opened()
+    cid = at.session_state["chat_id"]
+    say(store, "sí", {"consent": True}, cid=cid)
+    say(store, "me retiro", {}, cid=cid)  # over after the page was drawn: the button still looked pressable
+    at.sidebar.button(key="voice_start").click().run()
+    assert "voice_call" not in at.session_state and not store.voice_session_candidate("x", datetime.now())
+
+
+def test_the_call_page_closes_the_call_on_the_page_when_the_call_ends_by_itself():
+    html = call_html("wss://x", "s", "es", "o", None)
+    assert ".st-key-voice_end button" in html and 'reason === "agent"' in html and 'reason === "user"' in html
+    assert 'reason === "error"' not in html  # an error stays on screen so its reason can be read
+
+
+def test_the_page_closes_a_finished_call_itself_after_a_short_grace_if_the_call_page_could_not():
+    from datetime import timedelta
+    from sazon.voice_component import call_should_close
+    started = datetime(2026, 10, 29, 12, 0, 0)
+    assert call_should_close(None, started) is False  # the conversation is not over
+    assert call_should_close(started, started + timedelta(seconds=10)) is False  # the farewell may still be being spoken
+    assert call_should_close(started, started + timedelta(seconds=31)) is True

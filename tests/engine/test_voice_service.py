@@ -271,3 +271,12 @@ def test_a_reply_that_is_not_streamed_carries_the_end_call_too(store):
     body = call(http, session, "correcto", history=history, stream=False, tools=END_CALL).json()["choices"][0]
     assert body["finish_reason"] == "tool_calls" and body["message"]["tool_calls"][0]["function"]["name"] == "end_call"
     assert body["message"]["content"]
+
+
+def test_a_voice_call_made_for_a_candidate_is_remembered_and_erased_with_them(store):
+    turn.start(store, CLIENT, "c5", NOW)
+    assert store.had_voice_call("c5") is False
+    store.new_voice_session("c5", NOW)
+    assert store.had_voice_call("c5") is True and store.had_voice_call("c6") is False
+    store.erase_candidate("c5", "recruiter:Ana", NOW, "request")
+    assert store.had_voice_call("c5") is False
