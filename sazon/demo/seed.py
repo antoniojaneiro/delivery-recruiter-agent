@@ -75,13 +75,13 @@ PEOPLE = (
            stage=S.UNREACHABLE, note="Tres llamadas sin respuesta; se le escribió por el chat."),
     Person("Sergio Navarro Pons", "Hospitalet", 7, "booked", years=2, stage=S.CONTACTED, start=("in_weeks", 1)),
     Person("Diego Ramírez Salas", "Monterrey", 7, "booked", years=5, platform="Uber Eats", stage=S.CONTACTED, note="Llamar por la tarde, trabaja de mañana."),
-    Person("Javier Romero Díaz", "Madrid", 4, "booked", years=3, availability="part_time", schedule="afternoon", pick=3),
-    Person("María Fernanda López Ruiz", "Zapopan", 4, "booked", years=2, platform="Rappi", note="Pregunta si hay uniforme."),
-    Person("Marta Sánchez Ortega", "Valencia", 2, "booked", years=1, platform="Just Eat", start=("weekday", 0)),
-    Person("Oliver Grant", "Barcelona", 3, "booked", language="en", years=2, platform="Uber Eats", availability="part_time",
+    Person("Javier Romero Díaz", "Madrid", 0, "booked", years=3, availability="part_time", schedule="afternoon", pick=3),
+    Person("María Fernanda López Ruiz", "Zapopan", 0, "booked", years=2, platform="Rappi", note="Pregunta si hay uniforme."),
+    Person("Marta Sánchez Ortega", "Valencia", 0, "booked", years=1, platform="Just Eat", start=("weekday", 0)),
+    Person("Oliver Grant", "Barcelona", 0, "booked", language="en", years=2, platform="Uber Eats", availability="part_time",
            schedule="afternoon", note="English speaker, lives near Sants."),
-    Person("Hannah Brooks", "Monterrey", 2, "booked", language="en", years=1, platform="Uber Eats", availability="weekends", schedule="flexible"),
-    Person("Paola Mendoza Ríos", "Ciudad de México", 1, "booked", years=3, platform="DiDi Food", pick=2),
+    Person("Hannah Brooks", "Monterrey", 0, "booked", language="en", years=1, platform="Uber Eats", availability="weekends", schedule="flexible"),
+    Person("Paola Mendoza Ríos", "Ciudad de México", 0, "booked", years=3, platform="DiDi Food", pick=2),
     Person("Elena Vidal Marín", "Getafe", 1, "open", years=2),
     Person("Ximena Torres Beltrán", "CDMX", 1, "open", years=0, platform="", availability="part_time", schedule="evening"),
     Person("Sophie Turner", "Madrid", 0, "open", language="en", years=1, platform="Just Eat"),
@@ -147,7 +147,7 @@ def _steps(person: Person) -> list[tuple[str, dict]]:
 
 
 def _talk(store: Store, person: Person, cid: str, base: datetime) -> None:
-    now = base - timedelta(days=person.days_ago)
+    now = base - timedelta(days=person.days_ago, minutes=30)  # the conversation is over before `base`
     turn.start(store, SAZON_CLIENT, cid, now)
     for minute, (message, extraction) in enumerate(_steps(person), start=1):
         turn.handle_message(Scripted(extraction), store, SAZON_CLIENT, cid, message, now + timedelta(minutes=minute))
@@ -167,13 +167,16 @@ def seed(store: Store, now: datetime) -> Summary:
     for index, person in enumerate(PEOPLE, start=1):
         cid = f"demo-{index:02d}"
         _talk(store, person, cid, now)
-        after = now - timedelta(days=person.days_ago) + timedelta(hours=3)
         record = store.get(cid)
+        after = now - timedelta(days=person.days_ago) + timedelta(hours=3)
+        if person.stage and record.booking:  # a hire, a rejection or a contact follows the call
+            after = max(after, record.booking.starts_at + timedelta(hours=1))
+        after = min(after, now)
         by = BY_COUNTRY["MX" if SAZON_CLIENT.calendar.country_of.get(record.extracted.get("city")) == "MX" else "ES"]
         if person.stage:
             store.set_stage(cid, person.stage, by, after)
         if person.note:
-            store.add_note(cid, person.note, by, after + timedelta(minutes=5))
+            store.add_note(cid, person.note, by, min(after + timedelta(minutes=5), now))
         if person.end == "erased":
             store.erase_candidate(cid, MANAGER, after, "request of the candidate")
     return Summary(recruiters, store.count())
@@ -185,8 +188,12 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     path = config.db_path()
     if args.reset:
-        for leftover in path.parent.glob(path.name + "*"):
-            leftover.unlink()
+        try:
+            for leftover in path.parent.glob(path.name + "*"):
+                leftover.unlink()
+        except PermissionError:
+            print(f"{path} is in use: stop the chat and the dashboard, then run --reset again.", file=sys.stderr)
+            return 1
     path.parent.mkdir(parents=True, exist_ok=True)
     store = Store(path, calendar=SAZON_CLIENT.calendar)
     try:

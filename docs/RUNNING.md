@@ -26,7 +26,7 @@ python -m sazon.demo.seed --reset      # 27 fictional candidates, 4 recruiters, 
 python demo_launch.py                  # chat on :8501, dashboard on :8502; Ctrl+C stops both
 ```
 
-Sign in to the dashboard (`http://localhost:8502`) as the hiring manager from `.env`, or as a seeded recruiter: `ana@sazon.test` or `miguel@sazon.test` (Spain), `lucia@sazon.test` or `roberto@sazon.test` (Mexico), password `demo-sazon-2026`. The seed refuses a database that already has candidates; `--reset` deletes it first. Everything under `data/` is git-ignored.
+Sign in to the dashboard (`http://localhost:8502`) as the hiring manager from `.env`, or as a seeded recruiter: `ana@sazon.test` or `miguel@sazon.test` (Spain), `lucia@sazon.test` or `roberto@sazon.test` (Mexico), password `demo-sazon-2026`. The seed refuses a database that already has candidates; `--reset` deletes it first (stop the chat and the dashboard before, or the file is in use). Dates are relative to the moment you seed, so run `--reset` again on the day of the demo. Everything under `data/` is git-ignored.
 
 Then open the chat, write as a candidate (Spanish or English; this part needs the Gemini key), and watch the candidate appear in the dashboard. Erase your test candidates there when done.
 

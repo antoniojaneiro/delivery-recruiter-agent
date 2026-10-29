@@ -59,3 +59,61 @@ def test_seeding_a_database_that_has_candidates_is_refused_not_mixed(seeded):
     store, _, _ = seeded
     with pytest.raises(SeedError):
         seed(store, NOW)
+
+
+def test_everyone_shown_as_interview_scheduled_has_a_call_still_to_come(seeded):
+    _, _, records = seeded
+    scheduled = [r for r in records if r.stage == RecruiterStatus.INTERVIEW_SCHEDULED]
+    assert len(scheduled) >= 4 and all(r.booking.starts_at > NOW for r in scheduled)
+
+
+def test_a_hire_a_rejection_or_a_contact_is_dated_after_the_call_it_follows(seeded):
+    store, _, records = seeded
+    acted = [r for r in records if r.booking and r.stage in (RecruiterStatus.HIRED, RecruiterStatus.REJECTED,
+                                                            RecruiterStatus.UNREACHABLE, RecruiterStatus.CONTACTED)]
+    assert len(acted) >= 6
+    for record in acted:
+        decided = [e.at for e in store.events(record.candidate_id) if e.type == "recruiter_status"]
+        assert decided and all(at > record.booking.starts_at for at in decided), record.extracted["name"]
+
+
+def test_nothing_is_dated_after_the_moment_of_seeding(seeded):
+    store, _, records = seeded
+    for record in records:
+        assert all(e.at <= NOW for e in store.events(record.candidate_id)), record.extracted["name"]
+        assert all(m.at <= NOW for m in store.messages(record.candidate_id)), record.extracted["name"]
+
+
+def test_the_dashboard_opens_on_the_demo_data_page_by_page(tmp_path, monkeypatch):
+    """What a reviewer does first: sign in as a seeded recruiter and look at every page, past calls, hires and the erasure included."""
+    from streamlit.testing.v1 import AppTest
+
+    from tests.support.paths import DASHBOARD
+    path = tmp_path / "demo.db"
+    monkeypatch.setenv("SAZON_DB", str(path))
+    seed(Store(path, calendar=SAZON_CALENDAR), datetime.now().replace(second=0, microsecond=0))
+    at = AppTest.from_file(str(DASHBOARD), default_timeout=20).run()
+    at.text_input(key="login_email").set_value("ana@sazon.test")
+    at.text_input(key="login_password").set_value(PASSWORD)
+    at.form_submit_button(key="login_submit").click().run()
+    assert not at.exception, at.exception
+    assert len(at.dataframe[0].value) == 27
+    for page in ("slots", "funnel"):
+        at.switch_page(f"views/{page}.py").run()
+        assert not at.exception, (page, at.exception)
+
+
+def test_resetting_while_the_apps_hold_the_database_says_so_in_one_line(tmp_path, monkeypatch, capsys):
+    from pathlib import Path
+
+    from sazon.demo.seed import main
+    path = tmp_path / "demo.db"
+    path.write_bytes(b"")
+    monkeypatch.setenv("SAZON_DB", str(path))
+
+    def locked(self, *args, **kwargs):
+        raise PermissionError("in use")
+
+    monkeypatch.setattr(Path, "unlink", locked)
+    assert main(["--reset"]) == 1
+    assert "stop the chat and the dashboard" in capsys.readouterr().err.lower()
