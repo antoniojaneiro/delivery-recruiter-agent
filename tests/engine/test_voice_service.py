@@ -190,3 +190,22 @@ def test_shapes_are_logged_only_when_asked_and_never_the_words(store, tmp_path):
     call(loud, session, "mi nombre es Juan Pérez", history=[{"role": "user", "content": "sí"}])
     line = json.loads(log.read_text(encoding="utf-8").splitlines()[0])
     assert line["user_turns"] == 2 and line["session_from"] == "extra" and "Juan" not in log.read_text(encoding="utf-8")
+
+
+@pytest.mark.parametrize("path", ["/v1/chat/completions", "/chat/completions", "/v1/chat/completions/chat/completions"])
+def test_the_address_may_be_asked_for_with_or_without_chat_completions_added_again(store, path):
+    http, _ = make(store)
+    session = started(store)
+    body = {"messages": [{"role": "system", "content": f"voice_session={session}"}, {"role": "user", "content": "sí"}], "stream": False}
+    ok = http.post(path, json=body, headers={"Authorization": f"Bearer {SECRET}"})
+    assert ok.status_code == 200 and "nombre" in ok.json()["choices"][0]["message"]["content"].lower()
+    assert http.post(path, json=body).status_code == 401  # whatever the path, the secret is still needed
+
+
+def test_other_paths_are_not_found_and_the_path_asked_is_in_the_shape_log_never_the_words(store, tmp_path):
+    session = started(store)
+    log = tmp_path / "shapes.log"
+    http = TestClient(create_voice_app(CLIENT, store, ScriptedLLM(), secret=SECRET, clock=lambda: NOW, shapes_log=log))
+    assert http.post("/v1/other", json={}, headers={"Authorization": f"Bearer {SECRET}"}).status_code == 404
+    call(http, session, "mi nombre es Juan")
+    assert json.loads(log.read_text(encoding="utf-8").splitlines()[0])["path"] == "/v1/chat/completions"

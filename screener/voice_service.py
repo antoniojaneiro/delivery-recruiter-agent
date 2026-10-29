@@ -16,7 +16,7 @@ import time
 from datetime import datetime
 from pathlib import Path
 
-from fastapi import Body, FastAPI, Header, HTTPException
+from fastapi import Body, FastAPI, Header, HTTPException, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 
 from screener import turn
@@ -133,12 +133,13 @@ def create_voice_app(client: Client, store, llm: LLM, *, secret: str, clock=date
 
     @app.post("/v1/chat/completions")
     @app.post("/chat/completions")
-    def completions(body: dict = Body(...), authorization: str | None = Header(None)):
+    @app.post("/{prefix:path}/chat/completions")  # a caller that adds /chat/completions to the address it was given (ElevenLabs does)
+    def completions(request: Request, body: dict = Body(...), authorization: str | None = Header(None), prefix: str = ""):
         if not authorised(authorization):
             raise HTTPException(401, "unauthorised")
         if shapes_log is not None:
             with shapes_log.open("a", encoding="utf-8") as handle:
-                handle.write(json.dumps(request_shape(body)) + "\n")
+                handle.write(json.dumps({**request_shape(body), "path": request.url.path}) + "\n")
         completion_id = "chatcmpl-" + hashlib.sha256(f"{time.time()}".encode()).hexdigest()[:16]
         if body.get("stream", True) is False:
             reply = reply_to(body)
