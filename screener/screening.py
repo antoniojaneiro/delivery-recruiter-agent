@@ -217,6 +217,10 @@ class Screening:
     def cv_offered(self) -> bool:
         return self._cv == "offered"
 
+    def current_directive(self) -> Directive:
+        """What the agent would say now, with no new message from the candidate (the open question, a confirmation...)."""
+        return self._directive_now(None)
+
     def withhold_cv_offer(self) -> None:
         """The channel cannot take a file (voice): the offer is not made, and nothing is recorded about it."""
         if self.cv_offered:

@@ -23,6 +23,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 DB_PATH = PROJECT_ROOT / "data" / "sazon.db"
 
 LOG_PATH = PROJECT_ROOT / "data" / "sazon.log"
+VOICE_SHAPES_PATH = PROJECT_ROOT / "data" / "voice_requests.log"  # with VOICE_LOG_SHAPES=1: the shape of each call, never its words
 VOICE_STATE_PATH = PROJECT_ROOT / "data" / "voice.json"  # the ElevenLabs agent and its shared secret (git-ignored, no API key)
 DEMO_DIR = PROJECT_ROOT / "data" / "demo"  # what the demos write: the transcripts and the sample CVs
 

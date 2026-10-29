@@ -56,6 +56,42 @@ def handle_message(llm: LLM, store, client: Client, candidate_id: str, message: 
         return technical_error_message(client.spec, session.load(store, candidate_id, client).language)
 
 
+def voice_opening(store, client: Client, candidate_id: str, now: datetime) -> tuple[str, str | None]:
+    """The first words of a call, and the language to speak them in (None when it is not known yet) (D93). It is what the engine
+    would say now on the voice channel: the disclosure for someone who has not answered the consent question (already shown in
+    the text chat, so not saved again), the way back to the open question for someone midway, the day question for someone
+    qualified who has no call, the call they have, or the closing. It is saved as the agent's message, so the transcript shows
+    what was heard, and the consent question is never asked twice."""
+    if not store.accepting_applications():
+        return closed_message(client.spec), None
+    record = store.get(candidate_id)
+    if record is None:
+        return consent_message(client.spec), None
+
+    def work(screening: Screening) -> Turn:
+        language = screening.language
+        if screening.needs_consent:
+            return Turn((consent_message(client.spec), None), save=False)
+        if screening.decide().outcome == Outcome.QUALIFIED:
+            directive = slot_flow.after_close(store, client, screening, candidate_id, screening.close_directive(), now, voice=True)
+            text = phrase(NO_MODEL, client.spec, directive, language)
+        elif not screening.is_open:
+            text = phrase(NO_MODEL, client.spec, replace(screening.close_directive(), repeat=True), language)
+        else:
+            screening.withhold_cv_offer()
+            slots = client.spec.pack.slots
+            lead = client.spec.pack.pick(slots.voice["resume"], language) + " " if slots and "resume" in slots.voice else ""
+            text = lead + phrase(NO_MODEL, client.spec, screening.current_directive(), language)
+        history = store.messages(candidate_id)
+        said_already = bool(history) and history[-1].role == "agent" and history[-1].text == text
+        return Turn((text, language.value), messages=[] if said_already else [("agent", text)])
+
+    try:
+        return conversation.run(store, client, candidate_id, now, work, on_conflict=RETRY_ONCE)
+    except ConflictError:
+        return technical_error_message(client.spec, client.spec.pack.default_language), None
+
+
 def handle_slot(store, client: Client, candidate_id: str, slot_id: int, now: datetime) -> str:
     """A time chosen in the picker. Only a candidate the agent qualified can choose; for anyone else nothing happens
     and nothing is said. The answer is the one typing a number would have given."""

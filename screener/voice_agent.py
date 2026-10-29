@@ -64,6 +64,11 @@ class ElevenLabs:
         return self._call("GET", "/v1/convai/conversation/get-signed-url", params={"agent_id": agent_id})["signed_url"]
 
 
+def _places(client: Client) -> list[str]:
+    """The service areas and their nearby towns: the places a candidate says, which a listener must get right."""
+    return list(dict.fromkeys([*client.areas, *(town for towns in client.areas.values() for town in towns)]))
+
+
 def agent_config(client: Client, public_url: str, secret_id: str, voice_id: str | None = None) -> dict:
     """The whole agent, as the REST API takes it. `public_url` is where our voice endpoint can be reached from outside."""
     tts = {"model_id": "eleven_flash_v2_5"}  # a multilingual model: it speaks Spanish and English from the text
@@ -73,10 +78,11 @@ def agent_config(client: Client, public_url: str, secret_id: str, voice_id: str 
         "name": f"{client.spec.pack.company} voice agent",
         "conversation_config": {
             "agent": {
-                "first_message": consent_message(client.spec),  # the disclosure and the consent question, word for word
+                "first_message": "{{opening}}",  # what the engine would say now, set for each call (turn.voice_opening)
                 "disable_first_message_interruptions": True,  # it is always heard in full
                 "language": client.spec.pack.default_language.value,
-                "dynamic_variables": {"dynamic_variable_placeholders": {"voice_session": "none"}},
+                "dynamic_variables": {"dynamic_variable_placeholders": {
+                    "voice_session": "none", "opening": consent_message(client.spec)}},  # the default is the exact disclosure
                 "prompt": {
                     "prompt": "voice_session={{voice_session}}",  # our endpoint reads the session from here (or from extra body)
                     "llm": "custom-llm",
@@ -85,11 +91,13 @@ def agent_config(client: Client, public_url: str, secret_id: str, voice_id: str 
                 },
             },
             "tts": tts,
-            "asr": {"provider": "scribe_realtime", "quality": "high", "user_input_audio_format": "pcm_16000"},
+            "asr": {"provider": "scribe_realtime", "quality": "high", "user_input_audio_format": "pcm_16000",
+                    "keywords": _places(client)},
             "conversation": {"max_duration_seconds": MAX_CALL_SECONDS},
         },
         "platform_settings": {
             "auth": {"enable_auth": True},  # only a call our server signs can start it
+            "overrides": {"conversation_config_override": {"agent": {"language": True}}},  # a call may set its own language, nothing else
             "privacy": {"record_voice": False, "retention_days": 1},
         },
     }

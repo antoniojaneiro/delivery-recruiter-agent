@@ -24,8 +24,11 @@ def _json(value) -> str:
     return json.dumps(value, ensure_ascii=False).replace("<", "\\u003c").replace(">", "\\u003e").replace("&", "\\u0026")
 
 
-def call_html(signed_url: str, session: str, language: str) -> str:
+def call_html(signed_url: str, session: str, language: str, opening: str, agent_language: str | None) -> str:
+    """`language`: the one of the screen. `opening`: the first words of the call (the engine's). `agent_language`: the language
+    the candidate writes in, so the call starts in it (None: the agent's own)."""
     words = _WORDS.get(language, _WORDS["es"])
+    overrides = f"overrides: {{ agent: {{ language: {_json(agent_language)} }} }}," if agent_language else ""
     return f"""<div id="status" style="font-family:sans-serif;font-size:15px;padding:8px 0">{words['connecting']}</div>
 <script type="module">
 import {{ Conversation }} from {_json(SDK)};
@@ -36,7 +39,8 @@ try {{
   await navigator.mediaDevices.getUserMedia({{ audio: true }});
   await Conversation.startSession({{
     signedUrl: {_json(signed_url)},
-    dynamicVariables: {{ voice_session: session }},
+    dynamicVariables: {{ voice_session: session, opening: {_json(opening)} }},
+    {overrides}
     customLlmExtraBody: {{ voice_session: session }},
     onModeChange: (change) => {{ status.textContent = change.mode === "speaking" ? words.speaking : words.listening; }},
     onDisconnect: () => {{ status.textContent = words.ended; }},

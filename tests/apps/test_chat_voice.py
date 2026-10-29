@@ -10,6 +10,7 @@ from streamlit.testing.v1 import AppTest
 from sazon import config
 from sazon.client import SAZON_CLIENT
 from sazon.voice_component import call_html
+from screener.phrasing import consent_message
 from screener.store import Store
 from screener.voice_agent import ElevenLabs, VoiceSetupError
 from tests.support.fakes import ScriptedLLM
@@ -57,6 +58,7 @@ def test_starting_a_call_makes_a_session_for_this_candidate_and_ending_it_remove
     at.sidebar.button(key="voice_start").click().run()
     assert not at.exception, at.exception
     call = at.session_state["voice_call"]
+    assert call["opening"] == consent_message(SAZON_CLIENT.spec) and call["language"] is None  # a new candidate: the disclosure
     assert store.voice_session_candidate(call["session"], datetime.now()) == at.session_state["chat_id"]
     assert call["url"] == "wss://signed.example/agent_1?sig=abc"
     assert [b for b in at.sidebar.button if b.key == "voice_end"] and not [b for b in at.sidebar.button if b.key == "voice_start"]
@@ -87,8 +89,24 @@ def test_a_refusal_from_elevenlabs_is_explained_and_no_call_starts(chat, monkeyp
 
 
 def test_the_call_page_holds_the_address_and_the_session_safely_and_no_api_key():
-    html = call_html("wss://signed.example/a?sig=1", "sess_1", "es")
+    html = call_html("wss://signed.example/a?sig=1", "sess_1", "es", "Hola, sigamos", "es")
     assert "wss://signed.example/a?sig=1" in html and "sess_1" in html and "key-123" not in html
-    hostile = call_html('wss://x"</script><script>alert(1)</script>', "s'\"<", "en")
-    assert "</script><script>alert(1)" not in hostile and hostile.count("</script>") == 1
-    assert "Listening" in call_html("wss://x", "s", "en") and "Escuchando" in call_html("wss://x", "s", "es")
+    assert "Hola, sigamos" in html and 'language: "es"' in html  # what is said first, and the language to say it in
+    hostile = call_html('wss://x"</script><script>alert(1)</script>', "s'\"<", "en", "x</script><b>", None)
+    assert "</script><script>alert(1)" not in hostile and hostile.count("</script>") == 1 and "overrides" not in hostile
+    assert "Listening" in call_html("wss://x", "s", "en", "o", None) and "Escuchando" in call_html("wss://x", "s", "es", "o", None)
+
+
+def test_a_call_started_midway_opens_with_where_they_were_not_with_the_consent_question(chat):
+    from tests.support.booking import say
+    store, tmp_path = chat
+    set_up(tmp_path)
+    at = opened()
+    cid = at.session_state["chat_id"]
+    say(store, "sí", {"consent": True, "language": "es"}, cid=cid)
+    say(store, "Soy Juan Pérez", {"name": "Juan Pérez"}, cid=cid)
+    at.run()
+    at.sidebar.button(key="voice_start").click().run()
+    call = at.session_state["voice_call"]
+    assert call["opening"].startswith("Sigamos con tu solicitud.") and call["language"] == "es"
+    assert [m.text for m in store.messages(cid)][-1] == call["opening"]  # saved: the transcript shows what was heard

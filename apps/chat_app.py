@@ -73,9 +73,10 @@ def start_voice() -> None:
     except (VoiceSetupError, AttributeError):
         st.session_state["flash"] = "chat.voice_failed"
         return
-    chosen = st.session_state["chat_id"]
-    st.session_state["voice_call"] = {"session": active_store().new_voice_session(chosen, datetime.now()), "url": address}
-    st.session_state["voice_seen"] = len(active_store().messages(chosen))
+    chosen, now = st.session_state["chat_id"], datetime.now()
+    opening, spoken_language = turn.voice_opening(active_store(), SAZON_CLIENT, chosen, now)  # what is heard first, saved as said
+    st.session_state["voice_call"] = {"session": active_store().new_voice_session(chosen, now), "url": address,
+                                      "opening": opening, "language": spoken_language}
     st.session_state.pop("flash", None)
 
 
@@ -115,6 +116,7 @@ with st.sidebar:
 
 st.title(t("chat.title"))
 st.caption(t("chat.notice"))
+call_slot = st.container()  # a call has a place of its own, above anything that comes and goes, so redrawing never remounts it
 if st.session_state.get("flash"):
     st.warning(t(st.session_state["flash"]))
 
@@ -128,26 +130,24 @@ def tc(key: str, **values) -> str:
 
 
 if call := st.session_state.get("voice_call"):
-    st.info(t("chat.voice_note"))
-    components.html(call_html(call["url"], call["session"], chat_language.value), height=60)
+    with call_slot:
+        st.info(t("chat.voice_note"))
+        components.html(call_html(call["url"], call["session"], language.value, call["opening"], call["language"]), height=60)
 
-    @st.fragment(run_every=3)
-    def follow_the_call() -> None:
-        """What is said by voice is saved by the voice endpoint; when it grows the page redraws to show it."""
-        count = len(store.messages(candidate_id))
-        if st.session_state.get("voice_seen") != count:
-            st.session_state["voice_seen"] = count
-            st.rerun()
 
-    follow_the_call()
+@st.fragment(run_every=3 if st.session_state.get("voice_call") else None)
+def transcript() -> None:
+    """The messages. During a call they redraw on their own as the voice endpoint saves what is said; the call is not touched."""
+    for message in store.messages(candidate_id):
+        with st.chat_message("assistant" if message.role == "agent" else "user"):
+            st.text(message.text)  # candidate and model text is never rendered as Markdown or HTML
+
 
 chat_side, inspector_side = st.columns([3, 2], gap="medium")
 
 with chat_side:
     with st.container(border=True):
-        for message in store.messages(candidate_id):
-            with st.chat_message("assistant" if message.role == "agent" else "user"):
-                st.text(message.text)  # candidate and model text is never rendered as Markdown or HTML
+        transcript()
         prompt = st.chat_input(tc("chat.input"), key="chat_message", submit_mode="disable")
     offered = record is not None and (record.state or {}).get("cv") == "offered"
     if offered:

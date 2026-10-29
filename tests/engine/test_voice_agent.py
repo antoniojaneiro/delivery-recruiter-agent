@@ -16,11 +16,22 @@ CLIENT = client_for(config.AREAS)
 URL = "https://quiet-example.trycloudflare.com"
 
 
-def test_the_agent_speaks_the_exact_disclosure_first_and_cannot_be_interrupted_while_it_does():
+def test_the_first_words_are_set_for_each_call_and_default_to_the_exact_disclosure_and_cannot_be_interrupted():
     made = agent_config(CLIENT, URL, "secret_1")
     agent = made["conversation_config"]["agent"]
-    assert agent["first_message"] == consent_message(CLIENT.spec) and agent["disable_first_message_interruptions"] is True
+    assert agent["first_message"] == "{{opening}}" and agent["disable_first_message_interruptions"] is True
+    assert agent["dynamic_variables"]["dynamic_variable_placeholders"]["opening"] == consent_message(CLIENT.spec)
     assert made["name"] == f"{CLIENT.spec.pack.company} voice agent"
+
+
+def test_a_call_may_set_its_own_language_and_nothing_else_may_be_overridden():
+    settings = agent_config(CLIENT, URL, "secret_1")["platform_settings"]
+    assert settings["overrides"] == {"conversation_config_override": {"agent": {"language": True}}}
+
+
+def test_the_service_areas_and_their_towns_help_the_listener_hear_the_places():
+    keywords = agent_config(CLIENT, URL, "secret_1")["conversation_config"]["asr"]["keywords"]
+    assert {"Madrid", "Guadalajara", "Zapopan", "Chamberí"} <= set(keywords) and len(keywords) == len(set(keywords))
 
 
 def test_its_brain_is_our_endpoint_with_a_secret_and_the_session_comes_as_a_dynamic_variable():

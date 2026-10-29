@@ -12,7 +12,7 @@ from sazon import config
 from sazon.client import SAZON_CALENDAR
 from screener import turn
 from screener.store import Store
-from screener.voice_service import create_voice_app, session_of
+from screener.voice_service import create_voice_app, request_shape, session_of
 from tests.support.booking import NOW, hire
 from tests.support.clients import client_for
 from tests.support.fakes import ScriptedLLM
@@ -166,3 +166,27 @@ def test_a_voice_session_belongs_to_one_candidate_expires_and_is_erased_with_the
     assert session not in open(store._path, "rb").read().decode("latin-1")  # only a hash is kept
     store.erase_candidate("c2", "recruiter:Ana", NOW, "request")
     assert store.voice_session_candidate(session, NOW) is None
+
+
+def test_the_shape_of_a_request_has_no_words_in_it():
+    body = {"model": "m", "stream": True, "messages": [{"role": "system", "content": "voice_session=abc"},
+                                                       {"role": "user", "content": "mi nombre es Juan"}],
+            "elevenlabs_extra_body": {"voice_session": "abc", "other": 1}}
+    shape = request_shape(body)
+    assert shape == {"keys": ["elevenlabs_extra_body", "messages", "model", "stream"], "extra_keys": ["other", "voice_session"],
+                     "roles": ["system", "user"], "user_turns": 1, "session_from": "extra"}
+    assert "Juan" not in json.dumps(shape) and "abc" not in json.dumps(shape)
+    assert request_shape({"messages": [{"role": "system", "content": "voice_session=zz"}]})["session_from"] == "prompt"
+    assert request_shape({"messages": "nope"})["session_from"] is None
+
+
+def test_shapes_are_logged_only_when_asked_and_never_the_words(store, tmp_path):
+    session = started(store)
+    log = tmp_path / "shapes.log"
+    quiet = TestClient(create_voice_app(CLIENT, store, ScriptedLLM(), secret=SECRET, clock=lambda: NOW, shapes_log=None))
+    call(quiet, session, "sí")
+    assert not log.exists()
+    loud = TestClient(create_voice_app(CLIENT, store, ScriptedLLM(), secret=SECRET, clock=lambda: NOW, shapes_log=log))
+    call(loud, session, "mi nombre es Juan Pérez", history=[{"role": "user", "content": "sí"}])
+    line = json.loads(log.read_text(encoding="utf-8").splitlines()[0])
+    assert line["user_turns"] == 2 and line["session_from"] == "extra" and "Juan" not in log.read_text(encoding="utf-8")

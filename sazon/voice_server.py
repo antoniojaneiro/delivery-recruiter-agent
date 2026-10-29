@@ -16,8 +16,9 @@ def build_app(llm: LLM):
     secret = os.environ.get("VOICE_LLM_SECRET")
     if not secret:
         raise RuntimeError("VOICE_LLM_SECRET is not set: start this with python -m sazon.voice_launch.")
+    shapes = config.VOICE_SHAPES_PATH if os.environ.get("VOICE_LOG_SHAPES") == "1" else None
     return create_voice_app(SAZON_CLIENT, Store(config.db_path(), calendar=SAZON_CLIENT.calendar), llm, secret=secret,
-                            log_path=config.LOG_PATH)
+                            log_path=config.LOG_PATH, shapes_log=shapes)
 
 
 def main() -> None:

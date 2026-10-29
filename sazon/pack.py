@@ -24,6 +24,7 @@ SLOTS = SlotTexts(
                        "A reminder: you can book your call with the button below. If you'd rather do it later, write 'none'."),
     },
     voice={
+        "resume": bi("Sigamos con tu solicitud.", "Let's continue with your application."),
         "ask_day": bi("¡Genial, tu perfil encaja! Por favor, reserva una llamada para hablar con un reclutador. ¿Qué día te vendría bien?",
                       "Great, your profile fits! Please book a call to talk with a recruiter. Which day suits you?"),
         "ask_day_again": bi("No te he entendido. ¿Qué día te viene bien? Por ejemplo, el jueves o el 5 de noviembre.",

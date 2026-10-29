@@ -35,11 +35,13 @@ The list below says *what* needs approval. A separate document with each text wo
 5. The messages a candidate gets when a recruiter books or moves their call, and when their call is no longer available and they can pick again (`scheduled`, `moved`, `cancelled`, `later` in `sazon/pack.py`), and the four "use the button" offers for the browser chat (`offer_button`, D90).
 6. Approved answers about pay.
 7. A sample of real conversations. The model's wording varies, so the fixed texts are not the whole picture.
+8. Live voice (D93): the nine spoken question texts (`voice` in `sazon/pack.py`, Spanish and English), that the call opens with the same AI disclosure and consent question, and that the audio is heard and transcribed by ElevenLabs as a processor (the agent keeps no recording and one day of history; no analysis, no emotion inference).
 
 `python -m sazon.demo --list` shows the fictional conversations; `python -m sazon.demo` (or `--only NAME`) plays them on the real model.
 
 ## Known limits
 
+- Live voice was tested with fakes and through a real tunnel, not yet in a call with ElevenLabs: it needs the key (D93, DECISIONS section 9).
 - The real model was not load-tested (free tier). The service and database were, with a fake model, at about 25 times the expected peak (D75).
 - A rejected candidate cannot reopen the chat; a recruiter can set a status.
 - One database file on one machine: no backup or failover.

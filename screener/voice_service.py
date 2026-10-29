@@ -59,6 +59,17 @@ def last_said(body: dict) -> tuple[str, int]:
     return (said[-1].strip(), len(said)) if said else ("", 0)
 
 
+def request_shape(body: dict) -> dict:
+    """What a call looked like, with none of what was said: for finding out how ElevenLabs sends a turn (`shapes_log`)."""
+    extra = body.get("elevenlabs_extra_body") if isinstance(body, dict) else None
+    messages = body.get("messages") if isinstance(body, dict) and isinstance(body.get("messages"), list) else []
+    roles = [m.get("role") for m in messages if isinstance(m, dict)]
+    session = session_of(body)
+    where = None if session is None else ("extra" if isinstance(extra, dict) and extra.get("voice_session") == session else "prompt")
+    return {"keys": sorted(body) if isinstance(body, dict) else [], "extra_keys": sorted(extra) if isinstance(extra, dict) else [],
+            "roles": roles, "user_turns": roles.count("user"), "session_from": where}
+
+
 def _chunk(content: str | None, finish: str | None, completion_id: str) -> str:
     delta = {} if content is None else {"role": "assistant", "content": content}
     event = {"id": completion_id, "object": "chat.completion.chunk", "created": int(time.time()), "model": "screening-engine",
@@ -67,7 +78,8 @@ def _chunk(content: str | None, finish: str | None, completion_id: str) -> str:
 
 
 def create_voice_app(client: Client, store, llm: LLM, *, secret: str, clock=datetime.now,
-                     log_path: Path | None = None) -> FastAPI:
+                     log_path: Path | None = None, shapes_log: Path | None = None) -> FastAPI:
+    """`shapes_log`: when given, one line per call with its shape (never the words), to see how ElevenLabs sends a turn."""
     app = FastAPI(title="Voice agent brain")
     default_language = client.spec.pack.default_language
 
@@ -124,16 +136,20 @@ def create_voice_app(client: Client, store, llm: LLM, *, secret: str, clock=date
     def completions(body: dict = Body(...), authorization: str | None = Header(None)):
         if not authorised(authorization):
             raise HTTPException(401, "unauthorised")
-        reply = reply_to(body)
-        completion_id = "chatcmpl-" + hashlib.sha256(f"{time.time()}{reply}".encode()).hexdigest()[:16]
+        if shapes_log is not None:
+            with shapes_log.open("a", encoding="utf-8") as handle:
+                handle.write(json.dumps(request_shape(body)) + "\n")
+        completion_id = "chatcmpl-" + hashlib.sha256(f"{time.time()}".encode()).hexdigest()[:16]
         if body.get("stream", True) is False:
+            reply = reply_to(body)
             return JSONResponse({"id": completion_id, "object": "chat.completion", "created": int(time.time()),
                                  "model": "screening-engine",
                                  "choices": [{"index": 0, "message": {"role": "assistant", "content": reply},
                                               "finish_reason": "stop"}]})
 
         def events():
-            yield _chunk("", None, completion_id)  # the role first, as the real API does
+            yield _chunk("", None, completion_id)  # the answer starts at once; the turn runs while this chunk is on its way
+            reply = reply_to(body)
             if reply:
                 yield _chunk(reply, None, completion_id)
             yield _chunk(None, "stop", completion_id)
