@@ -4,6 +4,7 @@ import hashlib
 import re
 from typing import TYPE_CHECKING
 
+from screener.dates import minutes_of_day
 from screener.directive import LATER, Directive, Kind
 from screener.extraction import clean_text
 from screener.language import fold, promises_pay_or_time
@@ -84,7 +85,7 @@ def spoken_time(minutes: int, language: Language) -> str:
 
 def spoken_label(starts_at, language: Language) -> str:
     """The day and the time said aloud: "el jueves 29 de octubre a las 9:15", "Thursday, October 29 at 9:15 AM"."""
-    minutes = starts_at.hour * 60 + starts_at.minute
+    minutes = minutes_of_day(starts_at)
     joiner = " " if language == Language.ES else " at "
     return spoken_day(starts_at, language) + joiner + spoken_time(minutes, language)
 

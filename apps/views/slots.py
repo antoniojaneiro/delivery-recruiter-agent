@@ -3,6 +3,7 @@ from datetime import date, datetime, time, timedelta
 import streamlit as st
 
 from screener import recruiter_calls
+from screener.dates import minutes_of_day
 from screener.calendar_view import week_slots, week_start
 
 from sazon import ui
@@ -209,7 +210,7 @@ with avail_box:
                 end_at = st.time_input(t("avail.end"), value=time(last // 60, last % 60), step=900,
                                        key=f"avail_end_{weekday}", disabled=not on, width=140)
             if on:
-                picks.append((weekday, start_at.hour * 60 + start_at.minute, end_at.hour * 60 + end_at.minute))
+                picks.append((weekday, minutes_of_day(start_at), minutes_of_day(end_at)))
 
         def changed(change) -> None:
             done = change()

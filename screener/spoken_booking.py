@@ -6,6 +6,7 @@ from datetime import date, datetime, timedelta
 from screener.channel import VOICE
 from screener.client import Client
 from screener.consent import is_stop_request, read_consent
+from screener.dates import minutes_of_day
 from screener.directive import Directive, Kind
 from screener.phrasing import spoken_day, spoken_label, spoken_time
 from screener.recruiter_rules import can_schedule
@@ -54,7 +55,7 @@ def _propose_time(store: Store, screening: Screening, country: str, day: date, w
                   now: datetime) -> Directive | None:
     """The closest free time of that day to what was asked, proposed (None when the day has nothing left)."""
     free = store.free_slots_on(country, day, now)
-    by_minutes = {s.starts_at.hour * 60 + s.starts_at.minute: s for s in free}
+    by_minutes = {minutes_of_day(s.starts_at): s for s in free}
     chosen = nearest_time(list(by_minutes), wish)
     if chosen is None:
         return None
@@ -116,7 +117,7 @@ def handle_spoken(store: Store, client: Client, screening: Screening, candidate_
             return _say("other_time")
         if read_time(message) is None:
             slot = store.slot(state["slot"])
-            label = spoken_time(slot.starts_at.hour * 60 + slot.starts_at.minute, language) if slot else None
+            label = spoken_time(minutes_of_day(slot.starts_at), language) if slot else None
             return _unclear(screening, state, "propose_time", label)
         stage = "time"
     if stage == "day":
@@ -133,7 +134,7 @@ def handle_spoken(store: Store, client: Client, screening: Screening, candidate_
     if wish is None:
         return _unclear(screening, state, "ask_time_again")
     exact = next((s for s in store.free_slots_on(country, day, now)
-                  if wish.minutes is not None and s.starts_at.hour * 60 + s.starts_at.minute == wish.minutes), None)
+                  if wish.minutes is not None and minutes_of_day(s.starts_at) == wish.minutes), None)
     if exact is not None:
         done = _book_spoken(store, client, screening, candidate_id, exact.id, now)
         if done is not None:

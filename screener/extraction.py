@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, get_origin
 
 from pydantic import BaseModel, ConfigDict, ValidationError, create_model
 
+from screener.dates import next_weekday
 from screener.llm import LLM
 from screener.model import Language
 
@@ -40,7 +41,7 @@ class StartDate(BaseModel):
         if self.in_months is not None:
             return _add_months(today, self.in_months)
         if self.weekday is not None and 0 <= self.weekday <= 6:
-            return today + timedelta(days=(self.weekday - today.weekday()) % 7 or 7)
+            return next_weekday(today, self.weekday)
         return None
 
 

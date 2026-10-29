@@ -6,6 +6,7 @@ import re
 from dataclasses import dataclass
 from datetime import date, timedelta
 
+from screener.dates import next_weekday
 from screener.language import fold, plain
 
 _WEEKDAYS = {"lunes": 0, "martes": 1, "miercoles": 2, "jueves": 3, "viernes": 4, "sabado": 5, "domingo": 6,
@@ -65,7 +66,7 @@ def read_day(text: str, today: date) -> date | None:
         return today + timedelta(days=1)
     weekday = next((_WEEKDAYS[w] for w in words if w in _WEEKDAYS), None)
     if weekday is not None:
-        return today + timedelta(days=(weekday - today.weekday()) % 7 or 7)
+        return next_weekday(today, weekday)
     return None
 
 
