@@ -2,7 +2,7 @@ from datetime import date, datetime, time, timedelta
 
 import streamlit as st
 
-from screener import slot_flow
+from screener import recruiter_calls
 from screener.calendar_view import week_slots, week_start
 
 from sazon import ui
@@ -86,7 +86,7 @@ with manage_box:
                     if booked_by:
                         booked = store.get(booked_by)
                         who = f"{escape_markdown(view.name_of(booked))} ({booked_by})" if booked else booked_by
-                        told = slot_flow.notify_cancelled(store, SAZON_CLIENT, booked_by, now.replace(tzinfo=None))
+                        told = recruiter_calls.notify_cancelled(store, SAZON_CLIENT, booked_by, now.replace(tzinfo=None))
                         st.warning(t("slots.booked_warning", who=who,
                                      notice=t("slots.notice_left") if told else t("slots.notice_failed")))
                     else:
@@ -162,7 +162,7 @@ with schedule_box:
 
             if st.button(t("sched.submit_move") if moving else t("sched.submit"), key="sched_submit",
                          disabled=slot_id is None, icon=":material/event_available:"):
-                organise(lambda: slot_flow.schedule_by_recruiter(store, SAZON_CLIENT, chosen, slot_id, recruiter, datetime.now()))
+                organise(lambda: recruiter_calls.schedule_by_recruiter(store, SAZON_CLIENT, chosen, slot_id, recruiter, datetime.now()))
 
             st.markdown(f"**{t('sched.new_title')}**")
             in_country = [r.email for r in store.recruiters() if r.country == where]  # only a recruiter of that country takes it
@@ -176,7 +176,7 @@ with schedule_box:
                 create = st.button(t("sched.submit_new"), key="sched_submit_new", disabled=owner is None,
                                    icon=":material/add_circle:")
             if create:  # the time is the owner's, in the candidate's own country, then booked like any other
-                organise(lambda: slot_flow.schedule_new_time(store, SAZON_CLIENT, chosen, where, datetime.combine(new_day, new_hour),
+                organise(lambda: recruiter_calls.schedule_new_time(store, SAZON_CLIENT, chosen, where, datetime.combine(new_day, new_hour),
                                                              owner, recruiter, datetime.now()))
 
 # --- a recruiter's own week and days off ---------------------------------------------------------------------------------
@@ -224,19 +224,19 @@ with avail_box:
         with st.container(horizontal=True):
             if st.button(t("avail.save"), key="avail_save", icon=":material/save:", type="primary"):
                 try:
-                    changed(lambda: slot_flow.save_week(store, SAZON_CLIENT, who, picks, recruiter, datetime.now()))
+                    changed(lambda: recruiter_calls.save_week(store, SAZON_CLIENT, who, picks, recruiter, datetime.now()))
                 except InputError as error:
                     st.error(view.explain_error(error))
             if st.button(t("avail.reset"), key="avail_reset"):
-                changed(lambda: slot_flow.reset_week(store, SAZON_CLIENT, who, recruiter, datetime.now()))
+                changed(lambda: recruiter_calls.reset_week(store, SAZON_CLIENT, who, recruiter, datetime.now()))
         with st.container(horizontal=True, vertical_alignment="bottom"):
             off_day = st.date_input(t("avail.off_day"), key="off_day")
             if st.button(t("avail.off_add"), key="off_add"):
-                changed(lambda: slot_flow.set_day_off(store, SAZON_CLIENT, who, off_day, True, recruiter, datetime.now()))
+                changed(lambda: recruiter_calls.set_day_off(store, SAZON_CLIENT, who, off_day, True, recruiter, datetime.now()))
         for day_off in store.days_off(who):
             if day_off >= date.today() and st.button(t("avail.off_remove", day=f"{day_off:%d/%m/%Y}"),
                                                      key=f"off_remove_{day_off.isoformat()}", icon=":material/close:"):
-                changed(lambda day_off=day_off: slot_flow.set_day_off(store, SAZON_CLIENT, who, day_off, False, recruiter, datetime.now()))
+                changed(lambda day_off=day_off: recruiter_calls.set_day_off(store, SAZON_CLIENT, who, day_off, False, recruiter, datetime.now()))
 
 # --- the week grid (drawn above, filled last so it shows everything just changed) ---------------------------------------
 def shift_week(days: int | None) -> None:

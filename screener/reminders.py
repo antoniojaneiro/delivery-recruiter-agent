@@ -15,7 +15,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
-from screener import conversation, slot_flow
+from screener import conversation, slot_offers
 from screener.conversation import SKIP, Turn
 from screener.client import Client
 from screener.llm import NO_MODEL
@@ -68,11 +68,11 @@ def _remind(store: Store, client: Client, candidate_id: str, now: datetime, skip
     def work(screening: Screening) -> Turn:
         if screening.needs_consent:
             return Turn(None, save=False)  # they have not agreed to anything yet, so they are not contacted again
-        if screening.awaiting_slot_choice and not slot_flow.may_choose_time(store, client, candidate_id):
+        if screening.awaiting_slot_choice and not slot_offers.may_choose_time(store, client, candidate_id):
             screening.resolve_slots()  # booked some other way, or a recruiter closed the case: nothing to ask them
             return Turn(None)
         if screening.awaiting_slot_choice:
-            kind, directive = slot_flow.on_idle(store, client, screening, now)
+            kind, directive = slot_offers.on_idle(store, client, screening, now)
         elif screening.is_open:
             directive = screening.on_silence()
             kind = "reminder" if directive else "stalled"

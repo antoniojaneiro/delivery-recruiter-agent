@@ -4,7 +4,7 @@ import hashlib
 from dataclasses import replace
 from datetime import date, datetime
 
-from screener import conversation, session, slot_flow
+from screener import conversation, session, slot_offers, spoken_booking
 from screener.channel import TEXT, VOICE, Channel, effective
 from screener.conversation import RETRY_ONCE, Turn
 from screener.client import Client
@@ -88,8 +88,8 @@ def voice_opening(store, client: Client, candidate_id: str, now: datetime) -> tu
         if screening.needs_consent:
             return Turn((consent_message(client.spec), None), save=False)
         if screening.decide().outcome == Outcome.QUALIFIED:
-            directive = slot_flow.after_close(store, client, screening, candidate_id, screening.close_directive(), now,
-                                              effective(VOICE, client))
+            directive = slot_offers.after_close(store, client, screening, candidate_id, screening.close_directive(), now,
+                                              effective(VOICE, client), spoken_booking.ask_day)
             text = phrase(NO_MODEL, client.spec, directive, language)
         elif not screening.is_open:
             text = phrase(NO_MODEL, client.spec, replace(screening.close_directive(), repeat=True), language)
@@ -118,7 +118,7 @@ def handle_slot(store, client: Client, candidate_id: str, slot_id: int, now: dat
         if (screening.decide().outcome != Outcome.QUALIFIED or screening.spec.pack.slots is None
                 or not can_schedule(store.get(candidate_id))):
             return Turn("", save=False)
-        chosen, directive = slot_flow.pick_slot(store, client, screening, candidate_id, slot_id, now)
+        chosen, directive = slot_offers.pick_slot(store, client, screening, candidate_id, slot_id, now)
         reply = fixed(client.spec, directive, screening.language)
         return Turn(reply, messages=[("candidate", chosen), ("agent", reply)])
 
@@ -186,16 +186,17 @@ def _handle(llm: LLM, store, client: Client, candidate_id: str, message: str, no
     history = store.messages(candidate_id)
     last_question = history[-1].text if history and history[-1].role == "agent" else None
     if channel.offer == "spoken" and screening.awaiting_slot_choice:
-        directive = slot_flow.handle_spoken(store, client, screening, candidate_id, message, now)
+        directive = spoken_booking.handle_spoken(store, client, screening, candidate_id, message, now)
     elif screening.slot_offer and screening.awaiting_slot_choice:
-        directive = slot_flow.handle_pick(store, client, screening, candidate_id, message, now)
+        directive = slot_offers.handle_pick(store, client, screening, candidate_id, message, now)
     else:
         screening.end_voice_booking()  # a spoken booking left open when they write instead
         directive = _directive_for(llm, screening, message, now.date(), last_question)
         if not channel.accepts_cv and directive is not None and directive.kind == Kind.CV_OFFER:
             screening.withhold_cv_offer()
             directive = Directive(Kind.ASK, field=screening.next_field())
-        directive = slot_flow.after_close(store, client, screening, candidate_id, directive, now, channel)
+        directive = slot_offers.after_close(store, client, screening, candidate_id, directive, now, channel,
+                                            spoken_booking.ask_day)
     # what the model may see when it words a message: the saved conversation and this message, only after consent
     context = [(m.role, m.text) for m in history] + [("candidate", message)] if consented_before else []
     wording = llm if channel.model_words else NO_MODEL  # speech has no time for a second model call: the fixed words (and the free model's rate)

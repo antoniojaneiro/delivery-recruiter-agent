@@ -73,12 +73,12 @@ def test_a_town_next_door_counts_and_a_stranger_is_confirmed_first(store):
 
 
 def test_the_cancel_message_uses_the_clients_wording_and_areas(store):
-    from screener import slot_flow
+    from screener import recruiter_calls
     store.add_slot("GB", datetime(2026, 10, 28, 10, 0), None, "Ana", NOW)
     qualify(store)
     talk(store, ScriptedLLM(), "1")
     store.cancel_slot(store.booking_of("c1").slot_id, "Ana", NOW)
-    assert slot_flow.notify_cancelled(store, TOY_UK, "c1", NOW) is True
+    assert recruiter_calls.notify_cancelled(store, TOY_UK, "c1", NOW) is True
     assert store.messages("c1")[-1].text == "Your call was cancelled. Write to us when you want to book."  # no other time is free
 
 

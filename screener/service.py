@@ -20,7 +20,7 @@ from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
-from screener import dialog, slot_flow, turn
+from screener import dialog, slot_offers, turn
 from screener.channel import BUTTON
 from screener.chat import write_error
 from screener.client import Client
@@ -228,7 +228,7 @@ def create_app(client: Client, store, llm: LLM, *, api_key: str | None = None, l
     def times(candidate_id: str = Depends(candidate), month: str | None = None, day: str | None = None):
         """For the picker: `month=YYYY-MM` gives the days with free times, `day=YYYY-MM-DD` that day's times. Only the
         times of the candidate's own country are shown."""
-        country = slot_flow.country_of(store, client, candidate_id) if slot_flow.may_choose_time(store, client, candidate_id) else None
+        country = slot_offers.country_of(store, client, candidate_id) if slot_offers.may_choose_time(store, client, candidate_id) else None
         try:
             if month is not None:
                 first = date.fromisoformat(month + "-01")

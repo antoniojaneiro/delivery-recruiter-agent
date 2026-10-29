@@ -11,7 +11,7 @@ import streamlit as st
 import streamlit.components.v1 as components
 from dotenv import load_dotenv
 
-from screener import dialog, gemini, reminders, slot_flow, turn
+from screener import dialog, gemini, reminders, slot_offers, turn
 from screener.channel import BUTTON
 from screener.login import ensure_manager_takes_calls
 from screener.voice_agent import ElevenLabs, VoiceSetupError, load_state
@@ -181,8 +181,8 @@ with chat_side:
             if len(store.messages(candidate_id)) == saved_before:  # refused: the reply is not part of the chat
                 st.session_state["_cv_refused"] = reply
             st.rerun()
-    if slot_flow.may_choose_time(store, SAZON_CLIENT, candidate_id):  # the button, then a month of days that have free times, then that day's 15-minute times
-        country = slot_flow.country_of(store, SAZON_CLIENT, candidate_id)
+    if slot_offers.may_choose_time(store, SAZON_CLIENT, candidate_id):  # the button, then a month of days that have free times, then that day's 15-minute times
+        country = slot_offers.country_of(store, SAZON_CLIENT, candidate_id)
 
         def open_picker() -> None:
             st.session_state.update(picker_open=True, picker_month=(date.today() + timedelta(days=1)).replace(day=1), picker_day=None)
